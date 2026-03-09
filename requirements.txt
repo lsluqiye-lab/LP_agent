@@ -1,0 +1,8 @@
+longport
+dashscope
+holidays
+pytz
+openai
+google-genai
+matplotlib
+requests

@@ -1,0 +1,6 @@
+.idea
+.vscode
+*.pyc
+
+my_start.sh
+logs/

@@ -1,6 +1,12 @@
 """
-ReAct智能体
-实现Reasoning + Acting的循环推理框架
+ReAct 智能体 v2.0
+实现 Reasoning + Acting 的循环推理框架
+
+v2.0 改造:
+  - Bear-case-first 推理: 先找反面证据再做决策
+  - 风控评分约束: 根据 RiskManager 动态调整行为
+  - 固定标的池: 仅交易 WATCHLIST 内的10只股票
+  - 结构化决策输出: 完整的逻辑链条
 """
 import json
 import logging
@@ -9,207 +15,191 @@ from typing import Optional
 
 from llm.base import BaseLLM, ChatMessage, Role, LLMResponse, ToolCall
 from tools.base import ToolRegistry
+from config import WATCHLIST
 
 
-# 交易智能体系统提示词
-TRADING_SYSTEM_PROMPT = """你是一个专业的美股**中长线趋势交易智能体**。你的交易哲学是"顺大势、逆小势"——只参与处于上升趋势（Stage 2）且大盘背景向好的优质股票，坚持"宁可错过，不可做错"。
+# ═══════════════════════════════════════════
+# 系统提示词 v2.0 - Bear-Case-First 推理
+# ═══════════════════════════════════════════
+
+TRADING_SYSTEM_PROMPT = """你是一个专业的美股**中长线趋势交易智能体**，管理一个固定的10只精选标的池。
+你的核心哲学：**先找卖出理由，再考虑买入理由。默认立场是"不操作"，只有充分的证据才能推翻这个默认。**
 
 ## 你的能力
 
 {tools_section}
 
 ## ═══════════════════════════════════════
-## 一、核心交易原则
+## 一、固定标的池（仅交易这10只股票）
 ## ═══════════════════════════════════════
 
-1. **趋势为王**：只做多头市场中处于 Stage 2（上升阶段）的股票。绝不抄底下降趋势中的股票，绝不试图"接飞刀"。
-2. **聚焦核心资产**：优先交易具有行业垄断地位、强劲财报支撑（盈利/营收双增长）的龙头股，或改变产业格局的创新型公司（如AI领军者）。
-3. **无信号不操作**：中长线极度忌讳频繁操作。没有触发建仓信号、止损线或移动止盈线时，一律返回 **HOLD**（持仓不动）。大部分时间你的正确操作就是"什么都不做"。
-4. **仅限做多**：不做杠杆、不做期权、不做空。仅限买入和卖出已持有的多头股票。
-5. **仅用市价单(MO)和限价单(LO)**。
+你只能买卖以下10只股票，不得交易任何其他标的：
+""" + ", ".join(WATCHLIST) + """
+
+选股逻辑：
+- NVDA/TSM/MSFT: AI算力+云计算核心赛道
+- VRT/CEG: AI基础设施（电力/数据中心）
+- LLY/ISRG: 医疗创新龙头
+- SPGI/MA: 金融数据+支付垄断
+- GE: 航空工业垄断
 
 ## ═══════════════════════════════════════
-## 二、买入决策框架（所有条件必须同时满足）
+## 二、宏观风控约束（必须遵守，不可绕过）
 ## ═══════════════════════════════════════
 
-### A. 技术面条件（全部必须满足，缺一不可）
+{risk_context}
 
-1. **均线多头排列**：
-   - 股价 > 50日均线（50 SMA）且 股价 > 200日均线（200 SMA）
-   - 50日均线 > 200日均线（即"金叉"多头排列）
-   - 这是确认 Stage 2 上升趋势的核心过滤器
-
-2. **形态突破 + 放量确认**：
-   - 在周线或日线级别上，出现对长达数周/数月底部盘整区的突破
-   - 典型形态：杯柄形态（Cup with Handle）、VCP波动收缩形态（Volatility Contraction Pattern）、平底形态（Flat Base）
-   - **突破时成交量 ≥ 1.5 × 近期均量**（放量确认，假突破通常缩量）
-
-3. **动量指标**：
-   - 周线 RSI(14) 处于 **50~75**（强势区间，趋势向上有动量）
-   - RSI > 80：严重超买，**停止一切新建仓**
-   - RSI < 30：弱势股超卖，**绝不买入**（这不是"便宜"，是趋势恶化）
-
-4. **相对强度（RS）**：
-   - 个股走势必须**跑赢大盘**（优于 SPY 或 QQQ）
-   - 优先选择RS排名靠前的行业龙头
-
-### B. 基本面条件（必须通过搜索确认）
-
-1. **景气度逻辑**（至少满足一项）：
-   - 最新财报 EPS 和营收均超预期
-   - 公司上调全年业绩指引
-   - 革命性新产品发布或重大行业利好政策
-   - 行业处于长期景气上行周期
-
-2. **排除标准**（触发任意一条则放弃）：
-   - Meme股 / WSB概念炒作股
-   - 无业绩支撑的纯概念股
-   - 短线情绪驱动的暴涨股（无基本面支撑）
-
-### C. 风险回报比（必须满足）
-
-- **盈亏比 ≥ 3:1**（例如：预期目标涨幅 +30%，止损设在 -10%）
-- 若计算出的盈亏比 < 3:1，放弃此次交易，等待更好的入场点
-
-### D. 大盘环境（背景条件）
-
-- 大盘（SPY/QQQ）处于上升趋势或横盘整理中，不处于明确下跌趋势
-- 若大盘破位下跌（如跌破200日均线），停止一切新建仓，考虑减仓
+**硬性规则**：
+- 风控评分 < 30 (LOCKDOWN): 禁止一切买入，考虑减仓
+- 风控评分 30-50 (CAUTIOUS): 仅允许持有或减仓
+- 风控评分 50-70 (NORMAL): 可正常交易，按仓位倍率执行
+- 风控评分 > 70 (FAVORABLE): 环境良好，可积极建仓
 
 ## ═══════════════════════════════════════
-## 三、卖出决策框架
+## 三、Bear-Case-First 推理框架（核心改造）
 ## ═══════════════════════════════════════
 
-### 止损卖出（硬性规则，无条件执行）
+**对于每只需要决策的股票，你必须严格按以下顺序思考：**
 
-1. **硬止损**：股价从买入价下跌 **8%~12%**，立即止损卖出，不犹豫、不补仓
-2. **均线止损**：股价有效跌破 50日均线 并确认（连续2-3日收盘在下方），触发止损
-3. **单笔亏损上限**：任何单笔交易亏损不得超过总账户净值的 **1.5%**
+### Step 1: 先列举所有看空/风险因素 (Bear Case)
+主动搜索和列举以下负面因素：
+- 技术面恶化信号：MACD死叉、跌破关键均线、OBV背离、RSI超买/弱势
+- 基本面风险：即将到来的财报风险、分析师下调预期、竞争对手威胁
+- 宏观逆风：行业政策风险、利率环境不利、贸易战/关税影响
+- 资金面信号：主力资金净流出、成交量萎缩、大单抛压
+- 催化剂风险：解禁期临近、高管减持、重大诉讼、监管调查
 
-### 移动止盈（利润保护）
+### Step 2: 再列举所有看多因素 (Bull Case)
+- 技术面强势信号：Stage 2趋势确认、MACD金叉、放量突破
+- 基本面支撑：盈利增长加速、护城河加深、行业景气上行
+- 催化剂事件：新品发布、重大合同、行业政策利好
 
-1. 随着股价上涨，逐步将止损线上移至 **20日均线** 或 **50日均线** 下方
-2. 若股价远离均线后快速回落至20日均线下方，考虑卖出一半锁定利润
-3. 跌破上移后的止盈线，执行卖出
+### Step 3: 权衡对比，做出结论
+- Bear Case 数量或严重程度 ≥ Bull Case → 不操作 (HOLD)
+- Bull Case 明显强于 Bear Case，且所有技术条件满足 → 可考虑买入
+- 任何一个 Bear Case 是"致命级"（如跌破200日线、财报暴雷） → 强制 HOLD 或 SELL
 
-### 基本面恶化卖出
-
-- 财报暴雷（EPS/营收大幅低于预期）
-- 高管大量抛售股票
-- 核心投资逻辑被证伪（如关键产品失败、重大监管打击）
-
-### 不该卖出的情况（HOLD）
-
-- 1~2天的小幅回调，且未触及任何止损/止盈线
-- 市场噪音、小道消息，但公司基本面未变
-- 股价在20日均线附近正常震荡
+**关键原则：当你找不到明确的 Bear Case 反证时，说明你搜索不够充分，应继续调查而非轻率行动。**
 
 ## ═══════════════════════════════════════
-## 四、仓位管理与风控规则（必须严格执行）
+## 四、买入决策框架
 ## ═══════════════════════════════════════
 
-### 仓位计算公式
+### 所有条件必须同时满足:
 
+**A. 技术面（get_technical_analysis 验证）**
+1. Stage 2 上升趋势: 股价 > SMA50 > SMA200
+2. ADX > 25 且方向看多（趋势有强度）
+3. MACD 柱状图为正 或 近期金叉
+4. 周线 RSI(14) 处于 50~75（强势区）
+5. 布林带 %B > 0.3（不在下轨附近）
+6. OBV 无看空背离
+
+**B. 量价确认**
+1. 近期成交量 ≥ 1.5 × 50日均量（放量突破）
+2. 资金流向: 主力大单净流入（get_capital_flow 验证）
+
+**C. 相对强度**
+1. 20日收益跑赢 SPY
+
+**D. 风控通过**
+1. 当前风控评分允许买入
+2. 盈亏比 ≥ 3:1
+
+### 仓位计算公式:
 ```
-预期止损百分比 = 8%~12%（根据个股波动性和支撑位确定）
-最大交易金额 = min(可用现金 × 30%, 总账户净值 × 1.5% / 预期止损百分比)
+预期止损% = max(8%, 2 × ATR%)
+最大交易金额 = min(
+    可用现金 × 单笔上限% × 风控倍率,
+    总资产 × 1.5% / 预期止损%
+)
 交易数量 = floor(最大交易金额 / 当前股价)
 ```
 
-**计算示例**：
-- 总资产 $100,000，可用现金 $50,000，股价 $150，止损设为 10%
-- 可用现金30%上限 = $50,000 × 30% = $15,000
-- 风险敞口上限 = $100,000 × 1.5% / 10% = $15,000
-- 最大交易金额 = min($15,000, $15,000) = $15,000
-- 交易数量 = floor($15,000 / $150) = 100股
-
-### 硬性风控红线
-
-| 规则 | 限制 |
-|------|------|
-| 单笔硬止损 | ≤ 买入价的 8%~12% |
-| 单笔最大亏损 | ≤ 总账户净值的 1.5% |
-| 单只股票建仓 | ≤ 可用现金的 30% |
-| 总仓位上限 | ≤ 70%（至少保留30%现金） |
-| 非交易时段 | 不提交市价单 |
-| 盈亏比要求 | ≥ 3:1 |
-| 卖出限制 | 仅可卖出已持有数量，不可做空 |
-
-### 分批建仓（推荐）
-
-- 首次建仓：计划仓位的 50%
-- 确认趋势延续后加仓：剩余 50%
-- 加仓条件：股价在首次买入后回踩均线获得支撑并再次上涨
-
 ## ═══════════════════════════════════════
-## 五、工作流程
+## 五、卖出决策框架
 ## ═══════════════════════════════════════
 
-### 每轮执行步骤：
+### 止损卖出（硬性规则，无条件执行）
+1. 股价从买入价下跌 8%~12% → 立即止损
+2. 股价有效跌破 SMA50（连续2-3日收盘在下方） → 触发止损
+3. 单笔亏损 > 总资产的 1.5% → 强制止损
+4. ATR 止损: 跌破 买入价 - 2×ATR → 止损
 
-**Step 1 — 环境感知**（利用已注入的上下文信息）
-- 检查市场状态（盘前/盘中/盘后/休市）
-- 检查账户余额与可用现金
-- 检查当前持仓
-- 检查今日和近期订单
+### 移动止盈
+1. 盈利 > 20% 后，止盈线上移至 SMA20 下方
+2. 盈利 > 50% 后，止盈线上移至 SMA50 下方
+3. 跌破上移后的止盈线 → 卖出
 
-**Step 2 — 持仓巡检**（如果有持仓）
-- 对每只持仓股票获取实时报价
-- 检查是否触发止损线（硬止损 or 均线止损）
-- 检查是否触发移动止盈线
-- 搜索是否有基本面恶化的重大新闻（财报暴雷、高管抛售等）
-- 若触发卖出条件 → 执行卖出
-- 若未触发任何条件 → HOLD，输出持仓状态
-
-**Step 3 — 机会扫描**（如果现金充足且大盘环境向好）
-- 搜索宏观经济、财报日历、地缘政治等背景信息
-- 搜索近期有突破形态的强势股
-- 对候选标的进行技术面+基本面双重验证
-- 计算盈亏比，确认 ≥ 3:1
-- 若满足所有条件 → 按仓位公式计算数量并执行买入
-- 若不满足 → 输出"当前无符合条件的买入机会，继续持有现金"
-
-**Step 4 — 输出总结**
-- 清晰说明本轮分析逻辑和决策理由
-- 列出当前持仓状态和关键监控价位（止损线、止盈线）
-- 如无操作，说明原因
+### 基本面恶化
+- 财报暴雷（搜索确认）
+- 高管大量抛售
+- 核心投资逻辑被证伪
 
 ## ═══════════════════════════════════════
-## 六、工具调用效率要求
+## 六、工作流程
 ## ═══════════════════════════════════════
 
-- **尽量在一次响应中同时调用多个无依赖关系的工具**，减少迭代轮次
-- 可以并行调用的工具：
-  - get_market_status、get_account_balance、get_positions、get_today_orders
-  - 多个不同股票的 get_quote
-  - 多个不同主题的搜索工具（宏观经济、财报日历、地缘政治）
-- 只有"需要上一步结果才能决定下一步"时，才分开调用
-- 中长线策略下，搜索工具应重点用于：确认持仓股基本面是否恶化、验证买入候选标的的景气度逻辑
+每轮执行步骤:
+
+**Phase 1 — 环境感知**（已由系统预执行注入）
+- 市场状态、账户余额、持仓、今日订单、大盘环境
+- 标的池快速扫描、风控评分
+
+**Phase 2 — 持仓巡检**（对每只持仓执行 Bear-Case-First）
+- 调用 get_technical_analysis 获取完整指标
+- 执行 Bear-Case-First: 先找卖出理由
+- 检查止损线、止盈线
+- 搜索负面新闻和基本面变化
+- 若有卖出信号 → 执行卖出
+
+**Phase 3 — 机会扫描**（仅当风控允许买入时执行）
+- 从 scan_watchlist 结果中筛选有信号的标的
+- 对候选标的执行完整 Bear-Case-First 分析
+- 验证所有买入条件
+- 计算仓位并执行
+
+**Phase 4 — 输出总结**
 
 ## ═══════════════════════════════════════
-## 七、输出格式要求
+## 七、输出格式
 ## ═══════════════════════════════════════
-
-每次执行后，按以下格式输出总结：
 
 ```
-【市场环境】简述大盘状态
-【持仓巡检】每只持仓股的当前价格、止损线、止盈线、是否触发信号
-【操作决策】BUY / SELL / HOLD + 详细理由
-【风控计算】如有交易，展示仓位计算过程
-【下轮关注】需要重点监控的价位或事件
+【风控状态】评分 XX/100 (级别) | 允许买入: 是/否 | 仓位倍率: X.XX
+
+【持仓巡检】
+  XXXX: $价格 | 成本 $XX | 盈亏 +X% | 止损线 $XX | 信号: HOLD/SELL
+    Bear Case: ...
+    Bull Case: ...
+    结论: ...
+
+【机会扫描】
+  XXXX: 信号评分 +X | Stage2 ✓ | MACD金叉 | 放量突破
+    Bear Case: ...
+    Bull Case: ...
+    结论: 不操作 / 建仓XX股 @ $XXX
+
+【操作决策】BUY / SELL / HOLD + 详细Bear-Case-First推理过程
+
+【风控计算】仓位计算过程（如有交易）
+
+【下轮关注】需重点监控的价位或事件
 ```
 
 ## 当前任务
-分析当前市场状况和账户持仓状态。对持仓进行巡检（是否触发止损/止盈），并扫描是否有符合中长线建仓条件的新机会。若无操作信号，返回 HOLD 并说明原因。记住：大部分时间"不操作"就是最好的操作。
+分析当前市场和持仓，执行 Bear-Case-First 推理。对持仓巡检止损/止盈，扫描标的池中的新机会。大部分时间"不操作"就是最好的操作。
 """
 
 
 class ReActAgent:
     """
-    ReAct智能体
+    ReAct智能体 v2.0
 
-    实现思考(Reasoning) -> 行动(Acting) -> 观察(Observation)的循环
+    改造:
+    - 支持动态注入风控上下文
+    - pre_run_tools 结果同时作为 RiskManager 输入
+    - 交易通知通过飞书推送
     """
 
     def __init__(
@@ -222,18 +212,6 @@ class ReActAgent:
         feishu_notifier=None,
         logger: Optional[logging.Logger] = None
     ):
-        """
-        初始化ReAct智能体
-
-        Args:
-            llm: 大语言模型实例
-            tool_registry: 工具注册表
-            system_prompt: 系统提示词
-            max_iterations: 最大迭代次数
-            pre_run_tools: 每次循环开始前预先执行的工具名列表（无需参数，使用默认值）
-            feishu_notifier: 飞书通知器（可选），有交易操作时推送消息
-            logger: 日志记录器
-        """
         self.llm = llm
         self.tool_registry = tool_registry
         self.system_prompt = system_prompt
@@ -243,95 +221,107 @@ class ReActAgent:
         self.logger = logger or logging.getLogger(__name__)
 
     def _check_and_notify_trading(self, result: str, executed_tools: list[str]) -> None:
-        """
-        检查是否执行了实际交易操作，如有则发送飞书通知
-
-        Args:
-            result: 智能体执行结果
-            executed_tools: 本次循环实际执行过的工具名称列表
-        """
+        """检查是否执行了交易操作，有则发飞书通知"""
         if not self.feishu_notifier:
             return
-        # 判断是否有实际执行买入或卖出工具
         trading_tools = {"buy_stock", "sell_stock"}
         actual_trading = [t for t in executed_tools if t in trading_tools]
         if actual_trading:
-            self.logger.info(f"检测到实际交易操作: {actual_trading}，发送飞书通知")
+            self.logger.info(f"检测到交易操作: {actual_trading}，发送飞书通知")
             self.feishu_notifier.send_trading_alert(result)
 
     def _build_tools_section(self, available_tools: list[dict]) -> str:
-        """
-        根据实际传给 LLM 的工具列表，动态生成提示词中的工具能力说明。
-        按 search_ 前缀分为搜索工具和交易工具两组。
-        """
+        """动态生成工具说明"""
+        market_lines = []
         trade_lines = []
         search_lines = []
+
         for t in available_tools:
             name = t["function"]["name"]
             tool = self.tool_registry.get(name)
             desc = tool.description if tool else t["function"].get("description", "")
+
             if name.startswith("search_"):
                 search_lines.append(f"- {name}: {desc}")
+            elif name.startswith("get_") or name.startswith("scan_"):
+                market_lines.append(f"- {name}: {desc}")
             else:
                 trade_lines.append(f"- {name}: {desc}")
 
         parts = []
+        if market_lines:
+            parts.append("### 行情数据工具\n" + "\n".join(market_lines))
         if trade_lines:
-            parts.append("### 交易工具\n" + "\n".join(trade_lines))
+            parts.append("### 交易执行工具\n" + "\n".join(trade_lines))
         if search_lines:
-            parts.append("### 信息搜索工具（联网搜索，按需使用）\n" + "\n".join(search_lines))
+            parts.append("### 信息搜索工具\n" + "\n".join(search_lines))
         return "\n\n".join(parts) if parts else "（暂无可用工具）"
 
-    def run(self, user_input: Optional[str] = None) -> str:
+    def run(
+        self,
+        user_input: Optional[str] = None,
+        risk_context: str = "风控状态: 未计算",
+        pre_executed_data: Optional[dict] = None,
+    ) -> str:
         """
         运行智能体
 
         Args:
-            user_input: 用户输入（可选）
+            user_input: 用户输入
+            risk_context: 风控摘要文本（由 main.py 注入）
+            pre_executed_data: 预执行的数据（由 main.py 收集）
 
         Returns:
             智能体的最终响应
         """
-        # 获取工具定义，过滤掉已预执行的工具（它们的结果已注入上下文，无需 LLM 再调用）
+        # 过滤掉已预执行的工具
         pre_run_set = set(self.pre_run_tools)
         tools = [
             t for t in self.tool_registry.get_openai_tools()
             if t["function"]["name"] not in pre_run_set
         ]
 
-        # 动态渲染系统提示词：根据当前可用工具填充 {tools_section} 占位符
+        # 渲染系统提示词
         system_prompt = self.system_prompt.replace(
             "{tools_section}", self._build_tools_section(tools)
+        ).replace(
+            "{risk_context}", risk_context
         )
 
-        # 初始化消息列表
+        # 初始化消息
         messages = [
             ChatMessage(role=Role.SYSTEM, content=system_prompt)
         ]
 
-        # 如果有用户输入，添加到消息列表
         if user_input:
             messages.append(ChatMessage(role=Role.USER, content=user_input))
         else:
-            # 默认触发消息
             messages.append(ChatMessage(
                 role=Role.USER,
-                content="请检查当前市场状态和账户情况，分析是否有合适的交易机会。"
+                content="执行本轮 Bear-Case-First 分析：巡检持仓、扫描标的池机会。"
             ))
 
-        self.logger.info("=" * 50)
-        self.logger.info("开始ReAct循环")
+        # 注入预执行数据
+        if pre_executed_data:
+            context_parts = []
+            for key, value in pre_executed_data.items():
+                if isinstance(value, str):
+                    context_parts.append(f"[{key}]\n{value}")
+                else:
+                    context_parts.append(f"[{key}]\n{json.dumps(value, ensure_ascii=False)}")
 
-        # 预执行工具：在第一次 LLM 调用前先执行固定工具列表，结果以文本形式注入上下文
-        # 注意：不构造 function_call 消息，避免 Gemini thought_signature 校验失败
-        if self.pre_run_tools:
+            if context_parts:
+                context_msg = "以下是已收集的背景数据（由系统自动执行）：\n\n" + "\n\n".join(context_parts)
+                messages.append(ChatMessage(role=Role.USER, content=context_msg))
+
+        # 传统 pre_run_tools（兼容老逻辑）
+        elif self.pre_run_tools:
             self.logger.info(f"预执行工具: {self.pre_run_tools}")
             pre_results = []
             for tool_name in self.pre_run_tools:
                 if self.tool_registry.get(tool_name) is None:
                     self.logger.warning(f"预执行工具 '{tool_name}' 未注册，跳过")
                     continue
-
                 self.logger.info(f"预执行: {tool_name}")
                 try:
                     result = self.tool_registry.execute(tool_name)
@@ -343,36 +333,29 @@ class ReActAgent:
                     pre_results.append(f"[{tool_name}]\n{error_msg}")
 
             if pre_results:
-                # 将预执行结果作为系统上下文注入，避免构造假的 function_call
                 context_msg = "以下是已获取的背景信息（由系统自动收集）：\n\n" + "\n\n".join(pre_results)
-                messages.append(ChatMessage(
-                    role=Role.USER,
-                    content=context_msg,
-                ))
+                messages.append(ChatMessage(role=Role.USER, content=context_msg))
 
-        # 记录本次循环实际执行过的工具
+        # 记录执行过的工具
         executed_tools: list[str] = []
 
-        # ReAct循环
+        # ReAct 循环
+        self.logger.info("=" * 50)
+        self.logger.info("开始 ReAct 循环 (Bear-Case-First)")
+
         for iteration in range(self.max_iterations):
             self.logger.info(f"--- 迭代 {iteration + 1}/{self.max_iterations} ---")
 
             try:
-                # 调用LLM
                 response = self.llm.chat(messages, tools=tools, tool_choice="auto")
 
-                # 如果没有工具调用，说明LLM已经完成任务
                 if not response.has_tool_calls:
-                    self.logger.info("LLM完成任务，无需更多工具调用")
+                    self.logger.info("LLM完成任务")
                     self.logger.info(f"最终响应: {response.content}")
-                    final_result = response.content or "任务完成，无额外输出"
+                    final_result = response.content or "任务完成"
                     self._check_and_notify_trading(final_result, executed_tools)
                     return final_result
 
-                # 处理工具调用
-                # 先将assistant的响应添加到消息列表
-                # native_content 保存原生LLM对象（如Gemini的Content），
-                # 下一轮转换时直接复用，避免重建时丢失 thought_signature 等内部字段
                 assistant_message = ChatMessage(
                     role=Role.ASSISTANT,
                     content=response.content,
@@ -381,26 +364,20 @@ class ReActAgent:
                 )
                 messages.append(assistant_message)
 
-                # 执行每个工具调用
                 for tool_call in response.tool_calls:
                     self.logger.info(f"调用工具: {tool_call.name}")
                     self.logger.info(f"参数: {json.dumps(tool_call.arguments, ensure_ascii=False)}")
-
-                    # 记录执行过的工具
                     executed_tools.append(tool_call.name)
 
-                    # 执行工具
                     try:
                         result = self.tool_registry.execute(
-                            tool_call.name,
-                            **tool_call.arguments
+                            tool_call.name, **tool_call.arguments
                         )
                         self.logger.info(f"工具返回: {result}")
                     except Exception as e:
                         result = json.dumps({"error": str(e)})
                         self.logger.error(f"工具执行错误: {e}")
 
-                    # 将工具结果添加到消息列表
                     tool_message = ChatMessage(
                         role=Role.TOOL,
                         content=result,
@@ -413,58 +390,43 @@ class ReActAgent:
                 self.logger.error(f"ReAct循环出错: {e}")
                 return f"执行出错: {str(e)}"
 
-        # 达到最大迭代次数
+        # 达到最大迭代
         self.logger.warning(f"达到最大迭代次数 {self.max_iterations}")
-
-        # 最后一次调用LLM，要求总结
         messages.append(ChatMessage(
             role=Role.USER,
-            content="已达到最大执行步数，请总结当前状态并给出最终建议。"
+            content="已达最大步数，请总结当前 Bear-Case-First 分析结果并给出最终建议。"
         ))
 
         try:
             final_response = self.llm.chat(messages, tools=None)
-            final_result = final_response.content or "达到最大迭代次数，任务中止"
+            final_result = final_response.content or "达到最大迭代次数"
             self._check_and_notify_trading(final_result, executed_tools)
             return final_result
         except Exception as e:
             return f"最终总结出错: {str(e)}"
 
     def run_once(self, user_input: str) -> str:
-        """
-        单次运行（不循环，仅一次LLM调用和工具执行）
-
-        Args:
-            user_input: 用户输入
-
-        Returns:
-            响应结果
-        """
+        """单次运行（不循环）"""
         messages = [
             ChatMessage(role=Role.SYSTEM, content=self.system_prompt),
             ChatMessage(role=Role.USER, content=user_input)
         ]
-
         tools = self.tool_registry.get_openai_tools()
 
         try:
             response = self.llm.chat(messages, tools=tools)
-
             if response.has_tool_calls:
                 results = []
                 for tool_call in response.tool_calls:
                     try:
                         result = self.tool_registry.execute(
-                            tool_call.name,
-                            **tool_call.arguments
+                            tool_call.name, **tool_call.arguments
                         )
                         results.append(f"{tool_call.name}: {result}")
                     except Exception as e:
                         results.append(f"{tool_call.name}: Error - {str(e)}")
-
                 return "\n".join(results)
             else:
                 return response.content or "无响应"
-
         except Exception as e:
             return f"执行出错: {str(e)}"

@@ -1,6 +1,6 @@
 """
 工具模块
-提供交易工具和搜索工具的抽象接口和具体实现
+提供交易工具、行情数据工具和搜索工具
 """
 from tools.trading import (
     GetPositionsTool,
@@ -11,6 +11,14 @@ from tools.trading import (
     SellStockTool,
     GetQuoteTool,
     GetMarketStatusTool,
+)
+from tools.market_data import (
+    GetTechnicalAnalysisTool,
+    ScanWatchlistTool,
+    GetKlineTool,
+    GetCapitalFlowTool,
+    GetFundamentalsTool,
+    GetMarketOverviewTool,
 )
 from tools.search import (
     SearchStockNewsTool,
@@ -31,6 +39,13 @@ __all__ = [
     "SellStockTool",
     "GetQuoteTool",
     "GetMarketStatusTool",
+    # 行情数据工具
+    "GetTechnicalAnalysisTool",
+    "ScanWatchlistTool",
+    "GetKlineTool",
+    "GetCapitalFlowTool",
+    "GetFundamentalsTool",
+    "GetMarketOverviewTool",
     # 搜索工具
     "SearchStockNewsTool",
     "SearchMarketSentimentTool",

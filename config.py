@@ -1,11 +1,109 @@
 """
 配置管理模块
 统一管理环境变量和应用配置
+
+v2.0 - 架构改造:
+  - 新增固定标的池 WATCHLIST
+  - 新增宏观风控评分参数
+  - 新增每日复盘配置
 """
 import os
 from dataclasses import dataclass, field
 from typing import Optional
 
+
+# ═══════════════════════════════════════════
+# 固定标的池 - 仅交易这10只股票
+# ═══════════════════════════════════════════
+WATCHLIST = [
+    "NVDA",   # NVIDIA - AI算力龙头
+    "TSM",    # 台积电 - 半导体代工垄断
+    "MSFT",   # 微软 - 云+AI双引擎
+    "VRT",    # Vertiv - 数据中心电力基础设施
+    "CEG",    # Constellation Energy - 核电+AI电力需求
+    "LLY",    # 礼来 - GLP-1减肥药龙头
+    "ISRG",   # 直觉外科 - 手术机器人垄断
+    "SPGI",   # 标普全球 - 信用评级+数据垄断
+    "MA",     # 万事达 - 支付网络双寡头
+    "GE",     # GE航空 - 航空发动机垄断
+]
+
+# 标的池对应的 LongPort 代码
+WATCHLIST_SYMBOLS = [f"{s}.US" for s in WATCHLIST]
+
+
+# ═══════════════════════════════════════════
+# 宏观风控评分参数
+# ═══════════════════════════════════════════
+@dataclass
+class RiskConfig:
+    """
+    宏观风控评分配置
+
+    连续评分 0-100:
+      0-30:  极端风险，禁止新建仓，考虑减仓
+      30-50: 高风险，仅允许减仓或极小仓位
+      50-70: 中性，正常交易但降低仓位上限
+      70-100: 低风险环境，可正常建仓
+
+    权重分配（总和=100%）:
+      market_temperature: 25%  (LongPort市场温度)
+      spy_technical:      25%  (SPY技术面)
+      rsi_breadth:        15%  (RSI广度)
+      capital_flow:       15%  (资金流向)
+      sentiment:          10%  (市场情绪)
+      volatility:         10%  (波动率)
+    """
+    # 权重
+    weight_market_temp: float = 0.25
+    weight_spy_technical: float = 0.25
+    weight_rsi_breadth: float = 0.15
+    weight_capital_flow: float = 0.15
+    weight_sentiment: float = 0.10
+    weight_volatility: float = 0.10
+
+    # 阈值
+    score_lockdown: int = 30      # 低于此分全面禁止新建仓
+    score_cautious: int = 50      # 低于此分进入谨慎模式
+    score_normal: int = 70        # 高于此分为正常模式
+
+    # 仓位限制倍率（根据风控评分动态调整）
+    # 实际最大仓位 = base_max_position * position_multiplier
+    base_max_position_pct: float = 0.30   # 基础单笔最大仓位(占可用现金)
+    base_total_position_pct: float = 0.70  # 基础总仓位上限
+
+    @classmethod
+    def from_env(cls) -> "RiskConfig":
+        return cls(
+            score_lockdown=int(os.getenv("RISK_SCORE_LOCKDOWN", "30")),
+            score_cautious=int(os.getenv("RISK_SCORE_CAUTIOUS", "50")),
+            score_normal=int(os.getenv("RISK_SCORE_NORMAL", "70")),
+        )
+
+
+# ═══════════════════════════════════════════
+# 每日复盘配置
+# ═══════════════════════════════════════════
+@dataclass
+class ReviewConfig:
+    """每日复盘配置"""
+    enabled: bool = True
+    trigger_time_hour: int = 16    # 美东时间 16:30 触发
+    trigger_time_minute: int = 30
+    report_dir: str = "data/logs"  # 复盘报告存储目录
+
+    @classmethod
+    def from_env(cls) -> "ReviewConfig":
+        return cls(
+            enabled=os.getenv("REVIEW_ENABLED", "true").lower() == "true",
+            trigger_time_hour=int(os.getenv("REVIEW_HOUR", "16")),
+            trigger_time_minute=int(os.getenv("REVIEW_MINUTE", "30")),
+        )
+
+
+# ═══════════════════════════════════════════
+# 原有配置（保留）
+# ═══════════════════════════════════════════
 
 @dataclass
 class LongPortConfig:
@@ -35,7 +133,7 @@ class LongPortConfig:
 @dataclass
 class LLMConfig:
     """LLM配置"""
-    provider: str = "deepseek"  # deepseek, gemini, openai等
+    provider: str = "deepseek"
     api_key: str = ""
     base_url: str = "https://api.deepseek.com"
     model: str = "deepseek-chat"
@@ -52,7 +150,6 @@ class LLMConfig:
                 model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
             )
         elif provider == "gemini":
-            # 注意：主LLM不启用搜索，搜索功能由 tools/search.py 的搜索工具独立实现
             return cls(
                 provider="gemini",
                 api_key=os.getenv("GEMINI_API_KEY", ""),
@@ -77,7 +174,7 @@ class LogConfig:
     log_level: str = "INFO"
     log_format: str = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
     date_format: str = "%Y-%m-%d %H:%M:%S"
-    backup_count: int = 30  # 保留30天的日志
+    backup_count: int = 30
 
     @classmethod
     def from_env(cls) -> "LogConfig":
@@ -90,15 +187,15 @@ class LogConfig:
 @dataclass
 class AgentConfig:
     """智能体配置"""
-    max_iterations: int = 10  # ReAct最大迭代次数
-    sleep_interval_trading: int = 300  # 交易时段休眠间隔（秒）
+    max_iterations: int = 10
+    sleep_interval_trading: int = 600     # 交易时段休眠间隔（秒）- 改为10分钟
     sleep_interval_non_trading: int = 10  # 非交易时段休眠间隔（秒）
 
     @classmethod
     def from_env(cls) -> "AgentConfig":
         return cls(
             max_iterations=int(os.getenv("AGENT_MAX_ITERATIONS", "10")),
-            sleep_interval_trading=int(os.getenv("SLEEP_INTERVAL_TRADING", "300")),
+            sleep_interval_trading=int(os.getenv("SLEEP_INTERVAL_TRADING", "600")),
             sleep_interval_non_trading=int(os.getenv("SLEEP_INTERVAL_NON_TRADING", "10")),
         )
 
@@ -106,8 +203,8 @@ class AgentConfig:
 @dataclass
 class FeishuConfig:
     """飞书推送配置"""
-    enabled: bool = False  # 是否启用飞书推送
-    webhook_url: str = ""  # Webhook URL
+    enabled: bool = False
+    webhook_url: str = ""
 
     @classmethod
     def from_env(cls) -> "FeishuConfig":
@@ -126,6 +223,8 @@ class AppConfig:
     log: LogConfig = field(default_factory=LogConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
     feishu: FeishuConfig = field(default_factory=FeishuConfig)
+    risk: RiskConfig = field(default_factory=RiskConfig)
+    review: ReviewConfig = field(default_factory=ReviewConfig)
 
     @classmethod
     def from_env(cls, llm_provider: str = "deepseek") -> "AppConfig":
@@ -135,4 +234,6 @@ class AppConfig:
             log=LogConfig.from_env(),
             agent=AgentConfig.from_env(),
             feishu=FeishuConfig.from_env(),
+            risk=RiskConfig.from_env(),
+            review=ReviewConfig.from_env(),
         )

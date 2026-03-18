@@ -260,15 +260,14 @@ class MacroRiskManager:
         """
         资金流向评分
 
-        基于标的池扫描数据（如果有capital flow数据）
-        简化版: 使用标的池涨跌比例近似
+        基于标的池扫描数据，使用涨幅加权评估资金方向。
+        不再简单二分涨跌，而是考虑涨幅强度。
         """
         scan = data.get("watchlist_scan", [])
         if not scan:
             return 50.0
 
-        positive = 0
-        negative = 0
+        weighted_sum = 0
         total = 0
 
         for item in scan:
@@ -276,17 +275,15 @@ class MacroRiskManager:
             if ret is None:
                 continue
             total += 1
-            if ret > 0:
-                positive += 1
-            else:
-                negative += 1
+            # 将涨跌幅映射到 0-100:
+            #   -20% → 0, 0% → 50, +20% → 100
+            mapped = max(0, min(100, 50 + ret * 2.5))
+            weighted_sum += mapped
 
         if total == 0:
             return 50.0
 
-        # 上涨比例映射到评分
-        bullish_ratio = positive / total
-        return max(0, min(100, bullish_ratio * 100))
+        return max(0, min(100, weighted_sum / total))
 
     def _score_sentiment(self, data: dict) -> float:
         """

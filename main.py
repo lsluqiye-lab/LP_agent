@@ -205,21 +205,139 @@ def phase2_risk_scoring(collected_data: dict, config: AppConfig, logger: logging
 
 
 # ═══════════════════════════════════════════
-# Phase 3 & 4: ReAct 推理 + 执行
+# Phase 2.5: 提取行动候选清单
 # ═══════════════════════════════════════════
 
-def phase3_react_reasoning(
-    agent: ReActAgent,
+def phase2_5_extract_candidates(
     collected_data: dict,
     risk_result: dict,
     logger: logging.Logger,
 ) -> str:
     """
-    Phase 3&4: ReAct Bear-Case-First 推理 + 执行
+    Phase 2.5: 从 scan_watchlist 结果中提取行动候选清单
 
-    将 Phase 1 的数据和 Phase 2 的风控结果注入 ReAct 循环。
+    将有信号的标的 + 所有持仓标的组织成结构化文本，
+    注入 ReAct 提示词强制 LLM 逐一分析。
     """
-    logger.info("[Phase 3] 开始 ReAct Bear-Case-First 推理")
+    if logger is None:
+        logger = logging.getLogger(__name__)
+    logger.info("[Phase 2.5] 提取行动候选清单")
+
+    candidates = []
+    regime = risk_result.get("regime", "normal")
+    allow_buy = risk_result.get("constraints", {}).get("allow_new_buy", False)
+
+    # 1. 从持仓中提取（无论风控状态，持仓都必须巡检）
+    positions_raw = collected_data.get("get_positions", "{}")
+    try:
+        pos_data = json.loads(positions_raw) if isinstance(positions_raw, str) else positions_raw
+        for pos in pos_data.get("positions", []):
+            sym = pos.get("symbol", "")
+            if sym in WATCHLIST:
+                candidates.append({
+                    "symbol": sym,
+                    "reason": f"当前持仓 {pos.get('quantity', '?')}股, 成本${pos.get('cost_price', '?')}",
+                    "action_type": "持仓巡检（检查止损/止盈）",
+                })
+    except Exception:
+        pass
+
+    # 2. 从 scan_watchlist 中提取有信号的标的（仅当允许买入时）
+    if allow_buy:
+        scan_raw = collected_data.get("scan_watchlist", "{}")
+        try:
+            scan_data = json.loads(scan_raw) if isinstance(scan_raw, str) else scan_raw
+            held_symbols = {c["symbol"] for c in candidates}
+
+            for item in scan_data.get("watchlist_scan", []):
+                sym = item.get("symbol", "")
+                if sym in held_symbols:
+                    continue  # 已在持仓巡检中
+
+                flags = item.get("flags", [])
+                stage2 = item.get("stage2", False)
+                rsi = item.get("rsi_14")
+                ret = item.get("return_20d_pct")
+
+                # 选入条件：Stage2 或 有技术信号 或 近期涨幅较好
+                should_include = (
+                    stage2
+                    or len(flags) > 0
+                    or (ret is not None and ret > 3)
+                    or (rsi is not None and 40 <= rsi <= 70)
+                )
+
+                if should_include:
+                    reason_parts = []
+                    if stage2:
+                        reason_parts.append("Stage2上升趋势")
+                    if flags:
+                        reason_parts.append(f"信号: {', '.join(flags)}")
+                    if ret is not None:
+                        reason_parts.append(f"20日涨幅{ret:+.1f}%")
+                    if rsi is not None:
+                        reason_parts.append(f"RSI={rsi:.0f}")
+
+                    candidates.append({
+                        "symbol": sym,
+                        "reason": " | ".join(reason_parts) if reason_parts else "标的池成员",
+                        "action_type": "买入机会评估",
+                    })
+        except Exception:
+            pass
+
+    # 3. 如果允许买入但没有任何候选，强制加入 signal_summary.score 最高的前3只
+    if allow_buy and not any(c["action_type"] == "买入机会评估" for c in candidates):
+        try:
+            scan_data = json.loads(collected_data.get("scan_watchlist", "{}"))
+            held_symbols = {c["symbol"] for c in candidates}
+            scan_items = [
+                item for item in scan_data.get("watchlist_scan", [])
+                if item.get("symbol") not in held_symbols and item.get("stage2")
+            ]
+            # 按 return_20d_pct 排序
+            scan_items.sort(key=lambda x: x.get("return_20d_pct", -999), reverse=True)
+            for item in scan_items[:3]:
+                candidates.append({
+                    "symbol": item["symbol"],
+                    "reason": f"Stage2 | 20日涨幅{item.get('return_20d_pct', 0):+.1f}% (强制候选)",
+                    "action_type": "买入机会评估",
+                })
+        except Exception:
+            pass
+
+    # 4. 格式化输出
+    if not candidates:
+        text = "当前无候选标的：无持仓且风控不允许买入，或标的池全部处于弱势。本轮仅输出市场观察总结。"
+    else:
+        lines = [f"共 {len(candidates)} 只候选标的，你必须逐一分析：\n"]
+        for i, c in enumerate(candidates, 1):
+            lines.append(f"{i}. **{c['symbol']}** [{c['action_type']}]")
+            lines.append(f"   原因: {c['reason']}")
+        text = "\n".join(lines)
+
+    logger.info(f"[Phase 2.5] 候选清单: {len(candidates)} 只")
+    for c in candidates:
+        logger.info(f"  {c['symbol']}: {c['action_type']} - {c['reason']}")
+
+    return text
+
+
+def phase3_react_reasoning(
+    agent: ReActAgent,
+    collected_data: dict,
+    risk_result: dict,
+    action_candidates: str,
+    logger: logging.Logger,
+) -> str:
+    """
+    Phase 3&4: ReAct 推理 + 执行
+
+    将 Phase 1 的数据、Phase 2 的风控结果、Phase 2.5 的候选清单注入 ReAct 循环。
+    """
+    if logger is None:
+        logger = logging.getLogger(__name__)
+    logger.info("[Phase 3] 开始 ReAct 推理")
 
     risk_manager = get_risk_manager()
     risk_context = risk_manager.get_risk_summary()
@@ -227,6 +345,7 @@ def phase3_react_reasoning(
     result = agent.run(
         risk_context=risk_context,
         pre_executed_data=collected_data,
+        action_candidates=action_candidates,
     )
 
     logger.info("[Phase 3] ReAct 推理完成")
@@ -394,8 +513,11 @@ def main():
                 # ── Phase 2: 风控评分 ──
                 risk_result = phase2_risk_scoring(collected_data, config, logger)
 
+                # ── Phase 2.5: 提取行动候选清单 ──
+                action_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
+
                 # ── Phase 3 & 4: ReAct 推理 + 执行 ──
-                result = phase3_react_reasoning(agent, collected_data, risk_result, logger)
+                result = phase3_react_reasoning(agent, collected_data, risk_result, action_candidates, logger)
                 logger.info(f"本轮结果:\n{result}")
 
                 # ── Phase 5: 检查是否需要复盘 ──

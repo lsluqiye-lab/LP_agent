@@ -505,7 +505,16 @@ def main():
 
             # 检查是否在交易时段
             if not is_trading_hours(current_time):
-                logger.info("非交易时段，跳过")
+                # ── Phase 5: 检查是否需要复盘 ──
+                if review_agent.should_run():
+                    try:
+                        review_report = phase5_daily_review(review_agent, logger)
+                        logger.info(f"复盘报告:\n{review_report}")
+                    except Exception as e:
+                        logger.error(f"复盘执行出错: {e}", exc_info=True)
+                        trade_logger.log_error("daily_review", str(e))
+                else:
+                    logger.info("非交易时段，跳过")
             else:
                 # ── Phase 1: 数据收集 ──
                 collected_data = phase1_collect_data(tool_registry, logger)
@@ -519,15 +528,6 @@ def main():
                 # ── Phase 3 & 4: ReAct 推理 + 执行 ──
                 result = phase3_react_reasoning(agent, collected_data, risk_result, action_candidates, logger)
                 logger.info(f"本轮结果:\n{result}")
-
-                # ── Phase 5: 检查是否需要复盘 ──
-                if review_agent.should_run():
-                    try:
-                        review_report = phase5_daily_review(review_agent, logger)
-                        logger.info(f"复盘报告:\n{review_report}")
-                    except Exception as e:
-                        logger.error(f"复盘执行出错: {e}", exc_info=True)
-                        trade_logger.log_error("daily_review", str(e))
 
             # 休眠
             sleep_seconds = get_sleep_interval(config, current_time)

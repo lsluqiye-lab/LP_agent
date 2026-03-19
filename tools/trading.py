@@ -15,6 +15,7 @@ from longport.openapi import (
 )
 
 from tools.base import BaseTool, ToolParameter
+from data.trade_logger import get_trade_logger
 
 
 def get_longport_config() -> Config:
@@ -370,6 +371,21 @@ class BuyStockTool(BaseTool):
 
             resp = trade.submit_order(**order_params)
 
+            # 记录交易日志
+            trade_logger = get_trade_logger()
+            latest_risk = trade_logger.get_latest_risk_score()
+            risk_score = latest_risk["score"] if latest_risk else 0
+            trade_logger.log_trade(
+                symbol=cut_symbol(full_symbol),
+                side="Buy",
+                quantity=quantity,
+                price=price,
+                order_type=order_type,
+                order_id=resp.order_id,
+                reason=reason,
+                risk_score=risk_score,
+            )
+
             return json.dumps({
                 "success": True,
                 "order_id": resp.order_id,
@@ -454,6 +470,21 @@ class SellStockTool(BaseTool):
                 order_params["order_type"] = OrderType.MO
 
             resp = trade.submit_order(**order_params)
+
+            # 记录交易日志
+            trade_logger = get_trade_logger()
+            latest_risk = trade_logger.get_latest_risk_score()
+            risk_score = latest_risk["score"] if latest_risk else 0
+            trade_logger.log_trade(
+                symbol=cut_symbol(full_symbol),
+                side="Sell",
+                quantity=quantity,
+                price=price,
+                order_type=order_type,
+                order_id=resp.order_id,
+                reason=reason,
+                risk_score=risk_score,
+            )
 
             return json.dumps({
                 "success": True,

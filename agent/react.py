@@ -57,6 +57,7 @@ TRADING_SYSTEM_PROMPT = """你是一个专业的美股**中长线趋势交易智
 ### 🔷 阶段 1: 技术面分析（必须执行）
 对候选清单中的每只股票调用 `get_technical_analysis`，获取完整技术指标。
 这是基础数据，后续阶段的分析都建立在此之上。
+**重要：你可以一次性对所有候选标的并行调用 get_technical_analysis，不需要一个一个调用。**
 
 ### 🔷 阶段 2: 基本面 + 资金面分析（必须执行）
 在获得技术面数据后，**你必须继续调用以下工具**：
@@ -64,6 +65,7 @@ TRADING_SYSTEM_PROMPT = """你是一个专业的美股**中长线趋势交易智
 - `get_capital_flow`: 对技术面信号较强的标的（stage2=true 或 signal_summary.score >= 2），获取主力资金流向（大/中/小单分布），判断主力态度
 
 **不要在只有技术面数据的情况下就做出买入决策。** 基本面和资金面能帮助你验证技术信号的可靠性。
+**重要：你可以一次性并行调用 get_fundamentals 和多个 get_capital_flow，不需要串行等待。**
 
 ### 🔷 阶段 3: 消息面 + 舆情分析（必须执行）
 **你必须调用搜索工具获取市场信息，不能仅凭数字做决策：**
@@ -72,6 +74,7 @@ TRADING_SYSTEM_PROMPT = """你是一个专业的美股**中长线趋势交易智
 - `search_market_sentiment`: 对有强信号的标的搜索社交媒体舆情，了解散户情绪
 
 如果某个搜索工具调用失败或超时，**记录失败原因后继续执行后续工具和阶段，不因搜索失败而停止整个流程**。
+**重要：你可以一次性并行调用多个搜索工具（如同时搜索多只股票的新闻和分析师评级），大幅提升效率。**
 
 ### 🔷 阶段 4: 综合研判 + 最终决策
 **在完成以上 3 个阶段的数据收集后**，才能综合所有维度做出最终决策。
@@ -146,6 +149,21 @@ TRADING_SYSTEM_PROMPT = """你是一个专业的美股**中长线趋势交易智
 
 **你必须对上面每只候选股票严格执行阶段1→2→3→4的完整分析流程。**
 **不允许跳过任何一只候选股票。不允许在只调用了 get_technical_analysis 后就直接给出最终决策。**
+
+## ═══════════════════════════════════════
+## 八、工具调用效率要求（重要！）
+## ═══════════════════════════════════════
+
+**你必须尽可能在一次响应中并行调用多个工具，而不是每次只调用一个工具。**
+
+示例：
+- ✗ 错误：第1轮调用 get_technical_analysis(AAPL)，第2轮调用 get_technical_analysis(NVDA)...
+- ✓ 正确：第1轮同时调用 get_technical_analysis(AAPL)、get_technical_analysis(NVDA)、get_technical_analysis(TSLA)...
+
+- ✗ 错误：第1轮调用 get_fundamentals，第2轮调用 get_capital_flow，第3轮调用 search_stock_news...
+- ✓ 正确：第1轮同时调用 get_fundamentals、get_capital_flow(AAPL)、get_capital_flow(NVDA)、search_stock_news(AAPL)...
+
+**并行调用可以显著减少迭代次数，提升分析效率。同一阶段内的工具调用、以及不同阶段间无依赖的工具调用，都应该并行执行。**
 
 ## ═══════════════════════════════════════
 ## 七、输出格式（阶段4最终输出时使用）
@@ -285,13 +303,13 @@ class ReActAgent:
                 role=Role.USER,
                 content=(
                     "执行本轮完整的多阶段分析，你必须严格按 4 个阶段依次推进，不允许跳过任何阶段：\n\n"
-                    "【阶段1 — 技术面】对每只候选标的调用 get_technical_analysis，获取完整技术指标。\n"
-                    "【阶段2 — 基本面+资金面】调用 get_fundamentals 获取估值数据；对有信号的标的调用 get_capital_flow 获取主力资金方向。\n"
-                    "【阶段3 — 消息面+舆情】调用 search_stock_news 搜索最新新闻；调用 search_financial_analysis 获取分析师评级；"
-                    "如有必要调用 search_market_sentiment 了解散户情绪。\n"
+                    "【阶段1 — 技术面】对所有候选标的并行调用 get_technical_analysis，一次性获取全部技术指标。\n"
+                    "【阶段2 — 基本面+资金面】并行调用 get_fundamentals 和多个 get_capital_flow，一次性获取估值和资金数据。\n"
+                    "【阶段3 — 消息面+舆情】并行调用 search_stock_news、search_financial_analysis 等，一次性获取新闻和分析师评级。\n"
                     "【阶段4 — 综合决策】汇总所有维度数据，对每只标的完成 Bear/Bull/Decision 分析，输出最终报告。\n\n"
                     "同时巡检现有持仓是否触发止损/止盈条件。\n"
-                    "请从阶段1开始，先调用 get_technical_analysis 工具。"
+                    "**重要：每个阶段你必须一次性并行调用所有需要的工具，不要一个一个串行调用！**\n"
+                    "请从阶段1开始，对所有候选标的并行调用 get_technical_analysis。"
                 ),
             ))
 

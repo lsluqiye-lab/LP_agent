@@ -12,6 +12,7 @@ import json
 import logging
 import uuid
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from llm.base import BaseLLM, ChatMessage, Role, LLMResponse, ToolCall
 from tools.base import ToolRegistry
@@ -376,20 +377,29 @@ class ReActAgent:
                 )
                 messages.append(assistant_message)
 
-                for tool_call in response.tool_calls:
-                    self.logger.info(f"调用工具: {tool_call.name}")
-                    self.logger.info(f"参数: {json.dumps(tool_call.arguments, ensure_ascii=False)}")
-                    executed_tools.append(tool_call.name)
-
+                # 并行执行所有工具调用
+                def execute_tool(tc):
+                    self.logger.info(f"调用工具: {tc.name}")
+                    self.logger.info(f"参数: {json.dumps(tc.arguments, ensure_ascii=False)}")
                     try:
-                        result = self.tool_registry.execute(
-                            tool_call.name, **tool_call.arguments
-                        )
-                        self.logger.info(f"工具返回: {result}")
+                        res = self.tool_registry.execute(tc.name, **tc.arguments)
+                        self.logger.info(f"工具返回 [{tc.name}]: {res[:200]}..." if len(res) > 200 else f"工具返回 [{tc.name}]: {res}")
                     except Exception as e:
-                        result = json.dumps({"error": str(e)})
-                        self.logger.error(f"工具执行错误: {e}")
+                        res = json.dumps({"error": str(e)})
+                        self.logger.error(f"工具执行错误 [{tc.name}]: {e}")
+                    return tc, res
 
+                tool_results = {}
+                with ThreadPoolExecutor(max_workers=min(len(response.tool_calls), 10)) as executor:
+                    futures = {executor.submit(execute_tool, tc): tc for tc in response.tool_calls}
+                    for future in as_completed(futures):
+                        tc, res = future.result()
+                        tool_results[tc.id] = (tc, res)
+
+                # 按原顺序添加到 messages
+                for tool_call in response.tool_calls:
+                    executed_tools.append(tool_call.name)
+                    tc, result = tool_results[tool_call.id]
                     tool_message = ChatMessage(
                         role=Role.TOOL,
                         content=result,

@@ -102,6 +102,32 @@ class ReviewConfig:
 
 
 # ═══════════════════════════════════════════
+# 交易记忆配置
+# ═══════════════════════════════════════════
+@dataclass
+class MemoryConfig:
+    """
+    交易记忆模块配置
+
+    记忆模块在每日复盘后自动压缩经验教训，
+    并在每轮 ReAct 推理前注入历史经验。
+    """
+    enabled: bool = True
+    max_daily_summaries: int = 15  # 保留最近N天的压缩摘要
+    max_rules: int = 50            # 最大规则数量
+    inject_max_rules: int = 20     # 注入 prompt 时最多展示的规则数
+    inject_max_summaries: int = 5  # 注入 prompt 时最多展示的摘要天数
+
+    @classmethod
+    def from_env(cls) -> "MemoryConfig":
+        return cls(
+            enabled=os.getenv("MEMORY_ENABLED", "true").lower() == "true",
+            max_daily_summaries=int(os.getenv("MEMORY_MAX_SUMMARIES", "15")),
+            max_rules=int(os.getenv("MEMORY_MAX_RULES", "50")),
+        )
+
+
+# ═══════════════════════════════════════════
 # 原有配置（保留）
 # ═══════════════════════════════════════════
 
@@ -225,6 +251,7 @@ class AppConfig:
     feishu: FeishuConfig = field(default_factory=FeishuConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
     review: ReviewConfig = field(default_factory=ReviewConfig)
+    memory: MemoryConfig = field(default_factory=MemoryConfig)
 
     @classmethod
     def from_env(cls, llm_provider: str = "deepseek") -> "AppConfig":
@@ -236,4 +263,5 @@ class AppConfig:
             feishu=FeishuConfig.from_env(),
             risk=RiskConfig.from_env(),
             review=ReviewConfig.from_env(),
+            memory=MemoryConfig.from_env(),
         )

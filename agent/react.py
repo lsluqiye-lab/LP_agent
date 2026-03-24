@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from llm.base import BaseLLM, ChatMessage, Role, LLMResponse, ToolCall
 from tools.base import ToolRegistry
 from config import WATCHLIST
+from data.memory import TradingMemory, get_trading_memory
 
 
 # ═══════════════════════════════════════════
@@ -152,6 +153,43 @@ TRADING_SYSTEM_PROMPT = """你是一个专业的美股**中长线趋势交易智
 **不允许跳过任何一只候选股票。不允许在只调用了 get_technical_analysis 后就直接给出最终决策。**
 
 ## ═══════════════════════════════════════
+## 历史经验与记忆（系统自动注入）
+## ═══════════════════════════════════════
+
+{memory_context}
+
+**你必须认真阅读上面的历史经验规则，并在决策中严格遵守。这些规则是从过往真实交易的血泪教训中提炼出来的。**
+
+## ═══════════════════════════════════════
+## 仓位预计算要求（重要！）
+## ═══════════════════════════════════════
+
+**在执行 buy_stock 之前，你必须先完成仓位预计算：**
+
+1. 获取当前总资产和可用现金（从预执行数据中读取 get_account_balance）
+2. 获取当前总持仓市值（从 get_positions 计算）
+3. 计算买入后的"总仓位占比" = (当前持仓市值 + 本次买入金额) / 总资产
+4. 检查是否超过风控约束中的 max_total_position_pct
+5. 如果买入后会超标 → 降低买入数量或放弃买入
+6. 同时检查单只个股仓位占比不超过 max_single_position_pct
+
+**禁止出现"刚买入就因仓位超限而被迫卖出"的情况。宁可少买，不要买完就砍。**
+
+## ═══════════════════════════════════════
+## "利好兑现"风险警告
+## ═══════════════════════════════════════
+
+对以下类型的确定性事件，必须额外评估"利好兑现 (Sell the news)"风险：
+- 纳入指数（如标普500、纳斯达克100）
+- 财报公布后的首个交易日
+- 重大产品发布/FDA批准
+- 并购交易完成
+- 股票拆分生效日
+
+**当上述事件已经发生（而非即将发生）时，该标的的 Bear Case 必须增加"利好兑现抛压"这一风险因素。**
+**对"利好已兑现"的标的，建仓规模应降低一级（如标准→试探），且不应在事件当天追高买入。**
+
+## ═══════════════════════════════════════
 ## 八、工具调用效率要求（重要！）
 ## ═══════════════════════════════════════
 
@@ -210,6 +248,7 @@ class ReActAgent:
         max_iterations: int = 10,
         pre_run_tools: Optional[list[str]] = None,
         feishu_notifier=None,
+        trading_memory: Optional[TradingMemory] = None,
         logger: Optional[logging.Logger] = None
     ):
         self.llm = llm
@@ -218,6 +257,7 @@ class ReActAgent:
         self.max_iterations = max_iterations
         self.pre_run_tools = pre_run_tools or []
         self.feishu_notifier = feishu_notifier
+        self.trading_memory = trading_memory or get_trading_memory()
         self.logger = logger or logging.getLogger(__name__)
 
     def _check_and_notify_trading(self, result: str, executed_tools: list[str]) -> None:
@@ -291,6 +331,22 @@ class ReActAgent:
         ).replace(
             "{action_candidates}", action_candidates
         )
+
+        # 注入历史记忆
+        memory_context = ""
+        try:
+            memory_context = self.trading_memory.get_memory_context()
+        except Exception as e:
+            self.logger.warning(f"读取交易记忆失败: {e}")
+
+        if memory_context:
+            system_prompt = system_prompt.replace("{memory_context}", memory_context)
+            self.logger.info(f"已注入交易记忆 ({len(memory_context)} 字符)")
+        else:
+            system_prompt = system_prompt.replace(
+                "{memory_context}",
+                "暂无历史经验记录。这是系统初期运行阶段，请严格按照既定规则执行。"
+            )
 
         # 初始化消息
         messages = [

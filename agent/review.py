@@ -14,6 +14,7 @@ import pytz
 
 from llm.base import BaseLLM, ChatMessage, Role
 from data.trade_logger import get_trade_logger
+from data.memory import TradingMemory, get_trading_memory
 from config import WATCHLIST, ReviewConfig
 from notification.feishu import FeishuNotifier
 
@@ -80,11 +81,13 @@ class ReviewAgent:
         llm: BaseLLM,
         config: Optional[ReviewConfig] = None,
         feishu_notifier: Optional[FeishuNotifier] = None,
+        trading_memory: Optional[TradingMemory] = None,
         logger_instance: Optional[logging.Logger] = None,
     ):
         self.llm = llm
         self.config = config or ReviewConfig()
         self.feishu_notifier = feishu_notifier
+        self.trading_memory = trading_memory or get_trading_memory()
         self.log = logger_instance or logger
         self.trade_logger = get_trade_logger()
         self.eastern = pytz.timezone("US/Eastern")
@@ -142,6 +145,9 @@ class ReviewAgent:
 
             # 保存报告
             self._save_report(report, today_log)
+
+            # 压缩经验写入记忆模块
+            self._update_memory(report, today_log)
 
             # 推送飞书
             self._push_to_feishu(report)
@@ -236,6 +242,28 @@ class ReviewAgent:
             "error_count": len(today_log.get("errors", [])),
         }
         self.trade_logger.save_daily_summary(summary)
+
+    def _update_memory(self, report: str, today_log: dict):
+        """
+        从复盘报告中提取经验教训，压缩后写入记忆模块
+
+        这是系统"自我进化"的关键步骤：
+        1. 使用 LLM 从复盘中提取可执行规则
+        2. 压缩每日摘要，保持记忆窗口
+        3. 高优先级规则永久保留，低优先级按 FIFO 淘汰
+        """
+        try:
+            self.log.info("开始更新交易记忆...")
+            self.trading_memory.compress_and_store(
+                llm=self.llm,
+                review_report=report,
+                today_log=today_log,
+            )
+            rules_count = self.trading_memory.get_rules_count()
+            summaries_count = self.trading_memory.get_summaries_count()
+            self.log.info(f"交易记忆更新完成: {rules_count} 条规则, {summaries_count} 天摘要")
+        except Exception as e:
+            self.log.error(f"交易记忆更新失败: {e}", exc_info=True)
 
     def _push_to_feishu(self, report: str):
         """推送复盘摘要到飞书"""

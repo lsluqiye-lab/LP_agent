@@ -31,6 +31,7 @@ from agent.react import ReActAgent, TRADING_SYSTEM_PROMPT
 from agent.risk_manager import get_risk_manager
 from agent.review import ReviewAgent
 from data.trade_logger import get_trade_logger
+from data.memory import get_trading_memory
 from notification.feishu import FeishuNotifier
 
 
@@ -456,6 +457,10 @@ def main():
         "search_geopolitical_news",
     ]
 
+    # 创建交易记忆模块
+    trading_memory = get_trading_memory()
+    logger.info(f"交易记忆初始化完成: {trading_memory.get_rules_count()} 条规则, {trading_memory.get_summaries_count()} 天摘要")
+
     # 创建 ReAct Agent
     agent = ReActAgent(
         llm=llm,
@@ -464,6 +469,7 @@ def main():
         max_iterations=config.agent.max_iterations,
         pre_run_tools=pre_run_tool_names,  # 标记这些工具已预执行
         feishu_notifier=feishu_notifier,
+        trading_memory=trading_memory,
         logger=logger,
     )
     logger.info("ReAct Agent v2.0 初始化完成")
@@ -473,6 +479,7 @@ def main():
         llm=llm,
         config=config.review,
         feishu_notifier=feishu_notifier,
+        trading_memory=trading_memory,
         logger_instance=logger,
     )
     logger.info("Review Agent 初始化完成")

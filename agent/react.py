@@ -437,6 +437,15 @@ class ReActAgent:
                 def execute_tool(tc):
                     self.logger.info(f"调用工具: {tc.name}")
                     self.logger.info(f"参数: {json.dumps(tc.arguments, ensure_ascii=False)}")
+
+                    # 编程式风控验证
+                    if tc.name == "buy_stock":
+                        content_to_check = response.content or ""
+                        if "Bear Case" not in content_to_check and "风险" not in content_to_check:
+                            error_msg = json.dumps({"error": "Programmatic Risk Verification Failed: 你没有在输出中进行充分的 Bear Case (风险) 分析，拒绝执行买入。请重新分析风险因素。"}, ensure_ascii=False)
+                            self.logger.warning(f"工具执行被拦截 [{tc.name}]: 缺少 Bear Case 分析")
+                            return tc, error_msg
+
                     try:
                         res = self.tool_registry.execute(tc.name, **tc.arguments)
                         self.logger.info(f"工具返回 [{tc.name}]: {res[:200]}..." if len(res) > 200 else f"工具返回 [{tc.name}]: {res}")

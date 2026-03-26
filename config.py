@@ -66,6 +66,7 @@ class RiskConfig:
     score_lockdown: int = 30      # 低于此分全面禁止新建仓
     score_cautious: int = 50      # 低于此分进入谨慎模式
     score_normal: int = 70        # 高于此分为正常模式
+    score_spy_override: int = 40  # SPY技术面硬约束降级阈值
 
     # 仓位限制倍率（根据风控评分动态调整）
     # 实际最大仓位 = base_max_position * position_multiplier
@@ -78,6 +79,7 @@ class RiskConfig:
             score_lockdown=int(os.getenv("RISK_SCORE_LOCKDOWN", "30")),
             score_cautious=int(os.getenv("RISK_SCORE_CAUTIOUS", "50")),
             score_normal=int(os.getenv("RISK_SCORE_NORMAL", "70")),
+            score_spy_override=int(os.getenv("RISK_SCORE_SPY_OVERRIDE", "40")),
         )
 
 

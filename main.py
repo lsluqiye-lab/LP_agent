@@ -14,6 +14,7 @@ import sys
 import time
 import json
 import logging
+import concurrent.futures
 from datetime import datetime, time as dt_time
 
 import pytz
@@ -47,7 +48,7 @@ def is_trading_hours(eastern_time: datetime) -> bool:
     if eastern_time.weekday() >= 5:
         return False
     current_t = eastern_time.time()
-    if dt_time(8, 30) <= current_t <= dt_time(17, 0):
+    if dt_time(9, 30) <= current_t <= dt_time(16, 0):
         return True
     return False
 
@@ -373,6 +374,40 @@ def phase5_daily_review(review_agent: ReviewAgent, logger: logging.Logger) -> st
 # 主函数
 # ═══════════════════════════════════════════
 
+def update_dynamic_watchlist(logger: logging.Logger):
+    """动态选股器：每天根据市场热度更新观察列表"""
+    try:
+        from tools.search import get_search_client
+        from config import WATCHLIST
+        
+        client = get_search_client()
+        query = "List the top 15 most active US stocks today with high trading volume, strong momentum, or breaking news. Just list the ticker symbols."
+        system_prompt = "You are a quantitative stock scanner. Only output a comma-separated list of 10-15 US stock symbols (e.g. AAPL, NVDA, TSLA). Do not output any other text."
+        
+        logger.info("开始执行动态选股扫描...")
+        result = client.search(query, system_prompt)
+        
+        import re
+        symbols = re.findall(r'\b[A-Z]{2,5}\b', result.upper())
+        
+        new_watchlist = []
+        for sym in symbols:
+            if sym not in new_watchlist and sym not in ['NYSE', 'NASDAQ', 'ETF', 'THE', 'AND', 'FOR', 'ARE']:
+                new_watchlist.append(sym)
+                
+        if len(new_watchlist) >= 5:
+            WATCHLIST.clear()
+            # 始终保留几个核心标的
+            core_symbols = ["NVDA", "TSLA", "AAPL", "MSFT"]
+            final_list = list(set(core_symbols + new_watchlist))[:15]
+            WATCHLIST.extend(final_list)
+            logger.info(f"动态标的池已更新 (共 {len(WATCHLIST)} 只): {WATCHLIST}")
+        else:
+            logger.warning(f"动态选股器未能提取足够的代码，保持原标的池。解析结果: {result}")
+            
+    except Exception as e:
+        logger.warning(f"动态选股器执行失败: {e}")
+
 def main():
     """主函数"""
     # 信号处理
@@ -498,11 +533,12 @@ def main():
             beijing_time = datetime.now(beijing)
             current_date = current_time.strftime('%Y-%m-%d')
 
-            # 日期变更：重置复盘标志
+            # 日期变更：重置复盘标志并更新标的池
             if current_date != last_date:
                 review_agent.reset_daily_flag()
                 last_date = current_date
                 logger.info(f"新交易日: {current_date}")
+                update_dynamic_watchlist(logger)
 
             logger.info("=" * 60)
             logger.info(
@@ -523,18 +559,29 @@ def main():
                 else:
                     logger.info("非交易时段，跳过")
             else:
-                # ── Phase 1: 数据收集 ──
-                collected_data = phase1_collect_data(tool_registry, logger)
+                def run_core_phases():
+                    # ── Phase 1: 数据收集 ──
+                    collected_data = phase1_collect_data(tool_registry, logger)
 
-                # ── Phase 2: 风控评分 ──
-                risk_result = phase2_risk_scoring(collected_data, config, logger)
+                    # ── Phase 2: 风控评分 ──
+                    risk_result = phase2_risk_scoring(collected_data, config, logger)
 
-                # ── Phase 2.5: 提取行动候选清单 ──
-                action_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
+                    # ── Phase 2.5: 提取行动候选清单 ──
+                    action_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
 
-                # ── Phase 3 & 4: ReAct 推理 + 执行 ──
-                result = phase3_react_reasoning(agent, collected_data, risk_result, action_candidates, logger)
-                logger.info(f"本轮结果:\n{result}")
+                    # ── Phase 3 & 4: ReAct 推理 + 执行 ──
+                    return phase3_react_reasoning(agent, collected_data, risk_result, action_candidates, logger)
+
+                try:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(run_core_phases)
+                        result = future.result(timeout=600)  # 10分钟超时
+                    logger.info(f"本轮结果:\n{result}")
+                except concurrent.futures.TimeoutError:
+                    logger.error("主循环核心执行超时 (超过 10 分钟)，强制结束本次循环防卡死")
+                except Exception as e:
+                    logger.error(f"主循环核心执行异常: {e}", exc_info=True)
+                    trade_logger.log_error("core_phases_error", str(e))
 
             # 休眠
             sleep_seconds = get_sleep_interval(config, current_time)

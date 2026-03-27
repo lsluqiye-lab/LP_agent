@@ -37,7 +37,7 @@ class GeminiSearchClient:
             raise ValueError("GEMINI_API_KEY 环境变量未设置，搜索工具不可用")
 
         self.client = genai.Client(api_key=api_key)
-        self.model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+        self.model = os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
         self.logger = logging.getLogger("GeminiSearch")
         self._initialized = True
 

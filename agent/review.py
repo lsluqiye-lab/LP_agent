@@ -159,6 +159,8 @@ class ReviewAgent:
 
         except Exception as e:
             self.log.error(f"复盘执行出错: {e}", exc_info=True)
+            # 即使出错也标记为已复盘，防止在主循环中由于 retry 导致死循环（尤其是 API 配额耗尽时）
+            self._today_reviewed = True
             return f"复盘出错: {str(e)}"
 
     def reset_daily_flag(self):

@@ -9,3 +9,6 @@ start.sh
 nohup.out
 .DS_Store
 data/memory.json
+
+# Environment variables
+.env*

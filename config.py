@@ -182,7 +182,7 @@ class LLMConfig:
                 provider="gemini",
                 api_key=os.getenv("GEMINI_API_KEY", ""),
                 base_url=os.getenv("GEMINI_BASE_URL", ""),
-                model=os.getenv("GEMINI_MODEL", "gemini-3-flash-preview"),
+                model=os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview"),
             )
         elif provider == "openai":
             return cls(
@@ -217,14 +217,14 @@ class AgentConfig:
     """智能体配置"""
     max_iterations: int = 10
     sleep_interval_trading: int = 600     # 交易时段休眠间隔（秒）- 改为10分钟
-    sleep_interval_non_trading: int = 10  # 非交易时段休眠间隔（秒）
+    sleep_interval_non_trading: int = 60  # 非交易时段休眠间隔（秒）
 
     @classmethod
     def from_env(cls) -> "AgentConfig":
         return cls(
             max_iterations=int(os.getenv("AGENT_MAX_ITERATIONS", "10")),
             sleep_interval_trading=int(os.getenv("SLEEP_INTERVAL_TRADING", "600")),
-            sleep_interval_non_trading=int(os.getenv("SLEEP_INTERVAL_NON_TRADING", "10")),
+            sleep_interval_non_trading=int(os.getenv("SLEEP_INTERVAL_NON_TRADING", "60")),
         )
 
 

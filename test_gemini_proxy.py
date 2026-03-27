@@ -4,7 +4,7 @@ Gemini 搜索工具代理连通性测试
 
 用法:
     export https_proxy='http://127.0.0.1:13659'
-    export GEMINI_API_KEY='AIzaSyCCZ7QrwED0m1Qmp54b16zR8ToOD2EB0Q8'
+    export GEMINI_API_KEY='YOUR_API_KEY_HERE'
     python3 test_gemini_proxy.py
 """
 import os
@@ -47,7 +47,7 @@ def main():
             from google.genai import types
             client = genai.Client(api_key=api_key)
             resp = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3.1-pro-preview",
                 contents="Say hello in one word",
                 config=types.GenerateContentConfig(max_output_tokens=32),
             )
@@ -67,7 +67,7 @@ def main():
             from google.genai import types
             client = genai.Client(api_key=api_key)
             resp = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3.1-pro-preview",
                 contents="What is the S&P 500 index level today?",
                 config=types.GenerateContentConfig(
                     max_output_tokens=256,

@@ -7,7 +7,12 @@
 
 set -e
 
-export GEMINI_API_KEY="AIzaSyCCZ7QrwED0m1Qmp54b16zR8ToOD2EB0Q8"
+if [ -z "$GEMINI_API_KEY" ]; then
+  echo "错误：GEMINI_API_KEY 环境变量未设置。" >&2
+  echo "请在运行此脚本前设置您的API密钥，例如：" >&2
+  echo "export GEMINI_API_KEY='YOUR_REAL_API_KEY'" >&2
+  exit 1
+fi
 
 echo "============================================================"
 echo "  Gemini 搜索工具本地测试"
@@ -50,7 +55,7 @@ from google.genai import types
 
 api_key = os.environ["GEMINI_API_KEY"]
 client = genai.Client(api_key=api_key)
-model = "gemini-3-flash-preview"
+model = "gemini-3.1-pro-preview"
 
 # ── 测试3: 普通对话 ──
 print("【Step 3】Gemini 普通对话（无搜索，无代理）...")

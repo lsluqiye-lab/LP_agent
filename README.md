@@ -307,7 +307,7 @@ docker run -d \
 |--------|----------|--------|------|
 | LLM 提供商 | `LLM_PROVIDER` | `deepseek` | 可选 `deepseek` / `gemini` |
 | DeepSeek 模型 | `DEEPSEEK_MODEL` | `deepseek-chat` | DeepSeek 模型名称 |
-| Gemini 模型 | `GEMINI_MODEL` | `gemini-3-flash-preview` | Gemini 模型名称 |
+| Gemini 模型 | `GEMINI_MODEL` | `gemini-3.1-pro-preview` | Gemini 模型名称 |
 | 最大迭代轮数 | `AGENT_MAX_ITERATIONS` | `10` | ReAct 循环最大步数 |
 | 交易时段休眠 | `SLEEP_INTERVAL_TRADING` | `600` | 每轮间隔（秒） |
 | 非交易时段休眠 | `SLEEP_INTERVAL_NON_TRADING` | `10` | 非交易时段轮询间隔（秒） |

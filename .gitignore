@@ -1,0 +1,14 @@
+.idea
+.vscode
+*.pyc
+
+my_start.sh
+logs/
+start.sh
+*.log
+nohup.out
+.DS_Store
+data/memory.json
+
+# Environment variables
+.env*

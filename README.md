@@ -31,16 +31,20 @@ LP-Agent 是一个全自动的美股中长线趋势交易系统。它在交易�
 │  Phase 1: 数据收集 ──→ Phase 2: 风控评分 ──→ Phase 2.5:  │
 │  (账户/行情/搜索)    (MacroRiskManager)    候选标的筛选   │
 │                                                          │
-│  Phase 3&4: ReAct 推理 + 交易执行 ──→ Phase 5: 每日复盘  │
-│  (ReActAgent + LLM + Tools)            (ReviewAgent)     │
+│  Phase 3: 个股分析 (Map) ──→ Phase 4: 交易决策 (Reduce)  │
+│  (AnalystAgent并发研报)      (ReActAgent执行交易)         │
+│                                                          │
+│                 └──→ Phase 5: 每日复盘 ──┘               │
+│                      (ReviewAgent)                       │
 └─────────────────────────────────────────────────────────┘
          │                  │                  │
     ┌────┴────┐       ┌────┴────┐       ┌────┴────┐
     │  tools  │       │   llm   │       │  agent  │
     ├─────────┤       ├─────────┤       ├─────────┤
-    │trading  │       │deepseek │       │react    │
-    │market   │       │gemini   │       │review   │
-    │search   │       │base     │       │risk_mgr │
+    │trading  │       │deepseek │       │analyst  │
+    │market   │       │gemini   │       │react    │
+    │search   │       │base     │       │review   │
+    │         │       │         │       │risk_mgr │
     └─────────┘       └─────────┘       └─────────┘
          │                                    │
     ┌────┴────┐                         ┌────┴────┐
@@ -55,12 +59,13 @@ LP-Agent 是一个全自动的美股中长线趋势交易系统。它在交易�
 
 ```
 LP_agent_0318/
-├── main.py                 # v2.0 主入口，五阶段执行架构
+├── main.py                 # v2.0 主入口，五阶段执行架构(Multi-Agent Map-Reduce)
 ├── LP-Agent.py             # v1.0 原始版本（单文件，已弃用）
 ├── config.py               # 配置管理（标的池、风控参数、LLM、复盘等）
 ├── logger.py               # 日志模块（按日轮转）
 ├── agent/
-│   ├── react.py            # ReAct 智能体（Bear-Case-First 推理循环）
+│   ├── analyst.py          # 个股分析师智能体（Map阶段，并发生成研报）
+│   ├── react.py            # 基金经理智能体（Reduce阶段，Bear-Case-First 决策执行）
 │   ├── risk_manager.py     # 宏观风控评分引擎（6维度加权）
 │   └── review.py           # 每日复盘智能体
 ├── tools/

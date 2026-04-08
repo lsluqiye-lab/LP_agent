@@ -1,12 +1,13 @@
 """
 LP-Agent v2.0 主入口
-AI自动交易智能体 - 分阶段执行架构
+AI自动交易智能体 - 分阶段执行架构 (Map-Reduce)
 
 执行流程:
-  Phase 1: 数据收集 (预执行工具，收集背景数据)
-  Phase 2: 风控评分 (MacroRiskManager 计算0-100分)
-  Phase 3: ReAct推理 (Bear-Case-First 决策)
-  Phase 4: 执行交易 (在ReAct循环内完成)
+  Phase 1: 数据收集 (预执行工具)
+  Phase 2: 风控评分 (MacroRiskManager)
+  Phase 2.5: 提取候选 (信号扫描)
+  Phase 3: Map 个股分析 (AnalystAgent 并发深度研报)
+  Phase 4: Reduce 交易决策 (ReActAgent 基金经理决策)
   Phase 5: 收盘复盘 (16:30 EST 自动触发)
 """
 import signal
@@ -29,6 +30,7 @@ from tools.trading import create_trading_tools
 from tools.search import create_search_tools
 from tools.market_data import create_market_data_tools
 from agent.react import ReActAgent, TRADING_SYSTEM_PROMPT
+from agent.analyst import AnalystAgent
 from agent.risk_manager import get_risk_manager
 from agent.review import ReviewAgent
 from data.trade_logger import get_trade_logger
@@ -309,37 +311,94 @@ def phase2_5_extract_candidates(
             pass
 
     # 4. 格式化输出
-    if not candidates:
-        text = "当前无候选标的：无持仓且风控不允许买入，或标的池全部处于弱势。本轮仅输出市场观察总结。"
-    else:
-        lines = [f"共 {len(candidates)} 只候选标的，你必须逐一分析：\n"]
-        for i, c in enumerate(candidates, 1):
-            lines.append(f"{i}. **{c['symbol']}** [{c['action_type']}]")
-            lines.append(f"   原因: {c['reason']}")
-        text = "\n".join(lines)
-
     logger.info(f"[Phase 2.5] 候选清单: {len(candidates)} 只")
     for c in candidates:
         logger.info(f"  {c['symbol']}: {c['action_type']} - {c['reason']}")
 
-    return text
+    return candidates
 
 
-def phase3_react_reasoning(
-    agent: ReActAgent,
-    collected_data: dict,
-    risk_result: dict,
-    action_candidates: str,
+def phase3_map_analyst(
+    candidates: list,
+    llm,
+    tool_registry: ToolRegistry,
     logger: logging.Logger,
 ) -> str:
     """
-    Phase 3&4: ReAct 推理 + 执行
+    Phase 3: Map 阶段 (个股分析师)
+    并发获取数据并调用 Analyst Agent 生成个股研报
+    """
+    analyst_agent = AnalystAgent(llm, logger)
+    
+    if not candidates:
+        return "当前无候选标的：无持仓且风控不允许买入，或标的池全部处于弱势。"
 
-    将 Phase 1 的数据、Phase 2 的风控结果、Phase 2.5 的候选清单注入 ReAct 循环。
+    def analyze_single_stock(candidate):
+        sym = candidate["symbol"]
+        logger.info(f"正在收集 [{sym}] 的数据...")
+        
+        # 收集该股票的数据
+        data_parts = []
+        tools_to_run = [
+            ("get_technical_analysis", {"symbol": sym}),
+            ("get_fundamentals", {"symbols": sym}),
+            ("get_capital_flow", {"symbol": sym}),
+            ("search_stock_news", {"symbol": sym, "focus": "general"}),
+            ("search_financial_analysis", {"symbol": sym, "analysis_type": "rating"})
+        ]
+        
+        for tool_name, params in tools_to_run:
+            try:
+                res = tool_registry.execute(tool_name, **params)
+                data_parts.append(f"【{tool_name}】\n{res}")
+            except Exception as e:
+                data_parts.append(f"【{tool_name}】 获取失败: {e}")
+                
+        stock_data = "\n\n".join(data_parts)
+        report = analyst_agent.analyze(sym, stock_data)
+        report["action_type"] = candidate["action_type"]
+        report["reason"] = candidate["reason"]
+        return report
+
+    logger.info(f"[Phase 3] 开始 Map 阶段: 并发分析 {len(candidates)} 只个股")
+    reports = []
+    
+    # 限制并发数为 3 以防止 Gemini API 限流
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [executor.submit(analyze_single_stock, c) for c in candidates]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                reports.append(future.result())
+            except Exception as e:
+                logger.error(f"分析个股时出错: {e}")
+
+    # 将报告格式化为文本供 Trader Agent 使用
+    lines = [f"共 {len(reports)} 份个股分析师报告：\n"]
+    for r in reports:
+        lines.append(f"### {r.get('symbol', 'Unknown')} [{r.get('action_type', '')}]")
+        lines.append(f"- 入选原因: {r.get('reason', '')}")
+        lines.append(f"- 分析师评分: {r.get('score', 5)}/10")
+        lines.append(f"- 建议动作: {r.get('recommendation', 'HOLD')}")
+        lines.append(f"- Bull Case (利好): {r.get('bull_case', '')}")
+        lines.append(f"- Bear Case (风险): {r.get('bear_case', '')}\n")
+        
+    return "\n".join(lines)
+
+
+def phase4_react_reasoning(
+    agent: ReActAgent,
+    collected_data: dict,
+    risk_result: dict,
+    analyst_reports: str,
+    logger: logging.Logger,
+) -> str:
+    """
+    Phase 4: Reduce 阶段 (基金经理/交易员)
+    结合风控结果和个股研报，进行最终决策和交易
     """
     if logger is None:
         logger = logging.getLogger(__name__)
-    logger.info("[Phase 3] 开始 ReAct 推理")
+    logger.info("[Phase 4] 开始 Trader 决策推理")
 
     risk_manager = get_risk_manager()
     risk_context = risk_manager.get_risk_summary()
@@ -347,10 +406,10 @@ def phase3_react_reasoning(
     result = agent.run(
         risk_context=risk_context,
         pre_executed_data=collected_data,
-        action_candidates=action_candidates,
+        action_candidates=analyst_reports,
     )
 
-    logger.info("[Phase 3] ReAct 推理完成")
+    logger.info("[Phase 4] Trader 推理完成")
     return result
 
 
@@ -567,10 +626,13 @@ def main():
                     risk_result = phase2_risk_scoring(collected_data, config, logger)
 
                     # ── Phase 2.5: 提取行动候选清单 ──
-                    action_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
+                    candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
 
-                    # ── Phase 3 & 4: ReAct 推理 + 执行 ──
-                    return phase3_react_reasoning(agent, collected_data, risk_result, action_candidates, logger)
+                    # ── Phase 3: Map 个股分析师 ──
+                    analyst_reports = phase3_map_analyst(candidates, llm, tool_registry, logger)
+
+                    # ── Phase 4: Reduce 交易员推理 ──
+                    return phase4_react_reasoning(agent, collected_data, risk_result, analyst_reports, logger)
 
                 try:
                     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:

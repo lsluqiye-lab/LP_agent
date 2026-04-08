@@ -455,7 +455,7 @@ class ReActAgent:
                     return tc, res
 
                 tool_results = {}
-                with ThreadPoolExecutor(max_workers=min(len(response.tool_calls), 10)) as executor:
+                with ThreadPoolExecutor(max_workers=min(len(response.tool_calls), 3)) as executor:
                     futures = {executor.submit(execute_tool, tc): tc for tc in response.tool_calls}
                     for future in as_completed(futures):
                         tc, res = future.result()

@@ -241,26 +241,39 @@ pip install -r requirements.txt
 
 ### 配置环境变量
 
+在项目根目录创建一个 `.env` 文件，并填入以下内容：
+
 ```bash
 # ── LongPort 券商 API ──
-export LONGPORT_APP_KEY="your_app_key"
-export LONGPORT_APP_SECRET="your_app_secret"
-export LONGPORT_ACCESS_TOKEN="your_access_token"
+LONGPORT_APP_KEY="your_app_key"
+LONGPORT_APP_SECRET="your_app_secret"
+LONGPORT_ACCESS_TOKEN="your_access_token"
 
 # ── LLM 配置（二选一）──
-export LLM_PROVIDER=deepseek              # 或 gemini
-export DEEPSEEK_API_KEY="your_key"        # 使用 DeepSeek 时配置
-export GEMINI_API_KEY="your_key"          # 使用 Gemini 时配置（同时用于搜索工具）
+LLM_PROVIDER=gemini                       # 或 deepseek
+GEMINI_API_KEY="your_key"                 # 使用 Gemini 时配置（同时用于搜索工具）
+DEEPSEEK_API_KEY="your_key"               # 使用 DeepSeek 时配置
 
 # ── 飞书通知（可选）──
-export FEISHU_WEBHOOK_URL="your_webhook_url"
+FEISHU_WEBHOOK_URL="your_webhook_url"
 
 # ── 代理配置（如需翻墙访问 Gemini API）──
-# export http_proxy='http://127.0.0.1:7890'
-# export https_proxy='http://127.0.0.1:7890'
+# http_proxy='http://127.0.0.1:7890'
+# https_proxy='http://127.0.0.1:7890'
 ```
 
+> **注意：** `config.py` 会在启动时自动读取 `.env` 文件。请确保不要将 `.env` 提交到版本库。
+
 ### 启动运行
+
+推荐使用自带的启动脚本（会自动检测并清理旧进程，防止重复启动引起并发冲突）：
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+如果需要手动前/后台运行：
 
 ```bash
 # 前台运行（调试用）
@@ -270,17 +283,11 @@ python3 main.py
 nohup python3 -u main.py >> agent.log 2>&1 &
 ```
 
-或使用启动脚本（需先编辑 `start.sh` 填入自己的 API Key）：
-
-```bash
-bash start.sh
-```
-
 查看日志：
 
 ```bash
-tail -f agent.log           # 实时输出
-tail -f logs/trading_agent.log  # 结构化日志
+tail -f agent.log               # 实时控制台输出
+tail -f logs/trading_agent.log  # 结构化业务日志
 ```
 
 ### Docker 部署
@@ -342,8 +349,9 @@ docker run -d \
 - 五阶段执行流程（数据收集 → 风控评分 → 候选筛选 → ReAct 推理 → 每日复盘）
 - 宏观风控引擎（6 维度加权评分，4 级风险状态，动态仓位约束）
 - Bear-Case-First 决策框架（先风险后机会）
-- 20 个专业工具（交易 8 + 行情 6 + 搜索 6）
+- 20 个专业工具（交易 8 + 行情 6 + 搜索 6），并对搜索工具加入了智能并发限制与防限流（Rate Limit）机制，避免 API 超限导致的卡死
 - 多 LLM 支持（DeepSeek / Gemini）
+- 支持 `.env` 文件自动读取配置
 - 每日自动复盘系统
 - 飞书实时通知
 - 结构化 JSON 交易日志

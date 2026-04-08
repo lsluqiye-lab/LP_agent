@@ -53,6 +53,9 @@ class GeminiSearchClient:
             搜索结果文本
         """
         try:
+            # 增加延迟，防止并发过高触发免费版 Gemini API 15 RPM 的限流导致的长期重试卡死
+            time.sleep(2)
+            
             config_kwargs = {
                 "temperature": 0.3,  # 搜索场景用较低温度，更精确
                 "max_output_tokens": 4096,

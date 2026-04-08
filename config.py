@@ -11,6 +11,23 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
+# 尝试加载 .env 文件
+def load_dotenv(filepath=".env"):
+    if os.path.exists(filepath):
+        with open(filepath, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip("'\"")
+                    if key not in os.environ:
+                        os.environ[key] = value
+
+load_dotenv()
+
 
 # ═══════════════════════════════════════════
 # 固定标的池 - 仅交易这10只股票

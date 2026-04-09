@@ -1,365 +1,123 @@
-# LP-Agent v2.0
+# LP-Agent v3.0
 
-基于 LLM + ReAct 框架的美股自动交易智能体，通过 LongPort OpenAPI 执行实盘交易。系统采用 **Bear-Case-First** 决策哲学——每次买入前先穷尽风险因素，确认风险可控后才果断行动。
+基于 **Strategic Multi-Agent** 架构的美股自动交易智能体。系统模拟对冲基金运行模式，由 **CIO (首席投资官)** 决策大脑统筹多个**领域专家智能体**，通过 LongPort OpenAPI 执行实盘交易。
+
+系统核心哲学：**Bear-Case-First (风险优先)** —— 所有的买入必须建立在对风险因素的彻底调查和证伪之上。
 
 ---
 
 ## 项目概述
 
-LP-Agent 是一个全自动的美股中长线趋势交易系统。它在交易时段（美东 8:30–17:00）持续运行，每轮执行五个阶段：数据收集、宏观风控评分、候选标的筛选、ReAct 推理决策与交易执行、收盘复盘。所有交易通过 LongPort 券商 API 下单，决策过程完整记录，关键操作实时推送至飞书群。
+LP-Agent v3.0 标志着从“自动化脚本”向“智能化投研系统”的本质跃迁。它不再仅仅是机械地执行规则，而是具备了跨维度思考、识别信息矛盾、以及深度追问的能力。
 
-### 核心特性
+### V3.0 核心突破
 
-- **动态标的池**：每天开盘前，通过搜索工具自动扫描市场热度（高成交量、强动能、重大新闻），动态更新 10-15 只核心交易标的，始终保持对市场焦点的捕捉（同时保留 NVDA, TSLA, AAPL 等核心底仓观察池）
-- **宏观风控引擎**：6 维度加权评分（0–100 分），动态划分 4 级风险状态（LOCKDOWN / CAUTIOUS / NORMAL / FAVORABLE），自动调节仓位上限和交易权限
-- **Bear-Case-First 决策**：LLM 对每只候选标的必须先识别风险因素（Bear Case），再评估正面信号（Bull Case），最后做出买入/持有/卖出决策
-- **多阶段深度分析**：ReAct 推理强制执行 4 阶段工作流——技术面分析 → 基本面+资金面验证 → 消息面+舆情搜索 → 综合研判决策，杜绝仅凭单一维度数据草率决策
-- **多维度技术分析**：趋势（SMA/ADX/Stage2）、动量（RSI/MACD/StochRSI）、波动（布林带/ATR）、量价（OBV/量比）、相对强度（vs SPY）、形态信号，共 6 大维度
-- **多 LLM 支持**：支持 DeepSeek、Google Gemini 作为推理引擎，通过环境变量一键切换
-- **实时信息搜索**：通过 Gemini + Google Search 获取宏观经济、财报日历、地缘政治、个股新闻等实时信息
-- **每日自动复盘**：收盘后（美东 16:30）自动生成结构化复盘报告，评估决策质量和风控系统表现
-- **飞书通知**：交易执行和复盘报告自动推送至飞书群聊
+- **专家协作矩阵 (Expert Matrix)**：引入了三个独立的领域专家，分别负责基本面、技术面和舆情监控，提供深度结构化简报。
+- **CIO 决策中枢**：主 ReAct Agent 升级为 CIO 角色，专注处理专家意见冲突，通过 `identified_conflicts` 机制捕捉“好公司但技术走势差”等潜在陷阱。
+- **混合模型策略 (Hybrid LLM Strategy)**：
+    - **专家层**：默认使用 **Gemini-3-Flash-Preview**（2000+ RPM），实现极致的并行扫描速度和低成本。
+    - **决策层**：使用 **Gemini-3.1-Pro-Preview** (或 DeepSeek-V3)，提供最高等级的逻辑推理和风险研判。
+- **高并发投研链**：通过异步 IO，系统可以在 30 秒内完成对 10+ 只标的的全方位“核磁共振”式体检。
 
 ---
 
-## 架构设计
+## 架构设计 (Strategic Multi-Agent)
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     main.py (主循环)                      │
-│                                                          │
-│  Phase 1: 数据收集 ──→ Phase 2: 风控评分 ──→ Phase 2.5:  │
-│  (账户/行情/搜索)    (MacroRiskManager)    候选标的筛选   │
-│                                                          │
-│  Phase 3: 个股分析 (Map) ──→ Phase 4: 交易决策 (Reduce)  │
-│  (AnalystAgent并发研报)      (ReActAgent执行交易)         │
-│                                                          │
-│                 └──→ Phase 5: 每日复盘 ──┘               │
-│                      (ReviewAgent)                       │
-└─────────────────────────────────────────────────────────┘
-         │                  │                  │
-    ┌────┴────┐       ┌────┴────┐       ┌────┴────┐
-    │  tools  │       │   llm   │       │  agent  │
-    ├─────────┤       ├─────────┤       ├─────────┤
-    │trading  │       │deepseek │       │analyst  │
-    │market   │       │gemini   │       │react    │
-    │search   │       │base     │       │review   │
-    │         │       │         │       │risk_mgr │
-    └─────────┘       └─────────┘       └─────────┘
-         │                                    │
-    ┌────┴────┐                         ┌────┴────┐
-    │LongPort │                         │  data   │
-    │OpenAPI  │                         │trade_log│
-    └─────────┘                         └─────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    Main Loop (V3.0 Engine)                  │
+├─────────────────────────────────────────────────────────────┤
+│ Phase 1: Data Gathering (Account, Market, Scan)             │
+├─────────────────────────────────────────────────────────────┤
+│ Phase 2: Macro Risk Scoring (0-100 Score)                   │
+├───────────────────────────────┬─────────────────────────────┤
+│ Phase 3: EXPERT ORCHESTRATION │ (Parallel Execution)        │
+│ ┌──────────────────────────┐  │ ┌────────────────────────┐  │
+│ │ Fundamental Analyst      │  │ │ Technical Analyst      │  │
+│ │ (PE, PEG, Revenue, SWOT) │  │ │ (Stage 2, RS, MACD...) │  │
+│ └─────────────┬────────────┘  │ └────────────┬───────────┘  │
+│               └───────┬───────┴──────────────┘              │
+│                       ▼                                     │
+│            ┌──────────────────────┐                         │
+│            │  Sentiment Analyst   │                         │
+│            │ (News, FOMO, Reddit) │                         │
+│            └──────────┬───────────┘                         │
+├───────────────────────▼─────────────────────────────────────┤
+│ Phase 4: CIO STRATEGIC DECISION (ReAct Loop)                │
+│ -> Analyze Decision Briefings                               │
+│ -> Resolve Identified Conflicts                             │
+│ -> Execute Precision Trading                                │
+├─────────────────────────────────────────────────────────────┤
+│ Phase 5: Daily Post-Market Review & Memory Compression      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 项目结构
+## 专家团详情
 
-```
-LP_agent_0318/
-├── main.py                 # v2.0 主入口，五阶段执行架构(Multi-Agent Map-Reduce)
-├── LP-Agent.py             # v1.0 原始版本（单文件，已弃用）
-├── config.py               # 配置管理（标的池、风控参数、LLM、复盘等）
-├── logger.py               # 日志模块（按日轮转）
-├── agent/
-│   ├── analyst.py          # 个股分析师智能体（Map阶段，并发生成研报）
-│   ├── react.py            # 基金经理智能体（Reduce阶段，Bear-Case-First 决策执行）
-│   ├── risk_manager.py     # 宏观风控评分引擎（6维度加权）
-│   └── review.py           # 每日复盘智能体
-├── tools/
-│   ├── base.py             # 工具抽象基类与注册表
-│   ├── trading.py          # 交易工具（8个：持仓/余额/下单/报价等）
-│   ├── market_data.py      # 行情数据工具（6个：技术分析/扫描/K线/资金流等）
-│   └── search.py           # 搜索工具（6个：新闻/舆情/分析师/宏观/财报/地缘）
-├── llm/
-│   ├── base.py             # LLM 抽象基类
-│   ├── deepseek.py         # DeepSeek 实现（OpenAI 兼容 API）
-│   └── gemini.py           # Google Gemini 实现（官方 SDK）
-├── notification/
-│   └── feishu.py           # 飞书 Webhook 消息推送
-├── data/
-│   ├── trade_logger.py     # 交易日志记录器（JSON 文件存储）
-│   └── logs/               # 每日交易日志、复盘报告存储目录
-├── requirements.txt        # Python 依赖
-├── Dockerfile              # Docker 镜像构建（v1.0 版本）
-├── start.sh                # 启动脚本（设置环境变量 + 后台运行）
-├── build.sh                # Docker 构建脚本
-├── workflow.md             # 工作流程文档
-└── longport_openapi.md     # LongPort SDK 参考文档
-```
+### 1. 基本面专家 (FundamentalAnalyst)
+- **职责**：挖掘公司核心护城河、估值水平及业绩指引。
+- **核心指标**：PE (TTM), Forward PE, PEG (核心准则), 毛利率趋势, 机构持仓变动。
+- **输出**：`Valuation` (Undervalued / Fair / Overvalued), `Strengths`, `Weaknesses`。
+
+### 2. 技术面专家 (TechnicalAnalyst)
+- **职责**：基于 Mark Minervini 的趋势模板进行形态识别。
+- **核心指标**：Stage 2 确认, 相对强度 (RS vs SPY), SMA 20/50/200 排列, ADX 趋势强度, RSI 状态。
+- **输出**：`TrendStage` (1/2/3/4), `Support/Resistance Levels`, `Key Signals`。
+
+### 3. 舆情专家 (SentimentAnalyst)
+- **职责**：捕捉市场情绪过热或过度恐慌的信号。
+- **核心来源**：X (Twitter), Reddit (WSB), 金融新闻网站。
+- **输出**：`MarketSentiment` (Fear/Neutral/Greed), `Key News Catalysts`。
 
 ---
 
 ## 执行流程
 
-### 五阶段循环
+### CIO 的决策艺术
+在 v3.0 中，主 Agent 的推理逻辑遵循 **"审判"模式**：
 
-每轮交易时段内，系统按以下顺序执行：
-
-**Phase 1 — 数据收集**：自动调用 9 个预执行工具，收集账户持仓、余额、订单、大盘环境（SPY/QQQ 技术面 + LongPort 市场温度）、标的池批量扫描、宏观经济/财报日历/地缘政治新闻。这些数据既作为风控引擎的输入，也作为 LLM 推理的上下文。
-
-**Phase 2 — 风控评分**：MacroRiskManager 基于 Phase 1 的数据，从市场温度（25%）、SPY 技术面（25%）、RSI 广度（15%）、资金流向（15%）、市场情绪（10%）、波动率（10%）六个维度计算加权评分。根据评分自动划分风险级别并设定交易约束：
-
-| 风险级别 | 评分区间 | 行为约束 |
-|----------|----------|----------|
-| LOCKDOWN | 0–30 | 禁止一切新建仓，考虑减仓至 30% 以下 |
-| CAUTIOUS | 30–50 | 仅允许减仓或持有，总仓位限制 50% |
-| NORMAL | 50–70 | 正常交易，仓位按评分动态调整倍率 |
-| FAVORABLE | 70–100 | 环境良好，可积极建仓 |
-
-**Phase 2.5 — 候选标的筛选**：从扫描结果和当前持仓中提取需要逐一分析的标的。所有持仓标的必须进行止损/止盈巡检；在风控允许买入时，具有 Stage2 上升趋势、技术信号、或近期强势的标的被选入买入候选。
-
-**Phase 3 — 个股分析 (Map 阶段)**：AnalystAgent（分析师团队）接收 Phase 2.5 提取的候选标的清单。系统通过并发执行（ThreadPoolExecutor），为每只候选股票指派一个“分析师”，自动调用技术面、基本面、资金面和搜索工具收集数据，并输出结构化的个股研报。研报严格遵循 Bear-Case-First，强制包含看空（Bear Case）和看多（Bull Case）理由及打分（1-10）。
-
-**Phase 4 — 交易决策 (Reduce 阶段)**：ReActAgent（基金经理/Trader）接收完整上下文，包含：Phase 2 的宏观风控状态、Phase 1 收集的账户与持仓数据、以及 Phase 3 生成的所有分析师研报。作为 Reduce 阶段的决策中枢，基金经理**不再亲自收集个股数据**，而是基于风控约束和分析师建议，进行核心推理（Thought），并调用工具（Action）完成精准的仓位计算和下单指令（买入/卖出/止损/止盈）。
-
-**Phase 5 — 每日复盘**：美东 16:30 后自动触发（每天仅一次），ReviewAgent 汇总当日所有风控评分、决策记录、交易记录和错误日志，调用 LLM 生成结构化复盘报告，包括决策质量评估、风控系统评估、改进建议等，并推送至飞书。
-
-### 交易时段与休眠
-
-- **交易时段**（美东 8:30–17:00 工作日）：每 10 分钟执行一轮
-- **非交易时段**：每 10 秒轮询检测（等待进入交易时段）
-- 自动识别 NYSE 假日和周末，假日与周末不执行任何交易逻辑
-
----
-
-## 工具总览
-
-系统共注册 **20 个工具**，分为三类：
-
-### 交易工具（8 个）
-
-| 工具 | 数据来源 | 说明 |
-|------|----------|------|
-| `get_market_status` | 本地计算 | 判断当前交易时段（盘前/盘中/盘后/休市） |
-| `get_positions` | LongPort Trade API | 获取当前 USD 持仓列表 |
-| `get_account_balance` | LongPort Trade API | 获取账户总资产与可用现金 |
-| `get_today_orders` | LongPort Trade API | 获取今日订单记录 |
-| `get_history_orders` | LongPort Trade API | 获取近 N 天历史订单 |
-| `get_quote` | LongPort Quote API | 获取个股实时报价 |
-| `buy_stock` | LongPort Trade API | 买入下单（支持市价单 MO / 限价单 LO） |
-| `sell_stock` | LongPort Trade API | 卖出下单（支持市价单 MO / 限价单 LO） |
-
-### 行情数据工具（6 个）
-
-| 工具 | 数据来源 | 说明 |
-|------|----------|------|
-| `get_technical_analysis` | LongPort Quote API | 个股完整技术分析报告（6 维度指标 + 信号评分） |
-| `scan_watchlist` | LongPort Quote API | 一次性扫描全部 10 只标的池股票的关键技术指标 |
-| `get_kline` | LongPort Quote API | 获取 K 线数据（日/周/月/60 分钟线） |
-| `get_capital_flow` | LongPort Quote API | 资金流向分析（大/中/小单分布 + 主力方向） |
-| `get_fundamentals` | LongPort Quote API | 基本面指标（PE/PB/市值/多周期涨跌幅），支持批量查询 |
-| `get_market_overview` | LongPort Quote API | 大盘环境分析（SPY/QQQ 技术面 + LongPort 市场温度） |
-
-### 搜索工具（6 个）
-
-| 工具 | 数据来源 | 说明 |
-|------|----------|------|
-| `search_stock_news` | Gemini + Google Search | 个股新闻与重大事件 |
-| `search_market_sentiment` | Gemini + Google Search | 社交媒体舆情分析（Reddit/Twitter/StockTwits） |
-| `search_financial_analysis` | Gemini + Google Search | 分析师评级、目标价、机构持仓 |
-| `search_macro_economics` | Gemini + Google Search | 宏观经济信息（带 1 小时缓存） |
-| `search_earnings_calendar` | Gemini + Google Search | 财报日历与业绩数据（带 2 小时缓存） |
-| `search_geopolitical_news` | Gemini + Google Search | 地缘政治新闻与市场影响分析（带 1 小时缓存） |
-
-> 行情数据工具直接通过 LongPort API 获取，不依赖搜索引擎。即使搜索工具因网络问题不可用，核心技术分析能力完全不受影响。搜索工具更多是"锦上添花"——用来确认基本面和新闻面。
-
----
-
-## 买入与卖出策略
-
-### 买入条件（分级制）
-
-**必要条件**（缺一不可）：
-
-1. Stage 2 上升趋势确认（股价 > SMA50 > SMA200）
-2. 风控评分允许买入（NORMAL 或 FAVORABLE）
-3. 周线 RSI(14) 在 35–80 之间
-
-**加分条件**（满足 ≥3 项即可建仓）：
-
-- ADX > 25 且方向多头（趋势有强度）
-- MACD 柱状图为正 或 近期金叉
-- 布林带 %B > 0.3
-- OBV 无看空背离
-- 近期成交量 ≥ 1.2 × 50 日均量
-- 20 日收益跑赢 SPY
-- signal_summary.score ≥ 3
-- 主力资金净流入（`get_capital_flow` 显示 large_net > 0）
-- 分析师评级以买入/增持为主（`search_financial_analysis`）
-
-**建仓规模与加分条件挂钩**：
-
-| 加分项数 | 建仓规模 | 说明 |
-|----------|----------|------|
-| 3 项 | 计划仓位的 40% | 试探性建仓 |
-| 4–5 项 | 计划仓位的 70% | 标准建仓 |
-| 6 项以上 | 计划仓位的 100% | 满额建仓 |
-
-**仓位计算公式**：
-
-```
-预期止损% = max(8%, 2 × ATR%)
-计划仓位金额 = min(可用现金 × 单笔上限% × 风控倍率, 总资产 × 1.5% / 预期止损%)
-实际金额 = 计划仓位金额 × 建仓规模比例
-交易数量 = floor(实际金额 / 当前股价)
-```
-
-### 卖出规则
-
-**硬性止损**：
-
-- 股价从买入价下跌 8%–12% → 立即止损
-- 股价有效跌破 SMA50（连续 2–3 日收盘在下方）
-- 单笔亏损 > 总资产的 1.5% → 强制止损
-- ATR 止损：跌破买入价 - 2×ATR
-
-**移动止盈**：
-
-- 盈利 > 20% 后，止盈线上移至 SMA20
-- 盈利 > 50% 后，止盈线上移至 SMA50
-- 跌破止盈线 → 卖出
+1.  **首查矛盾**：如果基本面显示 `Undervalued` 但技术面显示 `Stage 4`，CIO 会立即启动额外搜索，调查是否有未公开的利空或机构正在大举出货。
+2.  **硬约束过滤**：即便所有专家都看好，只要技术面不符合 `Stage 2` 或股价在 `SMA50` 之下，买入指令将被否决。
+3.  **动态仓位**：根据 `Macro Risk Score` 和专家共鸣程度，自动计算 40% (试探), 70% (标准) 或 100% (满额) 的计划仓位。
 
 ---
 
 ## 快速开始
 
-### 环境要求
-
-- Python 3.10+
-- LongPort 券商账户（需要 App Key / App Secret / Access Token）
-- LLM API Key（DeepSeek 或 Google Gemini 至少一个）
-- （可选）飞书群聊自定义机器人 Webhook URL
-
-### 安装依赖
+### 环境变量更新 (v3.0 推荐)
+为了发挥 V3.0 的最大性能，建议在 `.env` 中同时配置分析师专用模型：
 
 ```bash
-pip install -r requirements.txt
+# ── 主 LLM (用于决策) ──
+LLM_PROVIDER=gemini
+GEMINI_API_KEY="your_pro_key"
+GEMINI_MODEL="gemini-3.1-pro-preview"
+
+# ── 分析师专用 LLM (用于并行扫描) ──
+ANALYST_LLM_PROVIDER=gemini
+ANALYST_GEMINI_API_KEY="your_flash_key" # 可复用同一个 Key
+ANALYST_GEMINI_MODEL="gemini-3-flash-preview" # 2026 最新 Flash 模型
 ```
 
-主要依赖：`longport`、`openai`、`google-genai`、`holidays`、`pytz`、`requests`、`dashscope`、`matplotlib`
-
-### 配置环境变量
-
-在项目根目录创建一个 `.env` 文件，并填入以下内容：
-
-```bash
-# ── LongPort 券商 API ──
-LONGPORT_APP_KEY="your_app_key"
-LONGPORT_APP_SECRET="your_app_secret"
-LONGPORT_ACCESS_TOKEN="your_access_token"
-
-# ── LLM 配置（二选一）──
-LLM_PROVIDER=gemini                       # 或 deepseek
-GEMINI_API_KEY="your_key"                 # 使用 Gemini 时配置（同时用于搜索工具）
-DEEPSEEK_API_KEY="your_key"               # 使用 DeepSeek 时配置
-
-# ── 飞书通知（可选）──
-FEISHU_WEBHOOK_URL="your_webhook_url"
-
-# ── 代理配置（如需翻墙访问 Gemini API）──
-# http_proxy='http://127.0.0.1:7890'
-# https_proxy='http://127.0.0.1:7890'
-```
-
-> **注意：** `config.py` 会在启动时自动读取 `.env` 文件。请确保不要将 `.env` 提交到版本库。
-
-### 启动运行
-
-推荐使用自带的启动脚本（会自动检测并清理旧进程，防止重复启动引起并发冲突）：
-
+### 运行
 ```bash
 chmod +x start.sh
 ./start.sh
 ```
 
-如果需要手动前/后台运行：
-
-```bash
-# 前台运行（调试用）
-python3 main.py
-
-# 后台运行（生产推荐）
-nohup python3 -u main.py >> agent.log 2>&1 &
-```
-
-查看日志：
-
-```bash
-tail -f agent.log               # 实时控制台输出
-tail -f logs/trading_agent.log  # 结构化业务日志
-```
-
-### Docker 部署
-
-```bash
-docker build -t lp-agent .
-docker run -d \
-  -e LONGPORT_APP_KEY=xxx \
-  -e LONGPORT_APP_SECRET=xxx \
-  -e LONGPORT_ACCESS_TOKEN=xxx \
-  -e DEEPSEEK_API_KEY=xxx \
-  lp-agent
-```
-
-> 注意：当前 Dockerfile 针对 v1.0 单文件版本（LP-Agent.py）构建，v2.0 多模块版本的容器化部署需自行调整 Dockerfile。
-
 ---
 
-## 配置参数
-
-所有配置通过环境变量管理，在 `config.py` 中统一定义：
-
-| 配置项 | 环境变量 | 默认值 | 说明 |
-|--------|----------|--------|------|
-| LLM 提供商 | `LLM_PROVIDER` | `deepseek` | 可选 `deepseek` / `gemini` |
-| DeepSeek 模型 | `DEEPSEEK_MODEL` | `deepseek-chat` | DeepSeek 模型名称 |
-| Gemini 模型 | `GEMINI_MODEL` | `gemini-3.1-pro-preview` | Gemini 模型名称 |
-| 最大迭代轮数 | `AGENT_MAX_ITERATIONS` | `10` | ReAct 循环最大步数 |
-| 交易时段休眠 | `SLEEP_INTERVAL_TRADING` | `600` | 每轮间隔（秒） |
-| 非交易时段休眠 | `SLEEP_INTERVAL_NON_TRADING` | `10` | 非交易时段轮询间隔（秒） |
-| 风控-封锁阈值 | `RISK_SCORE_LOCKDOWN` | `30` | 低于此分禁止新建仓 |
-| 风控-谨慎阈值 | `RISK_SCORE_CAUTIOUS` | `50` | 低于此分仅允许减仓 |
-| 风控-正常阈值 | `RISK_SCORE_NORMAL` | `70` | 高于此分可正常建仓 |
-| 复盘开关 | `REVIEW_ENABLED` | `true` | 是否启用每日复盘 |
-| 复盘时间 | `REVIEW_HOUR` / `REVIEW_MINUTE` | `16` / `30` | 美东时间触发复盘 |
-| 日志目录 | `LOG_DIR` | `logs` | 运行日志存储目录 |
-| 日志级别 | `LOG_LEVEL` | `INFO` | 日志级别 |
-
----
-
-## 日志与数据存储
-
-- **运行日志**：`logs/trading_agent.log`（按日轮转，保留 30 天），格式为 `时间 | 级别 | 模块 | 内容`
-- **交易日志**：`data/logs/trade_log_YYYY-MM-DD.json`（每日一文件），包含以下内容：
-  - `risk_scores`：每轮风控评分（分数、级别、6 维度明细）
-  - `decisions`：每次交易决策（标的、动作、推理过程、是否通过审批）
-  - `trades`：实际执行的交易记录（标的、方向、数量、价格、理由）
-  - `errors`：错误信息
-  - `summary`：每日复盘总结
-
----
-
-## 版本演进
-
-**v1.0**（LP-Agent.py）：单文件架构，通过阿里云百炼 Application API 调用 LLM，直接解析 JSON 指令下单，无风控系统和技术分析能力。适合作为概念验证。
-
-**v2.0**（main.py，当前版本）：完整重构为模块化架构，主要改进：
-
-- 五阶段执行流程（数据收集 → 风控评分 → 候选筛选 → ReAct 推理 → 每日复盘）
-- 宏观风控引擎（6 维度加权评分，4 级风险状态，动态仓位约束）
-- Bear-Case-First 决策框架（先风险后机会）
-- 20 个专业工具（交易 8 + 行情 6 + 搜索 6），并对搜索工具加入了智能并发限制与防限流（Rate Limit）机制，避免 API 超限导致的卡死
-- 多 LLM 支持（DeepSeek / Gemini）
-- 支持 `.env` 文件自动读取配置
-- 每日自动复盘系统
-- 飞书实时通知
-- 结构化 JSON 交易日志
+## 项目结构更新
+- `agent/orchestrator.py`: **[New]** 专家团调度中枢。
+- `agent/fundamental_analyst.py`: **[New]** 基本面分析师。
+- `agent/technical_analyst.py`: **[New]** 技术面分析师。
+- `agent/sentiment_analyst.py`: **[New]** 舆情分析师。
+- `agent/schemas.py`: **[New]** 全系统结构化通信协议。
+- `agent/react.py`: **[Upgrade]** 升级为 V3.0 Strategic Brain。
 
 ---
 
 ## 免责声明
-
-本项目仅供学习和研究目的。股票交易存在风险，使用本系统进行实盘交易所产生的一切损失由用户自行承担。请在充分了解风险的前提下谨慎使用。
+本项目仅供学习和研究目的。V3.0 涉及更复杂的模型交互，交易决策可能受到模型幻觉影响。实盘交易风险巨大，请务必在充分了解风险并有专人监控的情况下运行。

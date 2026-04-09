@@ -1,13 +1,13 @@
 """
-LP-Agent v2.0 主入口
-AI自动交易智能体 - 分阶段执行架构 (Map-Reduce)
+LP-Agent v3.0 主入口 (Strategic Multi-Agent)
+AI自动交易智能体 - 专家协作架构
 
 执行流程:
   Phase 1: 数据收集 (预执行工具)
   Phase 2: 风控评分 (MacroRiskManager)
   Phase 2.5: 提取候选 (信号扫描)
-  Phase 3: Map 个股分析 (AnalystAgent 并发深度研报)
-  Phase 4: Reduce 交易决策 (ReActAgent 基金经理决策)
+  Phase 3: Map 专家研报 (ExpertOrchestrator 并发多专家分析)
+  Phase 4: Reduce 战略决策 (ReActAgent CIO 决策)
   Phase 5: 收盘复盘 (16:30 EST 自动触发)
 """
 import signal
@@ -15,6 +15,7 @@ import sys
 import time
 import json
 import logging
+import asyncio
 import concurrent.futures
 from datetime import datetime, time as dt_time
 
@@ -29,8 +30,8 @@ from tools.base import ToolRegistry
 from tools.trading import create_trading_tools
 from tools.search import create_search_tools
 from tools.market_data import create_market_data_tools
-from agent.react import ReActAgent, TRADING_SYSTEM_PROMPT
-from agent.analyst import AnalystAgent
+from agent.react import ReActAgent, STRATEGIC_SYSTEM_PROMPT
+from agent.orchestrator import ExpertOrchestrator
 from agent.risk_manager import get_risk_manager
 from agent.review import ReviewAgent
 from data.trade_logger import get_trade_logger
@@ -101,9 +102,6 @@ def create_llm(llm_config: "LLMConfig"):
 def phase1_collect_data(tool_registry: ToolRegistry, logger: logging.Logger) -> dict:
     """
     Phase 1: 收集背景数据
-
-    预执行一组工具，将结果收集到 dict 中，
-    既作为 RiskManager 的输入，也作为 ReAct 的上下文注入。
     """
     logger.info("[Phase 1] 开始数据收集")
     data = {}
@@ -116,51 +114,23 @@ def phase1_collect_data(tool_registry: ToolRegistry, logger: logging.Logger) -> 
         "get_today_orders",
     ]
     for tool_name in account_tools:
-        tool = tool_registry.get(tool_name)
-        if tool is None:
-            logger.warning(f"工具 {tool_name} 未注册")
-            continue
         try:
             result = tool_registry.execute(tool_name)
             data[tool_name] = result
-            logger.info(f"  {tool_name}: OK")
         except Exception as e:
             data[tool_name] = json.dumps({"error": str(e)})
-            logger.error(f"  {tool_name}: {e}")
 
-    # 2. 大盘环境 + 市场温度（风控评分的核心输入）
+    # 2. 大盘环境 + 市场温度
     try:
         data["get_market_overview"] = tool_registry.execute("get_market_overview")
-        logger.info("  get_market_overview: OK")
     except Exception as e:
         data["get_market_overview"] = json.dumps({"error": str(e)})
-        logger.error(f"  get_market_overview: {e}")
 
     # 3. 标的池快速扫描
     try:
         data["scan_watchlist"] = tool_registry.execute("scan_watchlist")
-        logger.info("  scan_watchlist: OK")
     except Exception as e:
         data["scan_watchlist"] = json.dumps({"error": str(e)})
-        logger.error(f"  scan_watchlist: {e}")
-
-    # 4. 搜索工具（宏观、地缘、财报日历）- 可能失败但不影响核心流程
-    search_tools = [
-        "search_macro_economics",
-        "search_earnings_calendar",
-        "search_geopolitical_news",
-    ]
-    for tool_name in search_tools:
-        tool = tool_registry.get(tool_name)
-        if tool is None:
-            continue
-        try:
-            result = tool_registry.execute(tool_name)
-            data[tool_name] = result
-            logger.info(f"  {tool_name}: OK")
-        except Exception as e:
-            data[tool_name] = json.dumps({"error": str(e)})
-            logger.warning(f"  {tool_name}: {e} (搜索工具失败不影响核心流程)")
 
     logger.info(f"[Phase 1] 数据收集完成，共 {len(data)} 项")
     return data
@@ -173,524 +143,219 @@ def phase1_collect_data(tool_registry: ToolRegistry, logger: logging.Logger) -> 
 def phase2_risk_scoring(collected_data: dict, config: AppConfig, logger: logging.Logger) -> dict:
     """
     Phase 2: 宏观风控评分
-
-    解析 Phase 1 收集的数据，计算综合风控评分。
     """
     logger.info("[Phase 2] 开始风控评分")
-
     risk_manager = get_risk_manager(config.risk)
-
-    # 构建 RiskManager 需要的数据结构
+    
     risk_input = {}
-
-    # 解析 market_overview
     market_raw = collected_data.get("get_market_overview", "{}")
     try:
-        market_data = json.loads(market_raw) if isinstance(market_raw, str) else market_raw
+        market_data = json.loads(market_raw)
         risk_input["indexes"] = market_data.get("indexes", {})
         risk_input["market_temperature"] = market_data.get("market_temperature", {})
-        risk_input["market_verdict"] = market_data.get("market_verdict", "")
     except Exception:
-        risk_input["indexes"] = {}
-        risk_input["market_temperature"] = {}
+        pass
 
-    # 解析 watchlist scan
     scan_raw = collected_data.get("scan_watchlist", "{}")
     try:
-        scan_data = json.loads(scan_raw) if isinstance(scan_raw, str) else scan_raw
+        scan_data = json.loads(scan_raw)
         risk_input["watchlist_scan"] = scan_data.get("watchlist_scan", [])
     except Exception:
-        risk_input["watchlist_scan"] = []
+        pass
 
-    # 计算评分
     risk_result = risk_manager.calculate_risk_score(risk_input)
-
     logger.info(f"[Phase 2] 风控评分: {risk_result['score']}/100 ({risk_result['regime']})")
-    logger.info(f"  约束: {risk_result['constraints']['message']}")
-
     return risk_result
 
 
 # ═══════════════════════════════════════════
-# Phase 2.5: 提取行动候选清单
+# Phase 2.5: 提取候选
 # ═══════════════════════════════════════════
 
-def phase2_5_extract_candidates(
-    collected_data: dict,
-    risk_result: dict,
-    logger: logging.Logger,
-) -> str:
+def phase2_5_extract_candidates(collected_data: dict, risk_result: dict, logger: logging.Logger) -> list:
     """
-    Phase 2.5: 从 scan_watchlist 结果中提取行动候选清单
-
-    将有信号的标的 + 所有持仓标的组织成结构化文本，
-    注入 ReAct 提示词强制 LLM 逐一分析。
+    Phase 2.5: 提取需要专家分析的候选标的
     """
-    if logger is None:
-        logger = logging.getLogger(__name__)
     logger.info("[Phase 2.5] 提取行动候选清单")
-
     candidates = []
-    regime = risk_result.get("regime", "normal")
     allow_buy = risk_result.get("constraints", {}).get("allow_new_buy", False)
 
-    # 1. 从持仓中提取（无论风控状态，持仓都必须巡检）
+    # 1. 持仓必选
     positions_raw = collected_data.get("get_positions", "{}")
     try:
-        pos_data = json.loads(positions_raw) if isinstance(positions_raw, str) else positions_raw
+        pos_data = json.loads(positions_raw)
         for pos in pos_data.get("positions", []):
             sym = pos.get("symbol", "")
             if sym in WATCHLIST:
-                candidates.append({
-                    "symbol": sym,
-                    "reason": f"当前持仓 {pos.get('quantity', '?')}股, 成本${pos.get('cost_price', '?')}",
-                    "action_type": "持仓巡检（检查止损/止盈）",
-                })
+                candidates.append({"symbol": sym, "type": "POSITION"})
     except Exception:
         pass
 
-    # 2. 从 scan_watchlist 中提取有信号的标的（仅当允许买入时）
+    # 2. 信号筛选
     if allow_buy:
         scan_raw = collected_data.get("scan_watchlist", "{}")
         try:
-            scan_data = json.loads(scan_raw) if isinstance(scan_raw, str) else scan_raw
+            scan_data = json.loads(scan_raw)
             held_symbols = {c["symbol"] for c in candidates}
-
             for item in scan_data.get("watchlist_scan", []):
                 sym = item.get("symbol", "")
-                if sym in held_symbols:
-                    continue  # 已在持仓巡检中
-
-                flags = item.get("flags", [])
-                stage2 = item.get("stage2", False)
-                rsi = item.get("rsi_14")
-                ret = item.get("return_20d_pct")
-
-                # 选入条件：Stage2 或 有技术信号 或 近期涨幅较好
-                should_include = (
-                    stage2
-                    or len(flags) > 0
-                    or (ret is not None and ret > 3)
-                    or (rsi is not None and 40 <= rsi <= 70)
-                )
-
-                if should_include:
-                    reason_parts = []
-                    if stage2:
-                        reason_parts.append("Stage2上升趋势")
-                    if flags:
-                        reason_parts.append(f"信号: {', '.join(flags)}")
-                    if ret is not None:
-                        reason_parts.append(f"20日涨幅{ret:+.1f}%")
-                    if rsi is not None:
-                        reason_parts.append(f"RSI={rsi:.0f}")
-
-                    candidates.append({
-                        "symbol": sym,
-                        "reason": " | ".join(reason_parts) if reason_parts else "标的池成员",
-                        "action_type": "买入机会评估",
-                    })
+                if sym in held_symbols: continue
+                if item.get("needs_attention"):
+                    candidates.append({"symbol": sym, "type": "SIGNAL"})
         except Exception:
             pass
-
-    # 3. 如果允许买入但没有任何候选，强制加入 signal_summary.score 最高的前3只
-    if allow_buy and not any(c["action_type"] == "买入机会评估" for c in candidates):
-        try:
-            scan_data = json.loads(collected_data.get("scan_watchlist", "{}"))
-            held_symbols = {c["symbol"] for c in candidates}
-            scan_items = [
-                item for item in scan_data.get("watchlist_scan", [])
-                if item.get("symbol") not in held_symbols and item.get("stage2")
-            ]
-            # 按 return_20d_pct 排序
-            scan_items.sort(key=lambda x: x.get("return_20d_pct", -999), reverse=True)
-            for item in scan_items[:3]:
-                candidates.append({
-                    "symbol": item["symbol"],
-                    "reason": f"Stage2 | 20日涨幅{item.get('return_20d_pct', 0):+.1f}% (强制候选)",
-                    "action_type": "买入机会评估",
-                })
-        except Exception:
-            pass
-
-    # 4. 格式化输出
-    logger.info(f"[Phase 2.5] 候选清单: {len(candidates)} 只")
-    for c in candidates:
-        logger.info(f"  {c['symbol']}: {c['action_type']} - {c['reason']}")
 
     return candidates
 
 
-def phase3_map_analyst(
+# ═══════════════════════════════════════════
+# Phase 3: Map 专家研报
+# ═══════════════════════════════════════════
+
+async def phase3_map_experts(
     candidates: list,
-    analyst_llm,  # 使用专用的分析师LLM
-    tool_registry: ToolRegistry,
+    orchestrator: ExpertOrchestrator,
+    risk_result: dict,
     logger: logging.Logger,
 ) -> str:
     """
-    Phase 3: Map 阶段 (个股分析师)
-    并发获取数据并调用 Analyst Agent 生成个股研报
+    Phase 3: 调用专家团生成决策简报
     """
-    analyst_agent = AnalystAgent(analyst_llm, logger)
-    
     if not candidates:
-        return "当前无候选标的：无持仓且风控不允许买入，或标的池全部处于弱势。"
+        return "[]"
 
-    def analyze_single_stock(candidate):
-        sym = candidate["symbol"]
-        logger.info(f"正在收集 [{sym}] 的数据...")
-        
-        # 收集该股票的数据
-        data_parts = []
-        tools_to_run = [
-            ("get_technical_analysis", {"symbol": sym}),
-            ("get_fundamentals", {"symbols": sym}),
-            ("get_capital_flow", {"symbol": sym}),
-            ("search_stock_news", {"symbol": sym, "focus": "general"}),
-            ("search_financial_analysis", {"symbol": sym, "analysis_type": "rating"})
-        ]
-        
-        for tool_name, params in tools_to_run:
-            try:
-                res = tool_registry.execute(tool_name, **params)
-                data_parts.append(f"【{tool_name}】\n{res}")
-            except Exception as e:
-                data_parts.append(f"【{tool_name}】 获取失败: {e}")
-                
-        stock_data = "\n\n".join(data_parts)
-        report = analyst_agent.analyze(sym, stock_data)
-        report["action_type"] = candidate["action_type"]
-        report["reason"] = candidate["reason"]
-        return report
-
-    logger.info(f"[Phase 3] 开始 Map 阶段: 并发分析 {len(candidates)} 只个股")
-    reports = []
+    logger.info(f"[Phase 3] 开始并行专家分析: {len(candidates)} 只个股")
     
-    # 限制并发数为 3 以防止 Gemini API 限流
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [executor.submit(analyze_single_stock, c) for c in candidates]
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                reports.append(future.result())
-            except Exception as e:
-                logger.error(f"分析个股时出错: {e}")
+    macro_briefing = {
+        "risk_level": risk_result["regime"].upper(),
+        "score": risk_result["score"],
+        "summary": risk_result["constraints"]["message"],
+        "key_events": []
+    }
 
-    # 将报告格式化为文本供 Trader Agent 使用
-    lines = [f"共 {len(reports)} 份个股分析师报告：\n"]
-    for r in reports:
-        lines.append(f"### {r.get('symbol', 'Unknown')} [{r.get('action_type', '')}]")
-        lines.append(f"- 入选原因: {r.get('reason', '')}")
-        lines.append(f"- 分析师评分: {r.get('score', 5)}/10")
-        lines.append(f"- 建议动作: {r.get('recommendation', 'HOLD')}")
-        lines.append(f"- Bull Case (利好): {r.get('bull_case', '')}")
-        lines.append(f"- Bear Case (风险): {r.get('bear_case', '')}\n")
-        
-    return "\n".join(lines)
+    tasks = [orchestrator.get_full_briefing(c["symbol"], macro_briefing) for c in candidates]
+    briefings = await asyncio.gather(*tasks)
+    
+    return json.dumps(briefings, ensure_ascii=False, indent=2)
 
 
-def phase4_react_reasoning(
+# ═══════════════════════════════════════════
+# Phase 4: Reduce 战略决策
+# ═══════════════════════════════════════════
+
+async def phase4_strategic_decision(
     agent: ReActAgent,
     collected_data: dict,
-    risk_result: dict,
-    analyst_reports: str,
+    briefings_json: str,
     logger: logging.Logger,
 ) -> str:
     """
-    Phase 4: Reduce 阶段 (基金经理/交易员)
-    结合风控结果和个股研报，进行最终决策和交易
+    Phase 4: 主决策智能体执行决策
     """
-    if logger is None:
-        logger = logging.getLogger(__name__)
-    logger.info("[Phase 4] 开始 Trader 决策推理")
-
-    risk_manager = get_risk_manager()
-    risk_context = risk_manager.get_risk_summary()
-
-    result = agent.run(
-        risk_context=risk_context,
-        pre_executed_data=collected_data,
-        action_candidates=analyst_reports,
+    logger.info("[Phase 4] 开始 CIO 战略决策推理")
+    result = await agent.run(
+        decision_briefings_json=briefings_json,
+        pre_executed_data=collected_data
     )
-
-    logger.info("[Phase 4] Trader 推理完成")
     return result
 
 
-# ═══════════════════════════════════════════
-# Phase 5: 收盘复盘
-# ═══════════════════════════════════════════
-
-def phase5_daily_review(review_agent: ReviewAgent, logger: logging.Logger) -> str:
-    """
-    Phase 5: 每日复盘
-
-    仅在收盘后触发一次。
-    """
-    logger.info("[Phase 5] 开始每日复盘")
-    report = review_agent.run()
-    logger.info("[Phase 5] 复盘完成")
-    return report
-
-
-# ═══════════════════════════════════════════
-# 主函数
-# ═══════════════════════════════════════════
-
-def update_dynamic_watchlist(logger: logging.Logger):
-    """动态选股器：每天根据市场热度更新观察列表"""
-    try:
-        from tools.search import get_search_client
-        from config import WATCHLIST
-        
-        client = get_search_client()
-        query = "List the top 15 most active US stocks today with high trading volume, strong momentum, or breaking news. Just list the ticker symbols."
-        system_prompt = "You are a quantitative stock scanner. Only output a comma-separated list of 10-15 US stock symbols (e.g. AAPL, NVDA, TSLA). Do not output any other text."
-        
-        logger.info("开始执行动态选股扫描...")
-        result = client.search(query, system_prompt)
-        
-        import re
-        symbols = re.findall(r'\b[A-Z]{2,5}\b', result.upper())
-        
-        new_watchlist = []
-        for sym in symbols:
-            if sym not in new_watchlist and sym not in ['NYSE', 'NASDAQ', 'ETF', 'THE', 'AND', 'FOR', 'ARE']:
-                new_watchlist.append(sym)
-                
-        if len(new_watchlist) >= 5:
-            WATCHLIST.clear()
-            # 始终保留几个核心标的
-            core_symbols = ["NVDA", "TSLA", "AAPL", "MSFT"]
-            final_list = list(set(core_symbols + new_watchlist))[:15]
-            WATCHLIST.extend(final_list)
-            logger.info(f"动态标的池已更新 (共 {len(WATCHLIST)} 只): {WATCHLIST}")
-        else:
-            logger.warning(f"动态选股器未能提取足够的代码，保持原标的池。解析结果: {result}")
-            
-    except Exception as e:
-        logger.warning(f"动态选股器执行失败: {e}")
-
 def main():
-    """主函数"""
     # 信号处理
     def _graceful_shutdown(signum, frame):
         raise KeyboardInterrupt
-
     signal.signal(signal.SIGTERM, _graceful_shutdown)
-    signal.signal(signal.SIGHUP, _graceful_shutdown)
 
     # 加载配置
     import os
-    llm_provider = os.getenv("LLM_PROVIDER", "deepseek")
-    config = AppConfig.from_env(llm_provider)
+    config = AppConfig.from_env(os.getenv("LLM_PROVIDER", "gemini"))
     config.longport.to_env()
-
-    # 设置日志
-    logger = setup_logger("trading_agent", config.log)
+    logger = setup_logger("strategic_agent", config.log)
+    
     logger.info("=" * 60)
-    logger.info("LP-Agent v2.0 启动")
-    logger.info(f"LLM: {config.llm.provider} / {config.llm.model}")
-    logger.info(f"标的池: {', '.join(WATCHLIST)}")
-    logger.info(f"交易间隔: {config.agent.sleep_interval_trading}s")
-    logger.info(f"风控阈值: lockdown<{config.risk.score_lockdown} | cautious<{config.risk.score_cautious} | normal<{config.risk.score_normal}")
-    logger.info(f"复盘时间: {config.review.trigger_time_hour}:{config.review.trigger_time_minute:02d} ET")
+    logger.info("LP-Agent v3.0 (Strategic Multi-Agent) 启动")
     logger.info("=" * 60)
 
-    # 验证配置
-    if not config.llm.api_key:
-        logger.error(f"未配置 {config.llm.provider.upper()}_API_KEY")
-        sys.exit(1)
-
-    if config.llm.provider == "gemini":
-        logger.warning("="*60)
-        logger.warning("注意: 您正在使用 Gemini API。")
-        logger.warning("免费版 Gemini API (gemini-pro) 有严格的请求频率和每日配额限制 (约250次/天)。")
-        logger.warning("对于需要长时间运行的交易代理，这很容易导致 '429 RESOURCE_EXHAUSTED' 错误。")
-        logger.warning("如果遇到此问题，建议在 .env 文件中设置 'LLM_PROVIDER=deepseek' 以获得更稳定的体验。")
-        logger.warning("="*60)
-
-    # 创建 LLM
     try:
-        # 主LLM (决策)
         primary_llm = create_llm(config.llm)
-        logger.info(f"主LLM初始化成功: {primary_llm.get_provider_name()} ({config.llm.model})")
-
-        # 分析师LLM (研报) - 如果未配置，则复用主LLM
-        analyst_llm = None
-        if config.analyst_llm:
-            analyst_llm = create_llm(config.analyst_llm)
-            logger.info(f"分析师LLM初始化成功: {analyst_llm.get_provider_name()} ({config.analyst_llm.model})")
-        else:
-            analyst_llm = primary_llm
-            logger.info("未配置分析师LLM，将复用主LLM进行分析")
-            
+        analyst_llm = create_llm(config.analyst_llm) if config.analyst_llm else primary_llm
+        logger.info(f"LLM初始化成功: Primary({primary_llm.model}), Analyst({analyst_llm.model})")
     except Exception as e:
-        logger.error(f"LLM初始化失败: {e}", exc_info=True)
+        logger.error(f"LLM初始化失败: {e}")
         sys.exit(1)
 
-    # 创建工具注册表
+    # 初始化组件
     tool_registry = ToolRegistry()
+    tool_registry.register_all(create_trading_tools())
+    tool_registry.register_all(create_market_data_tools())
+    tool_registry.register_all(create_search_tools())
 
-    trading_tools = create_trading_tools()
-    tool_registry.register_all(trading_tools)
-    logger.info(f"已注册 {len(trading_tools)} 个交易工具")
-
-    try:
-        market_data_tools = create_market_data_tools()
-        tool_registry.register_all(market_data_tools)
-        logger.info(f"已注册 {len(market_data_tools)} 个行情数据工具")
-    except Exception as e:
-        logger.warning(f"行情数据工具初始化失败: {e}")
-
-    try:
-        search_tools = create_search_tools()
-        tool_registry.register_all(search_tools)
-        logger.info(f"已注册 {len(search_tools)} 个搜索工具")
-    except Exception as e:
-        logger.warning(f"搜索工具初始化失败: {e}")
-
-    logger.info(f"工具总数: {len(tool_registry)}")
-
-    # 飞书通知器
-    feishu_notifier = None
-    if config.feishu.enabled:
-        try:
-            feishu_notifier = FeishuNotifier(webhook_url=config.feishu.webhook_url)
-            logger.info("飞书通知器初始化成功")
-        except Exception as e:
-            logger.warning(f"飞书通知器初始化失败: {e}")
-
-    # 预执行工具列表（这些工具在 Phase 1 中执行，不在 ReAct 中重复）
-    pre_run_tool_names = [
-        "get_market_status",
-        "get_positions",
-        "get_account_balance",
-        "get_today_orders",
-        "get_market_overview",
-        "scan_watchlist",
-        "search_macro_economics",
-        "search_earnings_calendar",
-        "search_geopolitical_news",
-    ]
-
-    # 创建交易记忆模块
+    orchestrator = ExpertOrchestrator(llm=analyst_llm)
     trading_memory = get_trading_memory()
-    logger.info(f"交易记忆初始化完成: {trading_memory.get_rules_count()} 条规则, {trading_memory.get_summaries_count()} 天摘要")
+    feishu_notifier = FeishuNotifier(webhook_url=config.feishu.webhook_url) if config.feishu.enabled else None
 
-    # 创建 ReAct Agent
     agent = ReActAgent(
-        llm=primary_llm,  # 使用主LLM
+        llm=primary_llm,
         tool_registry=tool_registry,
-        system_prompt=TRADING_SYSTEM_PROMPT,
-        max_iterations=config.agent.max_iterations,
-        pre_run_tools=pre_run_tool_names,
+        system_prompt=STRATEGIC_SYSTEM_PROMPT,
         feishu_notifier=feishu_notifier,
         trading_memory=trading_memory,
-        logger=logger,
+        logger=logger
     )
-    logger.info("ReAct Agent v2.0 初始化完成")
 
-    # 创建 Review Agent
-    review_agent = ReviewAgent(
-        llm=primary_llm,  # 使用主LLM
-        config=config.review,
-        feishu_notifier=feishu_notifier,
-        trading_memory=trading_memory,
-        logger_instance=logger,
-    )
-    logger.info("Review Agent 初始化完成")
-
-    # 交易日志
+    review_agent = ReviewAgent(llm=primary_llm, config=config.review, feishu_notifier=feishu_notifier, trading_memory=trading_memory, logger_instance=logger)
     trade_logger = get_trade_logger()
 
     # ── 主循环 ──
     eastern = pytz.timezone('US/Eastern')
-    beijing = pytz.timezone('Asia/Shanghai')
-    last_date = None  # 用于检测日期变更，重置复盘标志
+    last_date = None
 
     while True:
         try:
             current_time = datetime.now(eastern)
-            beijing_time = datetime.now(beijing)
             current_date = current_time.strftime('%Y-%m-%d')
 
-            # 日期变更：重置复盘标志并更新标的池
             if current_date != last_date:
                 review_agent.reset_daily_flag()
                 last_date = current_date
                 logger.info(f"新交易日: {current_date}")
-                update_dynamic_watchlist(logger)
 
-            logger.info("=" * 60)
-            logger.info(
-                f"新一轮 | 美东: {current_time.strftime('%Y-%m-%d %H:%M:%S')} "
-                f"| 北京: {beijing_time.strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-
-            # 检查是否在交易时段
             if not is_trading_hours(current_time):
-                # ── Phase 5: 检查是否需要复盘 ──
                 if review_agent.should_run():
-                    try:
-                        review_report = phase5_daily_review(review_agent, logger)
-                        logger.info(f"复盘报告:\n{review_report}")
-                    except Exception as e:
-                        logger.error(f"复盘执行出错: {e}", exc_info=True)
-                        trade_logger.log_error("daily_review", str(e))
+                    phase5_daily_review(review_agent, logger)
                 else:
-                    logger.info("非交易时段，跳过")
+                    logger.info("非交易时段，休眠中...")
             else:
-                def run_core_phases():
-                    # ── Phase 1: 数据收集 ──
+                async def run_cycle():
+                    # Phase 1: 收集
                     collected_data = phase1_collect_data(tool_registry, logger)
-
-                    # ── Phase 2: 风控评分 ──
+                    # Phase 2: 风控
                     risk_result = phase2_risk_scoring(collected_data, config, logger)
-
-                    # ── Phase 2.5: 提取行动候选清单 ──
+                    # Phase 2.5: 候选
                     candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
-
-                    # ── Phase 3: Map 个股分析师 ──
-                    analyst_reports = phase3_map_analyst(candidates, analyst_llm, tool_registry, logger)
-
-                    # ── Phase 4: Reduce 交易员推理 ──
-                    return phase4_react_reasoning(agent, collected_data, risk_result, analyst_reports, logger)
+                    # Phase 3: 专家 (Map)
+                    briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
+                    # Phase 4: 决策 (Reduce)
+                    return await phase4_strategic_decision(agent, collected_data, briefings_json, logger)
 
                 try:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(run_core_phases)
-                        result = future.result(timeout=600)  # 10分钟超时
-                    logger.info(f"本轮结果:\n{result}")
-                except concurrent.futures.TimeoutError:
-                    logger.error("主循环核心执行超时 (超过 10 分钟)，强制结束本次循环防卡死")
+                    loop = asyncio.get_event_loop()
+                    result = loop.run_until_complete(run_cycle())
+                    logger.info(f"本轮决策结论:\n{result}")
                 except Exception as e:
-                    logger.error(f"主循环核心执行异常: {e}", exc_info=True)
-                    trade_logger.log_error("core_phases_error", str(e))
+                    logger.error(f"主循环执行异常: {e}", exc_info=True)
+                    trade_logger.log_error("cycle_error", str(e))
 
-            # 休眠
-            sleep_seconds = get_sleep_interval(config, current_time)
-            next_time = datetime.now(beijing)
-            logger.info(
-                f"休眠 {sleep_seconds}s | "
-                f"下次约 北京 {next_time.strftime('%H:%M:%S')} 之后"
-            )
-            logger.info("=" * 60)
-
-            time.sleep(sleep_seconds)
+            time.sleep(get_sleep_interval(config, current_time))
 
         except KeyboardInterrupt:
             logger.info("收到中断信号，正在退出...")
             break
         except Exception as e:
             logger.error(f"主循环出错: {e}", exc_info=True)
-            try:
-                trade_logger.log_error("main_loop", str(e))
-            except Exception:
-                pass
             time.sleep(60)
 
-    logger.info("LP-Agent v2.0 已退出")
-
+    logger.info("LP-Agent v3.0 已退出")
 
 if __name__ == "__main__":
     main()

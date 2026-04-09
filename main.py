@@ -327,6 +327,7 @@ def main():
                     logger.info("非交易时段，休眠中...")
             else:
                 async def run_cycle():
+                    nonlocal feishu_notifier
                     # Phase 1: 收集
                     collected_data = phase1_collect_data(tool_registry, logger)
                     # Phase 2: 风控
@@ -335,6 +336,11 @@ def main():
                     candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
                     # Phase 3: 专家 (Map)
                     briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
+                    # 推送选股和专家分析到飞书
+                    if feishu_notifier and candidates:
+                        symbols = [c['symbol'] for c in candidates]
+                        msg = f"🔍 【今日选股巡检】\n标的: {', '.join(symbols)}\n风控评分: {risk_result['score']} ({risk_result['regime']})"
+                        feishu_notifier.send_text(msg)
                     # Phase 4: 决策 (Reduce)
                     return await phase4_strategic_decision(agent, collected_data, briefings_json, logger)
 

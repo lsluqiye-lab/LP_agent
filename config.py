@@ -199,7 +199,7 @@ class LLMConfig:
                 provider="gemini",
                 api_key=os.getenv("GEMINI_API_KEY", ""),
                 base_url=os.getenv("GEMINI_BASE_URL", ""),
-                model=os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview"),
+                model=os.getenv("GEMINI_MODEL", "gemini-3-flash-preview"),
             )
         elif provider == "openai":
             return cls(

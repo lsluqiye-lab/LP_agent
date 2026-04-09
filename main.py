@@ -69,23 +69,26 @@ def get_sleep_interval(config: AppConfig, eastern_time: datetime) -> int:
     return config.agent.sleep_interval_non_trading
 
 
-def create_llm(config: AppConfig):
-    """根据配置创建LLM实例"""
-    provider = config.llm.provider
+def create_llm(llm_config: "LLMConfig"):
+    """根据指定的LLM配置创建LLM实例"""
+    if not llm_config:
+        raise ValueError("LLM配置不能为空")
+        
+    provider = llm_config.provider
     if provider == "deepseek":
         return DeepSeekLLM(
-            api_key=config.llm.api_key,
-            base_url=config.llm.base_url,
-            model=config.llm.model,
-            temperature=config.llm.temperature,
-            max_tokens=config.llm.max_tokens,
+            api_key=llm_config.api_key,
+            base_url=llm_config.base_url,
+            model=llm_config.model,
+            temperature=llm_config.temperature,
+            max_tokens=llm_config.max_tokens,
         )
     elif provider == "gemini":
         return GeminiLLM(
-            api_key=config.llm.api_key,
-            model=config.llm.model,
-            temperature=config.llm.temperature,
-            max_tokens=config.llm.max_tokens,
+            api_key=llm_config.api_key,
+            model=llm_config.model,
+            temperature=llm_config.temperature,
+            max_tokens=llm_config.max_tokens,
         )
     else:
         raise ValueError(f"不支持的LLM提供商: {provider}")
@@ -320,7 +323,7 @@ def phase2_5_extract_candidates(
 
 def phase3_map_analyst(
     candidates: list,
-    llm,
+    analyst_llm,  # 使用专用的分析师LLM
     tool_registry: ToolRegistry,
     logger: logging.Logger,
 ) -> str:
@@ -328,7 +331,7 @@ def phase3_map_analyst(
     Phase 3: Map 阶段 (个股分析师)
     并发获取数据并调用 Analyst Agent 生成个股研报
     """
-    analyst_agent = AnalystAgent(llm, logger)
+    analyst_agent = AnalystAgent(analyst_llm, logger)
     
     if not candidates:
         return "当前无候选标的：无持仓且风控不允许买入，或标的池全部处于弱势。"
@@ -498,12 +501,31 @@ def main():
         logger.error(f"未配置 {config.llm.provider.upper()}_API_KEY")
         sys.exit(1)
 
+    if config.llm.provider == "gemini":
+        logger.warning("="*60)
+        logger.warning("注意: 您正在使用 Gemini API。")
+        logger.warning("免费版 Gemini API (gemini-pro) 有严格的请求频率和每日配额限制 (约250次/天)。")
+        logger.warning("对于需要长时间运行的交易代理，这很容易导致 '429 RESOURCE_EXHAUSTED' 错误。")
+        logger.warning("如果遇到此问题，建议在 .env 文件中设置 'LLM_PROVIDER=deepseek' 以获得更稳定的体验。")
+        logger.warning("="*60)
+
     # 创建 LLM
     try:
-        llm = create_llm(config)
-        logger.info(f"LLM初始化成功: {llm.get_provider_name()}")
+        # 主LLM (决策)
+        primary_llm = create_llm(config.llm)
+        logger.info(f"主LLM初始化成功: {primary_llm.get_provider_name()} ({config.llm.model})")
+
+        # 分析师LLM (研报) - 如果未配置，则复用主LLM
+        analyst_llm = None
+        if config.analyst_llm:
+            analyst_llm = create_llm(config.analyst_llm)
+            logger.info(f"分析师LLM初始化成功: {analyst_llm.get_provider_name()} ({config.analyst_llm.model})")
+        else:
+            analyst_llm = primary_llm
+            logger.info("未配置分析师LLM，将复用主LLM进行分析")
+            
     except Exception as e:
-        logger.error(f"LLM初始化失败: {e}")
+        logger.error(f"LLM初始化失败: {e}", exc_info=True)
         sys.exit(1)
 
     # 创建工具注册表
@@ -557,11 +579,11 @@ def main():
 
     # 创建 ReAct Agent
     agent = ReActAgent(
-        llm=llm,
+        llm=primary_llm,  # 使用主LLM
         tool_registry=tool_registry,
         system_prompt=TRADING_SYSTEM_PROMPT,
         max_iterations=config.agent.max_iterations,
-        pre_run_tools=pre_run_tool_names,  # 标记这些工具已预执行
+        pre_run_tools=pre_run_tool_names,
         feishu_notifier=feishu_notifier,
         trading_memory=trading_memory,
         logger=logger,
@@ -570,7 +592,7 @@ def main():
 
     # 创建 Review Agent
     review_agent = ReviewAgent(
-        llm=llm,
+        llm=primary_llm,  # 使用主LLM
         config=config.review,
         feishu_notifier=feishu_notifier,
         trading_memory=trading_memory,
@@ -629,7 +651,7 @@ def main():
                     candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
 
                     # ── Phase 3: Map 个股分析师 ──
-                    analyst_reports = phase3_map_analyst(candidates, llm, tool_registry, logger)
+                    analyst_reports = phase3_map_analyst(candidates, analyst_llm, tool_registry, logger)
 
                     # ── Phase 4: Reduce 交易员推理 ──
                     return phase4_react_reasoning(agent, collected_data, risk_result, analyst_reports, logger)

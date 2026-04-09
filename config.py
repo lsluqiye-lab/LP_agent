@@ -211,6 +211,37 @@ class LLMConfig:
         else:
             raise ValueError(f"Unknown LLM provider: {provider}")
 
+    @classmethod
+    def from_env_analyst(cls) -> Optional["LLMConfig"]:
+        """从环境变量加载分析师LLM配置（如果存在）"""
+        provider = os.getenv("ANALYST_LLM_PROVIDER")
+        if not provider:
+            return None  # 如果未配置，则返回None
+
+        if provider == "deepseek":
+            return cls(
+                provider="deepseek",
+                api_key=os.getenv("ANALYST_DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_API_KEY", ""),
+                base_url=os.getenv("ANALYST_DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+                model=os.getenv("ANALYST_DEEPSEEK_MODEL", "deepseek-chat"),
+            )
+        elif provider == "gemini":
+            return cls(
+                provider="gemini",
+                api_key=os.getenv("ANALYST_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", ""),
+                base_url=os.getenv("ANALYST_GEMINI_BASE_URL", ""),
+                model=os.getenv("ANALYST_GEMINI_MODEL", "gemini-1.5-flash-latest"),
+            )
+        elif provider == "openai":
+            return cls(
+                provider="openai",
+                api_key=os.getenv("ANALYST_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY", ""),
+                base_url=os.getenv("ANALYST_OPENAI_BASE_URL", "https://api.openai.com/v1"),
+                model=os.getenv("ANALYST_OPENAI_MODEL", "gpt-4-turbo"),
+            )
+        else:
+            raise ValueError(f"Unknown Analyst LLM provider: {provider}")
+
 
 @dataclass
 class LogConfig:
@@ -265,6 +296,7 @@ class AppConfig:
     """应用总配置"""
     longport: LongPortConfig = field(default_factory=LongPortConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
+    analyst_llm: Optional[LLMConfig] = None  # 分析师专用LLM，可选
     log: LogConfig = field(default_factory=LogConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
     feishu: FeishuConfig = field(default_factory=FeishuConfig)
@@ -277,6 +309,7 @@ class AppConfig:
         return cls(
             longport=LongPortConfig.from_env(),
             llm=LLMConfig.from_env(llm_provider),
+            analyst_llm=LLMConfig.from_env_analyst(),
             log=LogConfig.from_env(),
             agent=AgentConfig.from_env(),
             feishu=FeishuConfig.from_env(),

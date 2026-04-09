@@ -150,7 +150,7 @@ def phase2_risk_scoring(collected_data: dict, config: AppConfig, logger: logging
     risk_input = {}
     market_raw = collected_data.get("get_market_overview", "{}")
     try:
-        market_data = json.loads(market_raw)
+        market_data = json.loads(market_raw) if isinstance(market_raw, str) else market_raw
         risk_input["indexes"] = market_data.get("indexes", {})
         risk_input["market_temperature"] = market_data.get("market_temperature", {})
     except Exception:
@@ -158,7 +158,7 @@ def phase2_risk_scoring(collected_data: dict, config: AppConfig, logger: logging
 
     scan_raw = collected_data.get("scan_watchlist", "{}")
     try:
-        scan_data = json.loads(scan_raw)
+        scan_data = json.loads(scan_raw) if isinstance(scan_raw, str) else scan_raw
         risk_input["watchlist_scan"] = scan_data.get("watchlist_scan", [])
     except Exception:
         pass
@@ -183,7 +183,7 @@ def phase2_5_extract_candidates(collected_data: dict, risk_result: dict, logger:
     # 1. 持仓必选
     positions_raw = collected_data.get("get_positions", "{}")
     try:
-        pos_data = json.loads(positions_raw)
+        pos_data = json.loads(positions_raw) if isinstance(positions_raw, str) else positions_raw
         for pos in pos_data.get("positions", []):
             sym = pos.get("symbol", "")
             if sym in WATCHLIST:
@@ -195,7 +195,7 @@ def phase2_5_extract_candidates(collected_data: dict, risk_result: dict, logger:
     if allow_buy:
         scan_raw = collected_data.get("scan_watchlist", "{}")
         try:
-            scan_data = json.loads(scan_raw)
+            scan_data = json.loads(scan_raw) if isinstance(scan_raw, str) else scan_raw
             held_symbols = {c["symbol"] for c in candidates}
             for item in scan_data.get("watchlist_scan", []):
                 sym = item.get("symbol", "")
@@ -260,6 +260,20 @@ async def phase4_strategic_decision(
     return result
 
 
+# ═══════════════════════════════════════════
+# Phase 5: 每日复盘
+# ═══════════════════════════════════════════
+
+def phase5_daily_review(review_agent: ReviewAgent, logger: logging.Logger):
+    """
+    Phase 5: 执行收盘复盘
+    """
+    logger.info("[Phase 5] 开始每日复盘分析")
+    report = review_agent.run()
+    logger.info(f"[Phase 5] 复盘完成，报告已生成并发送")
+    return report
+
+
 def main():
     # 信号处理
     def _graceful_shutdown(signum, frame):
@@ -298,6 +312,7 @@ def main():
         llm=primary_llm,
         tool_registry=tool_registry,
         system_prompt=STRATEGIC_SYSTEM_PROMPT,
+        max_iterations=10,
         feishu_notifier=feishu_notifier,
         trading_memory=trading_memory,
         logger=logger
@@ -309,6 +324,7 @@ def main():
     # ── 主循环 ──
     eastern = pytz.timezone('US/Eastern')
     last_date = None
+    morning_briefing_sent = False
 
     while True:
         try:
@@ -318,6 +334,7 @@ def main():
             if current_date != last_date:
                 review_agent.reset_daily_flag()
                 last_date = current_date
+                morning_briefing_sent = False
                 logger.info(f"新交易日: {current_date}")
 
             if not is_trading_hours(current_time):
@@ -327,7 +344,7 @@ def main():
                     logger.info("非交易时段，休眠中...")
             else:
                 async def run_cycle():
-                    nonlocal feishu_notifier
+                    nonlocal feishu_notifier, morning_briefing_sent
                     # Phase 1: 收集
                     collected_data = phase1_collect_data(tool_registry, logger)
                     # Phase 2: 风控
@@ -336,11 +353,20 @@ def main():
                     candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
                     # Phase 3: 专家 (Map)
                     briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
-                    # 推送选股和专家分析到飞书
-                    if feishu_notifier and candidates:
-                        symbols = [c['symbol'] for c in candidates]
-                        msg = f"🔍 【今日选股巡检】\n标的: {', '.join(symbols)}\n风控评分: {risk_result['score']} ({risk_result['regime']})"
-                        feishu_notifier.send_text(msg)
+                    
+                    # 推送选股和专家分析到飞书 (开盘简报)
+                    if feishu_notifier and candidates and not morning_briefing_sent:
+                        risk_msg = f"🌡️ 【开盘宏观风控简报】\n评分: {risk_result['score']} | 等级: {risk_result['regime']}\n核心逻辑: {risk_result['constraints']['message']}\n"
+                        
+                        cand_details = []
+                        for c in candidates:
+                            reason = "持仓巡检" if c["type"] == "POSITION" else "发现交易信号"
+                            cand_details.append(f"• {c['symbol']} ({reason})")
+                        
+                        selection_msg = "🔍 【今日初始选股清单】\n" + "\n".join(cand_details)
+                        feishu_notifier.send_text(f"{risk_msg}\n{selection_msg}")
+                        morning_briefing_sent = True
+                    
                     # Phase 4: 决策 (Reduce)
                     return await phase4_strategic_decision(agent, collected_data, briefings_json, logger)
 

@@ -40,12 +40,14 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 
 在每一轮思考 (Thought) 中，你必须遵循以下步骤：
 
-1.  **识别矛盾 (Conflict Analysis)**: 观察 `identified_conflicts` 字段。为什么基本面看好但技术面走弱？为什么市场情绪极端贪婪但宏观风险处于 Cautious？**如果专家意见有分歧，你必须通过 `search` 工具调查分歧背后的深层原因。**
-2.  **验证硬指标 (Rule Validation)**:
+1.  **多维质疑 (Skeptical Analysis)**: 不要简单接受专家简报的结论。如果三个专家的观点过于一致，请搜索最新的反面观点（Bear Case）。
+2.  **识别并深度调查矛盾 (Deep Investigation)**: 观察 `identified_conflicts` 字段。**如果专家意见有任何分歧，或者宏观环境与个股表现不符，你必须通过 `search` 工具至少进行 1-2 轮深度调查，挖掘分歧背后的催化剂。**
+3.  **验证硬指标 (Rule Validation)**:
     *   **买入必要条件**: 趋势必须是 **Stage 2**。股价必须在 50 日和 200 日均线之上。
     *   **风控约束**: 宏观风控分数低于 50 时禁止新建仓。
-3.  **计算风险报酬比 (R/R Ratio)**: 基于支撑位和阻力位，评估你的止损空间和获利目标。
-4.  **最终裁决**: 只有当所有风险因素都被识别且在可控范围内时，才发出交易指令。
+4.  **计算风险报酬比 (R/R Ratio)**: 基于支撑位和阻力位，评估你的止损空间和获利目标。
+5.  **不草率结论**: 除非所有关键疑点都已澄清，否则不要停止思考。一个好的决策通常需要 3-5 轮的工具调用来验证数据。
+
 
 ## ═══════════════════════════════════════
 ## 三、 交易执行准则
@@ -122,11 +124,9 @@ class ReActAgent:
         # 2. Render Prompt
         memory_context = self.trading_memory.get_memory_context() if self.trading_memory else "No prior history."
         
-        system_prompt = self.system_prompt.format(
-            tools_section=self._build_tools_section(tools),
-            decision_briefings=decision_briefings_json,
-            memory_context=memory_context
-        )
+        system_prompt = self.system_prompt.replace("{tools_section}", self._build_tools_section(tools)) \
+                                         .replace("{decision_briefings}", decision_briefings_json) \
+                                         .replace("{memory_context}", memory_context)
 
         # 3. Initialize Messages
         messages = [
@@ -143,7 +143,7 @@ class ReActAgent:
         ))
 
         # 4. ReAct Loop
-        executed_tools = []
+        executed_tool_details = []
         self.logger.info("Starting Strategic ReAct Loop...")
 
         for i in range(self.max_iterations):
@@ -155,8 +155,13 @@ class ReActAgent:
                 if not response.has_tool_calls:
                     self.logger.info("Decision loop complete.")
                     final_content = response.content or "No action taken."
-                    if self.feishu_notifier and any(t in ["buy_stock", "sell_stock"] for t in executed_tools):
-                        self.feishu_notifier.send_trading_alert(final_content)
+                    
+                    if self.feishu_notifier and executed_tool_details:
+                        # 构造增强版交易通知
+                        results_str = "\n".join([f"✅ 执行结果: {d['name']} -> {d['result']}" for d in executed_tool_details])
+                        msg = f"⚡ 【交易执行报告】\n\n{final_content}\n\n{results_str}"
+                        self.feishu_notifier.send_text(msg)
+                        
                     return final_content
 
                 # Process Tool Calls
@@ -169,12 +174,15 @@ class ReActAgent:
 
                 for tc in response.tool_calls:
                     self.logger.info(f"Executing: {tc.name}({tc.arguments})")
-                    executed_tools.append(tc.name)
                     
                     try:
                         result = self.tool_registry.execute(tc.name, **tc.arguments)
+                        if tc.name in ["buy_stock", "sell_stock"]:
+                            executed_tool_details.append({"name": tc.name, "result": result})
                     except Exception as e:
                         result = json.dumps({"error": str(e)})
+                        if tc.name in ["buy_stock", "sell_stock"]:
+                            executed_tool_details.append({"name": tc.name, "result": f"FAILED: {str(e)}"})
                     
                     messages.append(ChatMessage(
                         role=Role.TOOL,

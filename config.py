@@ -85,6 +85,9 @@ class RiskConfig:
     score_normal: int = 70        # 高于此分为正常模式
     score_spy_override: int = 40  # SPY技术面硬约束降级阈值
 
+    # 回撤熔断
+    max_daily_drawdown_pct: float = 0.02  # 当日最大回撤熔断阈值 (2%)
+
     # 仓位限制倍率（根据风控评分动态调整）
     # 实际最大仓位 = base_max_position * position_multiplier
     base_max_position_pct: float = 0.30   # 基础单笔最大仓位(占可用现金)

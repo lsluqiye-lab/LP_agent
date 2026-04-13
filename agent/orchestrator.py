@@ -27,21 +27,27 @@ class ExpertOrchestrator:
         self.f_analyst = FundamentalAnalyst(llm)
         self.t_analyst = TechnicalAnalyst(llm)
         self.s_analyst = SentimentAnalyst(llm)
+        # 实盘限流：限制同时分析的个股数量
+        self.semaphore = asyncio.Semaphore(3)
 
     async def get_full_briefing(self, symbol: str, macro_briefing: MacroBriefing) -> DecisionBriefing:
         """
         Runs all expert agents in parallel and assembles the results.
         """
-        logger.info(f"Starting multi-expert analysis for {symbol}...")
-        
-        try:
-            # Parallel execution
-            results = await asyncio.gather(
-                self.f_analyst.analyze(symbol),
-                self.t_analyst.analyze(symbol),
-                self.s_analyst.analyze(symbol),
-                return_exceptions=True
-            )
+        async with self.semaphore:
+            logger.info(f"Starting multi-expert analysis for {symbol}...")
+            
+            try:
+                # 给 API 调用留出一点点喘息时间，避免瞬间突发请求
+                await asyncio.sleep(0.5)
+                
+                # Parallel execution
+                results = await asyncio.gather(
+                    self.f_analyst.analyze(symbol),
+                    self.t_analyst.analyze(symbol),
+                    self.s_analyst.analyze(symbol),
+                    return_exceptions=True
+                )
             
             # Handle potential failures gracefully
             fundamental_res = results[0] if not isinstance(results[0], Exception) else self._get_error_briefing("Fundamental")

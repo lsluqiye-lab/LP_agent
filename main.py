@@ -140,7 +140,7 @@ def phase1_collect_data(tool_registry: ToolRegistry, logger: logging.Logger) -> 
 # Phase 2: 风控评分
 # ═══════════════════════════════════════════
 
-def phase2_risk_scoring(collected_data: dict, config: AppConfig, logger: logging.Logger) -> dict:
+def phase2_risk_scoring(collected_data: dict, config: AppConfig, logger: logging.Logger, daily_start_assets: float = 0) -> dict:
     """
     Phase 2: 宏观风控评分
     """
@@ -163,8 +163,22 @@ def phase2_risk_scoring(collected_data: dict, config: AppConfig, logger: logging
     except Exception:
         pass
 
-    risk_result = risk_manager.calculate_risk_score(risk_input)
-    logger.info(f"[Phase 2] 风控评分: {risk_result['score']}/100 ({risk_result['regime']})")
+    # 获取当前账户净资产
+    account_raw = collected_data.get("get_account_balance", "{}")
+    current_net_assets = 0
+    try:
+        account_data = json.loads(account_raw) if isinstance(account_raw, str) else account_raw
+        current_net_assets = float(account_data.get("net_assets", 0))
+    except Exception:
+        pass
+
+    account_info = {
+        "current_net_assets": current_net_assets,
+        "daily_start_assets": daily_start_assets
+    }
+
+    risk_result = risk_manager.calculate_risk_score(risk_input, account_info)
+    logger.info(f"[Phase 2] 风控评分: {risk_result['score']}/100 ({risk_result['regime']}) | 当前资产: {current_net_assets:.2f} | 开盘基准: {daily_start_assets:.2f}")
     return risk_result
 
 
@@ -325,6 +339,7 @@ def main():
     eastern = pytz.timezone('US/Eastern')
     last_date = None
     morning_briefing_sent = False
+    daily_start_assets = 0
 
     while True:
         try:
@@ -335,8 +350,15 @@ def main():
                 review_agent.reset_daily_flag()
                 last_date = current_date
                 morning_briefing_sent = False
-                logger.info(f"新交易日: {current_date}")
-
+                # 每个交易日开始时，尝试获取当日起始资产基准
+                try:
+                    balance_raw = tool_registry.execute("get_account_balance")
+                    balance_data = json.loads(balance_raw)
+                    daily_start_assets = float(balance_data.get("net_assets", 0))
+                    logger.info(f"新交易日: {current_date} | 开盘资产基准: {daily_start_assets:.2f}")
+                except Exception as e:
+                    logger.error(f"获取开盘资产基准失败: {e}")
+                
             if not is_trading_hours(current_time):
                 if review_agent.should_run():
                     phase5_daily_review(review_agent, logger)
@@ -344,11 +366,11 @@ def main():
                     logger.info("非交易时段，休眠中...")
             else:
                 async def run_cycle():
-                    nonlocal feishu_notifier, morning_briefing_sent
+                    nonlocal feishu_notifier, morning_briefing_sent, daily_start_assets
                     # Phase 1: 收集
                     collected_data = phase1_collect_data(tool_registry, logger)
                     # Phase 2: 风控
-                    risk_result = phase2_risk_scoring(collected_data, config, logger)
+                    risk_result = phase2_risk_scoring(collected_data, config, logger, daily_start_assets)
                     # Phase 2.5: 候选
                     candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
                     # Phase 3: 专家 (Map)

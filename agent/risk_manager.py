@@ -61,12 +61,13 @@ class MacroRiskManager:
     def last_regime(self) -> Optional[str]:
         return self._last_regime
 
-    def calculate_risk_score(self, market_overview: dict) -> dict:
+    def calculate_risk_score(self, market_overview: dict, account_data: Optional[dict] = None) -> dict:
         """
         计算综合风控评分
 
         Args:
             market_overview: get_market_overview 工具返回的解析后 dict
+            account_data: 包含账户资产信息的 dict, e.g., {"current_net_assets": float, "daily_start_assets": float}
 
         Returns:
             {
@@ -118,8 +119,7 @@ class MacroRiskManager:
         else:
             regime = RiskRegime.FAVORABLE
 
-        # ── 硬约束：SPY 技术面过弱时降级 ──
-        # 经验教训：SPY 技术面 < 阈值时即使总分 NORMAL 也不应新建仓
+        # ── 硬约束 1：SPY 技术面过弱时降级 ──
         spy_tech_score = components.get("spy_technical", 50)
         spy_override = False
         if spy_tech_score < cfg.score_spy_override and regime in (RiskRegime.NORMAL, RiskRegime.FAVORABLE):
@@ -127,18 +127,39 @@ class MacroRiskManager:
             spy_override = True
             logger.warning(
                 f"SPY技术面硬约束触发: spy_technical={spy_tech_score:.0f} < {cfg.score_spy_override}, "
-                f"总分 {score} 降级为 CAUTIOUS（禁止新建仓）"
+                f"总分 {score} 降级为 CAUTIOUS"
             )
+
+        # ── 硬约束 2：当日回撤熔断 ──
+        drawdown_override = False
+        drawdown_pct = 0.0
+        if account_data and account_data.get("daily_start_assets") and account_data.get("current_net_assets"):
+            start = account_data["daily_start_assets"]
+            current = account_data["current_net_assets"]
+            if start > 0:
+                drawdown_pct = (start - current) / start
+                if drawdown_pct >= cfg.max_daily_drawdown_pct:
+                    regime = RiskRegime.LOCKDOWN
+                    drawdown_override = True
+                    logger.warning(
+                        f"🔥 触发当日回撤熔断: drawdown={drawdown_pct:.2%} >= {cfg.max_daily_drawdown_pct:.2%}, "
+                        f"强制进入 LOCKDOWN 模式"
+                    )
 
         # ── 计算约束条件 ──
         constraints = self._calculate_constraints(score, regime)
 
-        # 如果被 SPY 硬约束降级，在 message 中标注
+        # 标注硬约束
         if spy_override:
             constraints["spy_technical_override"] = True
             constraints["message"] = (
-                f"CAUTIOUS (score={score}, SPY技术面={spy_tech_score:.0f}<{cfg.score_spy_override} 触发硬约束): "
-                f"SPY 极度弱势，禁止新建仓，仅允许减仓或持有"
+                f"CAUTIOUS (SPY技术面过低): SPY 极度弱势，禁止新建仓"
+            )
+        
+        if drawdown_override:
+            constraints["drawdown_override"] = True
+            constraints["message"] = (
+                f"LOCKDOWN (当日回撤熔断 {drawdown_pct:.2%}): 已达止损上限，禁止所有买入交易"
             )
 
         # 缓存 & 记录

@@ -158,8 +158,22 @@ class ReActAgent:
                     
                     if self.feishu_notifier and executed_tool_details:
                         # 构造增强版交易通知
-                        results_str = "\n".join([f"✅ 执行结果: {d['name']} -> {d['result']}" for d in executed_tool_details])
-                        msg = f"⚡ 【交易执行报告】\n\n{final_content}\n\n{results_str}"
+                        trade_msgs = []
+                        for d in executed_tool_details:
+                            try:
+                                res_obj = json.loads(d["result"])
+                                if res_obj.get("success"):
+                                    side_emoji = "🟢 BUY" if res_obj.get("side") == "Buy" else "🔴 SELL"
+                                    msg = (f"{side_emoji} {res_obj.get('symbol')} | {res_obj.get('quantity')}股 | "
+                                           f"价格: {res_obj.get('price')} | ID: {res_obj.get('order_id')}")
+                                    trade_msgs.append(msg)
+                                else:
+                                    trade_msgs.append(f"❌ 失败: {d['name']} -> {res_obj.get('error')}")
+                            except Exception:
+                                trade_msgs.append(f"❓ 执行结果: {d['name']} -> {d['result'][:100]}...")
+                        
+                        results_str = "\n".join(trade_msgs)
+                        msg = f"⚡ 【LP-Agent 实盘交易报告】\n\nCIO 决策:\n{final_content}\n\n执行详情:\n{results_str}"
                         self.feishu_notifier.send_text(msg)
                         
                     return final_content

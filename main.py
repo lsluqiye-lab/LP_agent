@@ -338,28 +338,44 @@ def main():
     # ── 主循环 ──
     eastern = pytz.timezone('US/Eastern')
     last_date = None
-    morning_briefing_sent = False
     daily_start_assets = 0
+    base_file = "data/daily_base.json"
+
+    # 尝试加载持久化的基准
+    try:
+        if os.path.exists(base_file):
+            with open(base_file, "r") as f:
+                saved_data = json.load(f)
+                if saved_data.get("date") == datetime.now().strftime("%Y-%m-%d"):
+                    daily_start_assets = saved_data.get("base", 0)
+                    logger.info(f"加载持久化资产基准: {daily_start_assets:.2f}")
+    except Exception as e:
+        logger.error(f"加载资产基准文件失败: {e}")
 
     while True:
         try:
-            current_time = datetime.now(eastern)
-            current_date = current_time.strftime('%Y-%m-%d')
+            now = datetime.now(eastern)
+            current_date = now.strftime("%Y-%m-%d")
 
-            if current_date != last_date:
+            # 新交易日重置
+            if last_date != current_date:
                 review_agent.reset_daily_flag()
                 last_date = current_date
                 morning_briefing_sent = False
-                # 每个交易日开始时，尝试获取当日起始资产基准
+
+                # 获取并持久化当日起始资产
                 try:
                     balance_raw = tool_registry.execute("get_account_balance")
                     balance_data = json.loads(balance_raw)
                     daily_start_assets = float(balance_data.get("net_assets", 0))
-                    logger.info(f"新交易日: {current_date} | 开盘资产基准: {daily_start_assets:.2f}")
+                    with open(base_file, "w") as f:
+                        json.dump({"date": current_date, "base": daily_start_assets}, f)
+                    logger.info(f"🚀 新交易日: {current_date} | 已记录资产基准: {daily_start_assets:.2f}")
                 except Exception as e:
-                    logger.error(f"获取开盘资产基准失败: {e}")
-                
-            if not is_trading_hours(current_time):
+                    logger.error(f"更新资产基准失败: {e}")
+
+            if not is_trading_hour(now):
+
                 if review_agent.should_run():
                     phase5_daily_review(review_agent, logger)
                 else:

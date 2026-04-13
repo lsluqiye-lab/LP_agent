@@ -173,7 +173,7 @@ class ReActAgent:
                                 trade_msgs.append(f"❓ 执行结果: {d['name']} -> {d['result'][:100]}...")
                         
                         results_str = "\n".join(trade_msgs)
-                        msg = f"⚡ 【LP-Agent 实盘交易报告】\n\nCIO 决策:\n{final_content}\n\n执行详情:\n{results_str}"
+                        msg = f"⚡ 【实盘测试 | LP-Agent 交易报告】\n\nCIO 决策:\n{final_content}\n\n执行详情:\n{results_str}"
                         self.feishu_notifier.send_text(msg)
                         
                     return final_content

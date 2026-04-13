@@ -369,9 +369,11 @@ class BuyStockTool(BaseTool):
             else:
                 order_params["order_type"] = OrderType.MO
 
-            resp = trade.submit_order(**order_params)
+            # ── 影子实盘逻辑 ──
+            # resp = trade.submit_order(**order_params)
+            mock_order_id = f"MOCK-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-            # 记录交易日志
+            # 记录交易日志 (标记为模拟)
             trade_logger = get_trade_logger()
             latest_risk = trade_logger.get_latest_risk_score()
             risk_score = latest_risk["score"] if latest_risk else 0
@@ -379,22 +381,22 @@ class BuyStockTool(BaseTool):
                 symbol=cut_symbol(full_symbol),
                 side="Buy",
                 quantity=quantity,
-                price=price,
+                price=price or 0.0,
                 order_type=order_type,
-                order_id=resp.order_id,
-                reason=reason,
+                order_id=mock_order_id,
+                reason=f"[SHADOW MODE] {reason}",
                 risk_score=risk_score,
             )
 
             return json.dumps({
                 "success": True,
-                "order_id": resp.order_id,
+                "order_id": mock_order_id,
                 "symbol": cut_symbol(full_symbol),
                 "side": "Buy",
                 "quantity": quantity,
                 "order_type": order_type,
                 "price": price if order_type == "LO" else "市价",
-                "message": f"买入订单已提交: {quantity}股 {symbol}"
+                "message": f"【实盘测试】模拟买入订单已记录: {quantity}股 {symbol}"
             })
 
         except Exception as e:
@@ -469,9 +471,11 @@ class SellStockTool(BaseTool):
             else:
                 order_params["order_type"] = OrderType.MO
 
-            resp = trade.submit_order(**order_params)
+            # ── 影子实盘逻辑 ──
+            # resp = trade.submit_order(**order_params)
+            mock_order_id = f"MOCK-SELL-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-            # 记录交易日志
+            # 记录交易日志 (标记为模拟)
             trade_logger = get_trade_logger()
             latest_risk = trade_logger.get_latest_risk_score()
             risk_score = latest_risk["score"] if latest_risk else 0
@@ -479,22 +483,22 @@ class SellStockTool(BaseTool):
                 symbol=cut_symbol(full_symbol),
                 side="Sell",
                 quantity=quantity,
-                price=price,
+                price=price or 0.0,
                 order_type=order_type,
-                order_id=resp.order_id,
-                reason=reason,
+                order_id=mock_order_id,
+                reason=f"[SHADOW MODE] {reason}",
                 risk_score=risk_score,
             )
 
             return json.dumps({
                 "success": True,
-                "order_id": resp.order_id,
+                "order_id": mock_order_id,
                 "symbol": cut_symbol(full_symbol),
                 "side": "Sell",
                 "quantity": quantity,
                 "order_type": order_type,
                 "price": price if order_type == "LO" else "市价",
-                "message": f"卖出订单已提交: {quantity}股 {symbol}"
+                "message": f"【实盘测试】模拟卖出订单已记录: {quantity}股 {symbol}"
             })
 
         except Exception as e:

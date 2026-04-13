@@ -9,4 +9,7 @@ nohup.out
 data/memory.json
 
 # Environment variables
-.env*
+.env
+.env.local
+.env.production
+!.env.example

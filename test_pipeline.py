@@ -229,7 +229,7 @@ def test_llm(config):
         from main import create_llm
         from llm.base import ChatMessage, Role
 
-        llm = create_llm(config)
+        llm = create_llm(config.llm)
         record("LLM", True, f"LLM 初始化成功: {llm.get_provider_name()} / {config.llm.model}")
 
         # 简单对话测试
@@ -317,10 +317,10 @@ def test_agent(config):
         from main import create_llm
         from tools.base import ToolRegistry
         from tools.trading import create_trading_tools
-        from agent.react import ReActAgent, TRADING_SYSTEM_PROMPT
+        from agent.react import ReActAgent, STRATEGIC_SYSTEM_PROMPT
 
         # 创建 LLM
-        llm = create_llm(config)
+        llm = create_llm(config.llm)
 
         # 只注册交易工具（不注册搜索工具，加快测试速度）
         # 同时排除 buy_stock 和 sell_stock，确保不会实际下单
@@ -336,19 +336,13 @@ def test_agent(config):
         agent = ReActAgent(
             llm=llm,
             tool_registry=tool_registry,
-            system_prompt=TRADING_SYSTEM_PROMPT,
+            system_prompt=STRATEGIC_SYSTEM_PROMPT,
             max_iterations=5,
-            pre_run_tools=[
-                "get_market_status",
-                "get_positions",
-                "get_account_balance",
-                "get_today_orders",
-                "get_history_orders",
-            ],
             logger=None,
         )
         record("Agent", True, "ReAct 智能体初始化成功")
 
+        import asyncio
         # 运行一轮推理
         print("  ⏳ 正在运行 ReAct 推理（最多5轮迭代，预计1-2分钟）...")
         start_time = time.time()
@@ -356,11 +350,14 @@ def test_agent(config):
         mock_risk_context = "风控状态: NORMAL (65/100)\n约束: 允许正常交易，按标准仓位执行。"
         mock_action_candidates = "### AAPL [买入机会评估]\n- 入选原因: Stage2上升趋势 | RSI=60\n- 分析师评分: 8/10\n- 建议动作: BUY\n- Bull Case (利好): AI功能集成带来换机潮。\n- Bear Case (风险): 反垄断诉讼可能带来巨额罚款。\n"
         
-        result = agent.run(
+        # 使用事件循环运行异步函数
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(agent.run(
+            decision_briefings_json=mock_action_candidates,
             risk_context=mock_risk_context,
-            pre_executed_data={"get_account_balance": "{\"net_assets\": 100000, \"total_cash\": 100000}", "get_positions": "{\"positions\": []}"},
-            action_candidates=mock_action_candidates
-        )
+            pre_executed_data={"get_account_balance": "{\"net_assets\": 100000, \"total_cash\": 100000}", "get_positions": "{\"positions\": []}"}
+        ))
         elapsed = time.time() - start_time
 
         agent_result_text = result  # 保存结果

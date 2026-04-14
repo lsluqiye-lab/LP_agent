@@ -339,6 +339,7 @@ def main():
     eastern = pytz.timezone('US/Eastern')
     last_date = None
     daily_start_assets = 0
+    morning_briefing_sent = False
     base_file = "data/daily_base.json"
 
     # 尝试加载持久化的基准
@@ -374,7 +375,7 @@ def main():
                 except Exception as e:
                     logger.error(f"更新资产基准失败: {e}")
 
-            if not is_trading_hour(now):
+            if not is_trading_hours(now):
 
                 if review_agent.should_run():
                     phase5_daily_review(review_agent, logger)
@@ -416,7 +417,7 @@ def main():
                     logger.error(f"主循环执行异常: {e}", exc_info=True)
                     trade_logger.log_error("cycle_error", str(e))
 
-            time.sleep(get_sleep_interval(config, current_time))
+            time.sleep(get_sleep_interval(config, now))
 
         except KeyboardInterrupt:
             logger.info("收到中断信号，正在退出...")

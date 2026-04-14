@@ -369,6 +369,36 @@ class BuyStockTool(BaseTool):
             else:
                 order_params["order_type"] = OrderType.MO
 
+            # ── 影子实盘资金校验 ──
+            try:
+                # 获取可用现金
+                balances = trade.account_balance('USD')
+                available_cash = 0.0
+                for b in balances:
+                    available_cash = float(b.total_cash)
+                    break
+                
+                # 估算成本
+                quote_ctx = QuoteContext(config)
+                q_res = quote_ctx.quote([full_symbol])
+                curr_price = float(q_res[0].last_done) if q_res else (price or 0.0)
+                estimated_cost = curr_price * quantity
+                
+                if available_cash <= 0:
+                    return json.dumps({
+                        "success": False, 
+                        "error": f"账户现金余额为负 (${available_cash:.2f})，存在融资欠款。影子模式下禁止买入以模拟真实风控。"
+                    }, ensure_ascii=False)
+                
+                if estimated_cost > available_cash:
+                     return json.dumps({
+                        "success": False, 
+                        "error": f"可用现金不足。预计需 ${estimated_cost:.2f}，可用现金 ${available_cash:.2f}。"
+                    }, ensure_ascii=False)
+            except Exception as fund_err:
+                # 记录但不中断，防止API波动导致无法测试
+                print(f"Shadow fund check warning: {fund_err}")
+
             # ── 影子实盘逻辑 ──
             # resp = trade.submit_order(**order_params)
             mock_order_id = f"MOCK-{datetime.now().strftime('%Y%m%d%H%M%S')}"

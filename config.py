@@ -33,16 +33,9 @@ load_dotenv()
 # 固定标的池 - 仅交易这10只股票
 # ═══════════════════════════════════════════
 WATCHLIST = [
-    "NVDA",   # NVIDIA - AI算力龙头
-    "TSM",    # 台积电 - 半导体代工垄断
-    "MSFT",   # 微软 - 云+AI双引擎
-    "VRT",    # Vertiv - 数据中心电力基础设施
-    "CEG",    # Constellation Energy - 核电+AI电力需求
-    "LLY",    # 礼来 - GLP-1减肥药龙头
-    "ISRG",   # 直觉外科 - 手术机器人垄断
-    "SPGI",   # 标普全球 - 信用评级+数据垄断
-    "MA",     # 万事达 - 支付网络双寡头
-    "GE",     # GE航空 - 航空发动机垄断
+    "NVDA", "TSM", "MSFT", "VRT", "CEG", "LLY", "ISRG", "SPGI", "MA", "GE",
+    "QUBT", "QBTS", "PLTR", "ORCL", "OKLO", "NOW", "HOOD", "GOOG", "FISV", 
+    "CLF", "BMNR", "ASML", "AMZN", "AMD", "COIN"
 ]
 
 # 标的池对应的 LongPort 代码

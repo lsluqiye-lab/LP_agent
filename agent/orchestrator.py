@@ -34,43 +34,47 @@ class ExpertOrchestrator:
         """
         Runs all expert agents in parallel and assembles the results.
         """
-        async with self.semaphore:
-            logger.info(f"Starting multi-expert analysis for {symbol}...")
-            
-            try:
-                # 给 API 调用留出一点点喘息时间，避免瞬间突发请求
-                await asyncio.sleep(0.5)
+        try:
+            async with self.semaphore:
+                logger.info(f"Starting multi-expert analysis for {symbol}...")
                 
-                # Parallel execution
-                results = await asyncio.gather(
-                    self.f_analyst.analyze(symbol),
-                    self.t_analyst.analyze(symbol),
-                    self.s_analyst.analyze(symbol),
-                    return_exceptions=True
-                )
-            
-            # Handle potential failures gracefully
-            fundamental_res = results[0] if not isinstance(results[0], Exception) else self._get_error_briefing("Fundamental")
-            technical_res = results[1] if not isinstance(results[1], Exception) else self._get_error_briefing("Technical")
-            sentiment_res = results[2] if not isinstance(results[2], Exception) else self._get_error_briefing("Sentiment")
+                try:
+                    # 给 API 调用留出一点点喘息时间，避免瞬间突发请求
+                    await asyncio.sleep(0.5)
+                    
+                    # Parallel execution
+                    results = await asyncio.gather(
+                        self.f_analyst.analyze(symbol),
+                        self.t_analyst.analyze(symbol),
+                        self.s_analyst.analyze(symbol),
+                        return_exceptions=True
+                    )
+                except Exception as e:
+                    logger.error(f"Async gather failed for {symbol}: {e}")
+                    results = [e, e, e]
+                
+                # Handle potential failures gracefully
+                fundamental_res = results[0] if not isinstance(results[0], Exception) else self._get_error_briefing("Fundamental")
+                technical_res = results[1] if not isinstance(results[1], Exception) else self._get_error_briefing("Technical")
+                sentiment_res = results[2] if not isinstance(results[2], Exception) else self._get_error_briefing("Sentiment")
 
-            if any(isinstance(r, Exception) for r in results):
-                for r in results:
-                    if isinstance(r, Exception):
-                        logger.error(f"Expert analysis failed: {r}")
+                if any(isinstance(r, Exception) for r in results):
+                    for r in results:
+                        if isinstance(r, Exception):
+                            logger.error(f"Expert analysis failed: {r}")
 
-            # Assemble
-            briefing: DecisionBriefing = {
-                "symbol": symbol,
-                "timestamp": datetime.now().isoformat(),
-                "macro": macro_briefing,
-                "fundamental": fundamental_res,
-                "technical": technical_res,
-                "sentiment": sentiment_res,
-                "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res)
-            }
-            
-            return briefing
+                # Assemble
+                briefing: DecisionBriefing = {
+                    "symbol": symbol,
+                    "timestamp": datetime.now().isoformat(),
+                    "macro": macro_briefing,
+                    "fundamental": fundamental_res,
+                    "technical": technical_res,
+                    "sentiment": sentiment_res,
+                    "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res)
+                }
+                
+                return briefing
 
         except Exception as e:
             logger.error(f"Orchestration failed for {symbol}: {e}")

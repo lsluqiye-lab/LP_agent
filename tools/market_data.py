@@ -469,9 +469,19 @@ class GetTechnicalAnalysisTool(BaseTool):
             sma200 = calc_sma(closes_d, 200)
             adx_data = calc_adx(highs_d, lows_d, closes_d)
 
-            stage2 = False
-            if sma50 and sma200:
-                stage2 = latest_price > sma50 and sma50 > sma200
+            # 改进的 Stage 判定逻辑
+            # Stage 2: 价格 > SMA50 > SMA200 且 SMA200 向上
+            sma200_prev = calc_sma(closes_d[:-1], 200)
+            sma200_trending_up = (sma200 > sma200_prev) if (sma200 and sma200_prev) else False
+            stage2 = latest_price > sma50 and sma50 > sma200 and sma200_trending_up
+
+            # Stage 1: 筑底阶段判断
+            # 价格在 SMA200 附近震荡 (+/- 10%)，且均线开始走平
+            is_stage1 = False
+            if sma200:
+                dist_from_200 = abs(latest_price - sma200) / sma200
+                if dist_from_200 < 0.15 and not stage2:
+                    is_stage1 = True
 
             trend = {
                 "SMA20": round(sma20, 2) if sma20 else None,
@@ -479,8 +489,10 @@ class GetTechnicalAnalysisTool(BaseTool):
                 "SMA200": round(sma200, 2) if sma200 else None,
                 "price_above_SMA50": latest_price > sma50 if sma50 else None,
                 "price_above_SMA200": latest_price > sma200 if sma200 else None,
+                "sma200_trending_up": sma200_trending_up,
                 "golden_cross": sma50 > sma200 if (sma50 and sma200) else None,
                 "stage2_uptrend": stage2,
+                "is_stage1_basing": is_stage1,
                 "adx": adx_data,
             }
 
@@ -488,6 +500,28 @@ class GetTechnicalAnalysisTool(BaseTool):
             rsi_daily = calc_rsi(closes_d, 14)
             macd_data = calc_macd(closes_d)
             stoch_rsi_data = calc_stoch_rsi(closes_d)
+
+            # 超跌反弹判断
+            oversold_rebound = False
+            if rsi_daily and rsi_daily < 35:
+                if stoch_rsi_data and stoch_rsi_data.get("k_line", 1) < 0.2:
+                    oversold_rebound = True
+
+            momentum = {
+                "RSI_daily_14": rsi_daily,
+                "RSI_weekly_14": rsi_weekly,
+                "weekly_RSI_zone": (
+                    "overbought_danger" if rsi_weekly and rsi_weekly > 80 else
+                    "strong" if rsi_weekly and 50 <= rsi_weekly <= 75 else
+                    "neutral" if rsi_weekly and 30 <= rsi_weekly < 50 else
+                    "weak_avoid" if rsi_weekly and rsi_weekly < 30 else
+                    "elevated" if rsi_weekly and 75 < rsi_weekly <= 80 else
+                    "unknown"
+                ),
+                "macd": macd_data,
+                "stoch_rsi": stoch_rsi_data,
+                "oversold_rebound_potential": oversold_rebound,
+            }
 
             # 周线 RSI
             weekly = ctx.history_candlesticks_by_offset(
@@ -613,8 +647,11 @@ class GetTechnicalAnalysisTool(BaseTool):
         if stage2:
             signals.append("TREND:+2 Stage2上升趋势")
             score += 2
+        elif trend.get("is_stage1_basing"):
+            signals.append("TREND:+1 Stage1筑底/横盘")
+            score += 1
         else:
-            signals.append("TREND:-2 未达Stage2")
+            signals.append("TREND:-2 Stage4下降趋势")
             score -= 2
 
         adx = trend.get("adx")
@@ -623,6 +660,10 @@ class GetTechnicalAnalysisTool(BaseTool):
             score += 1
 
         # 动量
+        if momentum.get("oversold_rebound_potential"):
+            signals.append("MOMO:+2 极度超跌，具备反弹潜力")
+            score += 2
+
         rsi_w = momentum.get("RSI_weekly_14")
         if rsi_w and 50 <= rsi_w <= 75:
             signals.append("RSI:+1 周线强势区")

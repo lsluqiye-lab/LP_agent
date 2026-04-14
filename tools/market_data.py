@@ -507,22 +507,6 @@ class GetTechnicalAnalysisTool(BaseTool):
                 if stoch_rsi_data and stoch_rsi_data.get("k_line", 1) < 0.2:
                     oversold_rebound = True
 
-            momentum = {
-                "RSI_daily_14": rsi_daily,
-                "RSI_weekly_14": rsi_weekly,
-                "weekly_RSI_zone": (
-                    "overbought_danger" if rsi_weekly and rsi_weekly > 80 else
-                    "strong" if rsi_weekly and 50 <= rsi_weekly <= 75 else
-                    "neutral" if rsi_weekly and 30 <= rsi_weekly < 50 else
-                    "weak_avoid" if rsi_weekly and rsi_weekly < 30 else
-                    "elevated" if rsi_weekly and 75 < rsi_weekly <= 80 else
-                    "unknown"
-                ),
-                "macd": macd_data,
-                "stoch_rsi": stoch_rsi_data,
-                "oversold_rebound_potential": oversold_rebound,
-            }
-
             # 周线 RSI
             weekly = ctx.history_candlesticks_by_offset(
                 sym, Period.Week, AdjustType.ForwardAdjust,
@@ -544,6 +528,7 @@ class GetTechnicalAnalysisTool(BaseTool):
                 ),
                 "macd": macd_data,
                 "stoch_rsi": stoch_rsi_data,
+                "oversold_rebound_potential": oversold_rebound,
             }
 
             # ── 4. 波动指标 ──

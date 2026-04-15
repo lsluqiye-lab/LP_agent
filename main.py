@@ -247,6 +247,7 @@ async def phase4_strategic_decision(
     agent: ReActAgent,
     collected_data: dict,
     briefings_json: str,
+    risk_score: float,
     logger: logging.Logger,
 ) -> str:
     """
@@ -255,6 +256,7 @@ async def phase4_strategic_decision(
     logger.info("[Phase 4] 开始 CIO 战略决策推理")
     result = await agent.run(
         decision_briefings_json=briefings_json,
+        risk_score=risk_score,
         pre_executed_data=collected_data
     )
     return result
@@ -299,7 +301,7 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
         morning_briefing_sent = True
     
     # Phase 4: 决策 (Reduce)
-    result = await phase4_strategic_decision(agent, collected_data, briefings_json, logger)
+    result = await phase4_strategic_decision(agent, collected_data, briefings_json, risk_result["score"], logger)
     logger.info(f"本轮决策结论:\n{result}")
     return morning_briefing_sent
 

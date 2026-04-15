@@ -112,24 +112,48 @@ class GetPositionsTool(BaseTool):
     """获取持仓工具"""
 
     name = "get_positions"
-    description = "获取当前账户的股票持仓信息，包括股票代码、持仓数量、成本价等"
+    description = "获取当前账户的股票持仓信息，包括股票代码、持仓数量、成本价、现价以及浮盈百分比"
     parameters = []
 
     def execute(self, **kwargs) -> str:
         try:
             config = get_longport_config()
             trade = TradeContext(config)
+            quote = QuoteContext(config)
 
             position_resp = trade.stock_positions()
             positions = []
+            symbols = []
+
+            # 收集所有股票代码
+            for channel in position_resp.channels:
+                for stock in channel.positions:
+                    if stock.currency == 'USD':
+                        symbols.append(stock.symbol)
+
+            # 批量获取报价
+            quotes_map = {}
+            if symbols:
+                quote_res = quote.quote(symbols)
+                for q in quote_res:
+                    quotes_map[q.symbol] = q.last_done
 
             for channel in position_resp.channels:
                 for stock in channel.positions:
                     if stock.currency == 'USD':
+                        last_done = quotes_map.get(stock.symbol)
+                        cost_price = float(stock.cost_price)
+                        
+                        profit_pct = 0.0
+                        if last_done and cost_price > 0:
+                            profit_pct = (float(last_done) - cost_price) / cost_price * 100
+
                         positions.append({
                             "symbol": cut_symbol(stock.symbol),
                             "quantity": str(stock.available_quantity),
                             "cost_price": str(stock.cost_price),
+                            "last_done": str(last_done) if last_done else "N/A",
+                            "profit_pct": f"{profit_pct:.2f}%",
                             "currency": stock.currency,
                             "market_value": str(stock.market_value) if hasattr(stock, 'market_value') else "N/A"
                         })

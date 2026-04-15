@@ -20,6 +20,7 @@ class TechnicalBriefing(TypedDict):
     """技术面分析"""
     trend_stage: TrendStage
     summary: str  # e.g., "处于强势上升趋势，但RSI指标显示超买"
+    volume_price_analysis: str  # e.g., "放量突破，OBV看多背离，资金流入明显"
     key_signals: List[str]  # e.g., ["RSI > 75", "股价 > 50日均线", "出现口袋支点"]
     support_levels: List[float]
     resistance_levels: List[float]

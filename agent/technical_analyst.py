@@ -49,7 +49,7 @@ class TechnicalAnalyst:
         
         return f"""
 Analyze the technical data for {symbol} and provide a structured briefing.
-Focus on identifying the Mark Minervini 'Stage 2' characteristics, key support/resistance, and momentum signals.
+Focus on identifying the Mark Minervini 'Stage 2' characteristics, key support/resistance, momentum signals, and critically, the Price-Volume (量价) relationship.
 
 TECHNICAL DATA:
 {json.dumps(data, indent=2)}
@@ -57,14 +57,16 @@ TECHNICAL DATA:
 ---
 REQUIREMENTS:
 1. Determine Trend Stage: {trend_options} (Stage 2 is the preferred buying zone).
-2. Identify key signals (e.g., Golden Cross, RSI Divergence, Volume Spikes).
-3. Extract Support and Resistance levels from the price history.
-4. Provide a concise summary of the technical setup.
+2. Analyze Volume-Price Relationship: Check if volume supports the price trend (e.g., high volume on breakouts/green days, low volume on pullbacks/red days), analyze OBV divergence, and volume ratios.
+3. Identify key signals (e.g., Golden Cross, RSI Divergence, Volume Spikes).
+4. Extract Support and Resistance levels from the price history.
+5. Provide a concise summary of the technical setup.
 
 Format as a single JSON object:
 {{
   "trend_stage": "...",
   "summary": "...",
+  "volume_price_analysis": "...",
   "key_signals": ["...", "..."],
   "support_levels": [price1, price2],
   "resistance_levels": [price1, price2]

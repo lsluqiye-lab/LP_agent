@@ -274,6 +274,93 @@ def phase5_daily_review(review_agent: ReviewAgent, logger: logging.Logger):
     return report
 
 
+
+async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent, feishu_notifier, morning_briefing_sent, trade_logger):
+    # Phase 1: 收集
+    collected_data = phase1_collect_data(tool_registry, logger)
+    # Phase 2: 风控
+    risk_result = phase2_risk_scoring(collected_data, config, logger)
+    # Phase 2.5: 候选
+    candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
+    # Phase 3: 专家 (Map)
+    briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
+    
+    # 推送选股和专家分析到飞书 (开盘简报)
+    if feishu_notifier and candidates and not morning_briefing_sent:
+        risk_msg = f"🌡️ 【宏观风控简报】\n评分: {risk_result['score']} | 等级: {risk_result['regime']}\n核心逻辑: {risk_result['constraints']['message']}\n"
+        
+        cand_details = []
+        for c in candidates:
+            reason = "持仓巡检" if c.get("type") == "POSITION" else "发现交易信号"
+            cand_details.append(f"• {c['symbol']} ({reason})")
+        
+        selection_msg = "🔍 【选股清单】\n" + "\n".join(cand_details)
+        feishu_notifier.send_text(f"{risk_msg}\n{selection_msg}")
+        morning_briefing_sent = True
+    
+    # Phase 4: 决策 (Reduce)
+    result = await phase4_strategic_decision(agent, collected_data, briefings_json, logger)
+    logger.info(f"本轮决策结论:\n{result}")
+    return morning_briefing_sent
+
+def watchdog_check(tool_registry, logger):
+    """
+    高频监控 (Watchdog) 层：纯本地计算，不调用大模型。
+    功能：
+    1. 获取当前所有持仓。
+    2. 如果跌破成本价 8%，自动触发生存级市价单硬止损 (Hard Stop)。
+    3. 如果盈利超 15%，触发简易追踪止盈（锁定 5% 利润的止损线）。
+    """
+    try:
+        from tools.market_data import get_quote_ctx, modify_symbol
+        
+        pos_resp = tool_registry.execute("get_positions")
+        pos_data = json.loads(pos_resp)
+        positions = pos_data.get("positions", [])
+        
+        if not positions:
+            return
+            
+        quote_ctx = get_quote_ctx()
+        
+        for pos in positions:
+            symbol = pos["symbol"]
+            qty = float(pos["quantity"])
+            cost = float(pos["cost_price"])
+            
+            if qty <= 0:
+                continue
+                
+            full_symbol = modify_symbol(symbol)
+            quotes = quote_ctx.quote([full_symbol])
+            if not quotes:
+                continue
+            
+            current_price = float(quotes[0].last_done)
+            
+            # 1. 硬止损: 默认买入价跌去 8%
+            hard_stop_price = cost * 0.92
+            
+            # 2. 简易保护止盈: 若已经暴涨超 15%，则底线提高到获利 5%
+            stop_loss_price = cost * 1.05 if current_price > cost * 1.15 else hard_stop_price
+            
+            if current_price < stop_loss_price:
+                action = "锁定利润" if stop_loss_price > cost else "硬止损割肉"
+                logger.warning(f"🚨 [Watchdog] {symbol} 触发{action}! 最新价 ${current_price:.2f} 跌破警戒线 ${stop_loss_price:.2f} (成本: ${cost:.2f})")
+                
+                # 紧急呼叫市价单斩仓
+                sell_resp = tool_registry.execute(
+                    "sell_stock",
+                    symbol=symbol,
+                    quantity=int(qty),
+                    order_type="MO",
+                    reason=f"Watchdog 触发自动{action}: 跌破 {stop_loss_price:.2f}"
+                )
+                logger.info(f"[Watchdog] 斩仓结果: {sell_resp}")
+                
+    except Exception as e:
+        logger.error(f"[Watchdog] 执行异常: {e}")
+
 def main():
     # 信号处理
     def _graceful_shutdown(signum, frame):
@@ -287,7 +374,7 @@ def main():
     logger = setup_logger("strategic_agent", config.log)
     
     logger.info("=" * 60)
-    logger.info("LP-Agent v3.0 (Strategic Multi-Agent) 启动")
+    logger.info("LP-Agent v3.0 (Watchdog + Strategic Brain) 启动")
     logger.info("=" * 60)
 
     try:
@@ -325,6 +412,9 @@ def main():
     eastern = pytz.timezone('US/Eastern')
     last_date = None
     morning_briefing_sent = False
+    
+    # 记录当天是否执行过深度分析
+    run_history = {"morning": False, "afternoon": False}
 
     while True:
         try:
@@ -335,6 +425,7 @@ def main():
                 review_agent.reset_daily_flag()
                 last_date = current_date
                 morning_briefing_sent = False
+                run_history = {"morning": False, "afternoon": False}
                 logger.info(f"新交易日: {current_date}")
 
             if not is_trading_hours(current_time):
@@ -342,43 +433,38 @@ def main():
                     phase5_daily_review(review_agent, logger)
                 else:
                     logger.info("非交易时段，休眠中...")
-            else:
-                async def run_cycle():
-                    nonlocal feishu_notifier, morning_briefing_sent
-                    # Phase 1: 收集
-                    collected_data = phase1_collect_data(tool_registry, logger)
-                    # Phase 2: 风控
-                    risk_result = phase2_risk_scoring(collected_data, config, logger)
-                    # Phase 2.5: 候选
-                    candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
-                    # Phase 3: 专家 (Map)
-                    briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
-                    
-                    # 推送选股和专家分析到飞书 (开盘简报)
-                    if feishu_notifier and candidates and not morning_briefing_sent:
-                        risk_msg = f"🌡️ 【开盘宏观风控简报】\n评分: {risk_result['score']} | 等级: {risk_result['regime']}\n核心逻辑: {risk_result['constraints']['message']}\n"
-                        
-                        cand_details = []
-                        for c in candidates:
-                            reason = "持仓巡检" if c["type"] == "POSITION" else "发现交易信号"
-                            cand_details.append(f"• {c['symbol']} ({reason})")
-                        
-                        selection_msg = "🔍 【今日初始选股清单】\n" + "\n".join(cand_details)
-                        feishu_notifier.send_text(f"{risk_msg}\n{selection_msg}")
-                        morning_briefing_sent = True
-                    
-                    # Phase 4: 决策 (Reduce)
-                    return await phase4_strategic_decision(agent, collected_data, briefings_json, logger)
+                    time.sleep(60) # Sleep longer when market is closed
+                continue
+                
+            # 交易时段: 运行高频 Watchdog
+            watchdog_check(tool_registry, logger)
 
+            # 交易时段: 判断是否需要唤醒深度决策层 (Strategic Brain)
+            # 策略：每天 10:00 (开盘后消化完剧烈波动) 和 15:30 (收盘前确定日线形态)
+            should_run_strategic = False
+            time_str = current_time.strftime("%H:%M")
+            
+            if "10:00" <= time_str < "10:10" and not run_history["morning"]:
+                logger.info("[Strategic Brain] 触发早盘深度决策时间 (10:00)")
+                should_run_strategic = True
+                run_history["morning"] = True
+            elif "15:30" <= time_str < "15:40" and not run_history["afternoon"]:
+                logger.info("[Strategic Brain] 触发尾盘深度决策时间 (15:30)")
+                should_run_strategic = True
+                run_history["afternoon"] = True
+                
+            if should_run_strategic:
                 try:
                     loop = asyncio.get_event_loop()
-                    result = loop.run_until_complete(run_cycle())
-                    logger.info(f"本轮决策结论:\n{result}")
+                    morning_briefing_sent = loop.run_until_complete(
+                        run_strategic_cycle(tool_registry, config, logger, orchestrator, agent, feishu_notifier, morning_briefing_sent, trade_logger)
+                    )
                 except Exception as e:
-                    logger.error(f"主循环执行异常: {e}", exc_info=True)
+                    logger.error(f"深度决策层执行异常: {e}", exc_info=True)
                     trade_logger.log_error("cycle_error", str(e))
 
-            time.sleep(get_sleep_interval(config, current_time))
+            # Watchdog 循环频率：1 分钟
+            time.sleep(60)
 
         except KeyboardInterrupt:
             logger.info("收到中断信号，正在退出...")

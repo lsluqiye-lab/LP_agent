@@ -35,35 +35,29 @@
 
 ---
 
-## 架构设计 (Strategic Multi-Agent)
+## 架构设计 (Dual-Track Architecture V3.0)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Main Loop (V3.0 Engine)                  │
-├─────────────────────────────────────────────────────────────┤
-│ Phase 1: Data Gathering (Account, Market, Scan)             │
-├─────────────────────────────────────────────────────────────┤
-│ Phase 2: Macro Risk Scoring (0-100 Score)                   │
-├───────────────────────────────┬─────────────────────────────┤
-│ Phase 3: EXPERT ORCHESTRATION │ (Parallel Execution)        │
-│ ┌──────────────────────────┐  │ ┌────────────────────────┐  │
-│ │ Fundamental Analyst      │  │ │ Technical Analyst      │  │
-│ │ (PE, PEG, Revenue, SWOT) │  │ │ (Stage 2, RS, MACD...) │  │
-│ └─────────────┬────────────┘  │ └────────────┬───────────┘  │
-│               └───────┬───────┴──────────────┘              │
-│                       ▼                                     │
-│            ┌──────────────────────┐                         │
-│            │  Sentiment Analyst   │                         │
-│            │ (News, FOMO, Reddit) │                         │
-│            └──────────┬───────────┘                         │
-├───────────────────────▼─────────────────────────────────────┤
-│ Phase 4: CIO STRATEGIC DECISION (ReAct Loop)                │
-│ -> Analyze Decision Briefings                               │
-│ -> Resolve Identified Conflicts                             │
-│ -> Execute Precision Trading                                │
-├─────────────────────────────────────────────────────────────┤
-│ Phase 5: Daily Post-Market Review & Memory Compression      │
-└─────────────────────────────────────────────────────────────┘
+系统采用“高频监控 + 深度决策”的双轨制引擎架构，兼顾了止损的极速响应与研报的深度思考：
+
+```mermaid
+graph TD
+    subgraph Watchdog [高频监控层 (Watchdog) - 每分钟运行]
+        A[拉取持仓与秒级报价] --> B{是否触发止损?}
+        B -- 硬止损: 跌破成本8% --> C[直接发起市价单斩仓 MO]
+        B -- 保护止盈: 暴涨15%后跌破5%利润 --> D[发起锁定利润市价单 MO]
+        B -- 安全 --> E[等待下一次心跳]
+    end
+
+    subgraph StrategicBrain [深度决策层 (Strategic Brain) - 美东 10:00 & 15:30 触发]
+        F[Phase 1: 数据收集] --> G[Phase 2: 宏观风控]
+        G --> H[Phase 2.5: 候选筛选]
+        H --> I[Phase 3: 专家并行研报]
+        I --> J[Fundamental Analyst]
+        I --> K[Technical Analyst<br>重点: 量价背离分析]
+        I --> L[Sentiment Analyst]
+        J & K & L --> M[Phase 4: CIO 主理人决策 ReAct]
+        M --> N[使用高级订单精准狙击<br>LIT 突破单 / LO 逢低吸纳 / TSMPCT 追踪止损]
+    end
 ```
 
 ---

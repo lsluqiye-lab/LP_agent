@@ -41,22 +41,24 @@
 
 ```mermaid
 graph TD
-    subgraph Watchdog [高频监控层 (Watchdog) - 每分钟运行]
+    subgraph Watchdog [高频监控层 Watchdog - 每分钟运行]
         A[拉取持仓与秒级报价] --> B{是否触发止损?}
-        B -- 硬止损: 跌破成本8% --> C[直接发起市价单斩仓 MO]
-        B -- 保护止盈: 暴涨15%后跌破5%利润 --> D[发起锁定利润市价单 MO]
-        B -- 安全 --> E[等待下一次心跳]
+        B -- "硬止损: 跌破成本8%" --> C[直接发起市价单斩仓 MO]
+        B -- "保护止盈: 利润保护" --> D[发起锁定利润市价单 MO]
+        B -- "安全" --> E[等待下一次心跳]
     end
 
-    subgraph StrategicBrain [深度决策层 (Strategic Brain) - 美东 10:00 & 15:30 触发]
+    subgraph StrategicBrain [深度决策层 Strategic Brain - 定时触发]
         F[Phase 1: 数据收集] --> G[Phase 2: 宏观风控]
         G --> H[Phase 2.5: 候选筛选]
         H --> I[Phase 3: 专家并行研报]
         I --> J[Fundamental Analyst]
-        I --> K[Technical Analyst<br>重点: 量价背离分析]
+        I --> K[Technical Analyst]
         I --> L[Sentiment Analyst]
-        J & K & L --> M[Phase 4: CIO 主理人决策 ReAct]
-        M --> N[使用高级订单精准狙击<br>LIT 突破单 / LO 逢低吸纳 / TSMPCT 追踪止损]
+        J --> M[Phase 4: CIO 决策 ReAct]
+        K --> M
+        L --> M
+        M --> N[使用高级订单精准狙击]
     end
 ```
 

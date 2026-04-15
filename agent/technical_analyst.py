@@ -48,28 +48,29 @@ class TechnicalAnalyst:
         trend_options = ", ".join(f'"{s}"' for s in TrendStage.__args__)
         
         return f"""
-Analyze the technical data for {symbol} and provide a structured briefing.
-Focus on identifying the Mark Minervini 'Stage 2' characteristics, key support/resistance, momentum signals, and critically, the Price-Volume (量价) relationship.
+你是一名资深特许市场技术分析师 (CMT)。请对 {symbol} 的技术面进行深度解剖。
 
-TECHNICAL DATA:
+## 分析目标：
+1. **趋势阶段验证**: 严格按照 Mark Minervini 的趋势模板，确认是否处于 **Stage 2** (股价 > SMA50 > SMA200)。
+2. **量价足迹 (Institutional Footprints)**: 
+   - 观察上涨是否放量 (Accumulation)，回调是否缩量 (Dry-up)。
+   - 识别是否有 **VCP (波动收缩形态)**。
+   - 分析 OBV 和 成交量比率 (Vol Ratio)。
+3. **结构位识别**: 寻找当前的“最小阻力线” (Line of Least Resistance) 和关键支撑。
+
+## 技术数据：
 {json.dumps(data, indent=2)}
 
 ---
-REQUIREMENTS:
-1. Determine Trend Stage: {trend_options} (Stage 2 is the preferred buying zone).
-2. Analyze Volume-Price Relationship: Check if volume supports the price trend (e.g., high volume on breakouts/green days, low volume on pullbacks/red days), analyze OBV divergence, and volume ratios.
-3. Identify key signals (e.g., Golden Cross, RSI Divergence, Volume Spikes).
-4. Extract Support and Resistance levels from the price history.
-5. Provide a concise summary of the technical setup.
-
-Format as a single JSON object:
+## 输出要求 (JSON 格式):
 {{
-  "trend_stage": "...",
-  "summary": "...",
-  "volume_price_analysis": "...",
-  "key_signals": ["...", "..."],
-  "support_levels": [price1, price2],
-  "resistance_levels": [price1, price2]
+  "trend_stage": {trend_options},
+  "summary": "一句话总结当前技术形态 (如：VCP突破前夕、超买回踩中等)",
+  "volume_price_analysis": "详细描述量价关系。上涨是否有力？回调是否缩量？是否存在机构派发迹象？",
+  "key_signals": ["信号1", "信号2"],
+  "support_levels": [价格1, 价格2],
+  "resistance_levels": [价格1, 价格2],
+  "is_pyramid_ready": "boolean, 是否处于理想的加仓位（如缩量回踩均线或即将突破）"
 }}
 """
 

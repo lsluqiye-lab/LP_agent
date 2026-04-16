@@ -81,15 +81,36 @@ class AlphaScanner:
             if len(watchlist) < 5:
                 raise ValueError("选出的股票过少，使用默认备用列表。")
                 
-            logger.info(f"选股完成！\n主线板块: {data.get('sectors')}\n逻辑: {data.get('reasoning')}\n入选标的: {watchlist}")
+            # 获取并合并当前持仓
+            holdings = self._get_current_holdings()
+            if holdings:
+                watchlist = list(set(watchlist + holdings))
+                
+            logger.info(f"选股完成！\n主线板块: {data.get('sectors')}\n逻辑: {data.get('reasoning')}\n最终监控标的池(含持仓): {watchlist}")
             
             self._save_watchlist(watchlist, data.get("reasoning", ""))
             return watchlist
             
         except Exception as e:
-            logger.error(f"Alpha Scanner 选股失败: {e}，将回退到默认列表。")
-            self._save_watchlist(DEFAULT_WATCHLIST, "Alpha Scanner failed, fallback to default")
-            return DEFAULT_WATCHLIST
+            holdings = self._get_current_holdings()
+            fallback_watchlist = list(set(DEFAULT_WATCHLIST + holdings))
+            logger.error(f"Alpha Scanner 选股失败: {e}，将回退到默认列表并合并持仓。最终监控标的池: {fallback_watchlist}")
+            self._save_watchlist(fallback_watchlist, "Alpha Scanner failed, fallback to default")
+            return fallback_watchlist
+
+    def _get_current_holdings(self) -> list:
+        try:
+            from tools.trading import GetPositionsTool
+            tool = GetPositionsTool()
+            res_str = tool.execute()
+            data = json.loads(res_str)
+            if "positions" in data:
+                holdings = [pos["symbol"] for pos in data["positions"]]
+                logger.info(f"成功获取当前持仓: {holdings}")
+                return holdings
+        except Exception as e:
+            logger.error(f"获取当前持仓失败: {e}")
+        return []
 
     def _save_watchlist(self, watchlist: list, reason: str):
         today_str = datetime.now(pytz.timezone("US/Eastern")).strftime("%Y-%m-%d")

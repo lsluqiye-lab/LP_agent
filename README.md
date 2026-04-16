@@ -15,6 +15,7 @@ sequenceDiagram
     participant Time as 盘前/盘中时段
     participant Phase0 as Alpha Scanner (选股)
     participant WD as 高频 Watchdog (风控)
+    participant Risk as 宏观风控局 (Macro)
     participant Expert as 专家矩阵 (分析)
     participant CIO as 主脑 CIO (决策)
     participant Broker as LongPort (执行)
@@ -25,7 +26,11 @@ sequenceDiagram
     Phase0-->>CIO: 发现 TSLA 存在“A15芯片流片”催化剂，将其加入今日 Watchlist
 
     Note over Time, Broker: ⏰ 10:00 (早盘决策期)
-    Time->>Expert: 触发多专家并发研报
+    Time->>Risk: 触发全局宏观打分 (Phase 2)
+    Risk->>Risk: 综合评估：市场温度、SPY技术面、资金流向、波动率
+    Risk-->>CIO: 颁发今日风控通行证 (例如：65分，环境NORMAL，允许建仓)
+    
+    Time->>Expert: 触发多专家并发研报 (Phase 3)
     
     par 基本面分析 (Fundamental)
         Expert->>Expert: 计算PEG、研读财报<br/>结论：估值极高，但 FSD 进展迅速
@@ -53,6 +58,29 @@ sequenceDiagram
     Time->>CIO: 触发 Review Agent 每日复盘
     CIO->>CIO: 总结今日盈亏，提取 1-3 条交易教训写入长效记忆
 ```
+
+---
+
+## 🏛️ 智能体矩阵 (Agent Matrix)
+
+系统的每次决策并非基于单一 LLM 的“一言堂”，而是由下设的专业委员会进行多维度制衡：
+
+### 0. 宏观风控局 (MacroRiskManager) - 系统的安全总闸
+- **职责**：在所有的个股研报开始之前，它负责评估今天的**整体打分水平 (系统性风险)**。它是唯一有权在物理层面“拔网线”的模块。
+- **打分逻辑 (总分 100)**：综合评估大盘技术面 (25%)、市场温度 (25%)、资金流向 (15%)、RSI广度 (15%)、市场情绪 (10%) 和波动率 (10%)。
+- **约束力**：如果它给出的系统分数跌破 50 分 (LOCKDOWN / CAUTIOUS 模式)，无论后面的专家多么看好某只股票，执行层都会硬性锁死买入权限，强制 CIO 只能防守或斩仓。
+
+### 1. 基本面专家 (FundamentalAnalyst)
+- **职责**：挖掘公司核心护城河、估值泡沫及业绩指引，严防“杀估值”。
+- **分析内容**：PE (TTM), Forward PE, PEG (核心准则), 毛利率趋势, 机构持仓变动方向。
+
+### 2. 技术面专家 (TechnicalAnalyst)
+- **职责**：基于 Mark Minervini 的趋势模板进行形态识别，为 CIO 提供精确的狙击点位。
+- **分析内容**：确认股票是否处于 Stage 2 (股价 > SMA50 > SMA200)，判断量价配合 (如 OBV 背离)，并**强制输出**当前的支撑位 (Support) 和突破/阻力位 (Resistance)。
+
+### 3. 情绪面舆情专家 (SentimentAnalyst)
+- **职责**：作为反向指标探测器，捕捉市场极端过热 (FOMO) 或过度恐慌的信号。
+- **分析内容**：扫描全网新闻、Reddit (WSB) 讨论热度、Twitter 情绪，以及是否有导致大跌的黑天鹅催化剂。
 
 ---
 

@@ -26,8 +26,16 @@ sequenceDiagram
 
     Note over Time, Broker: ⏰ 10:00 (早盘决策期)
     Time->>Expert: 触发多专家并发研报
-    Expert->>Expert: Fundamental: 发现估值极高，但 FSD 进展迅速<br/>Technical: 量价齐升 (OBV看多背离)，算出阻力位 $398.01<br/>Sentiment: 市场情绪极度贪婪 (FOMO)
-    Expert-->>CIO: 提交综合决策简报 (Decision Briefing)
+    
+    par 基本面分析 (Fundamental)
+        Expert->>Expert: 计算PEG、研读财报<br/>结论：估值极高，但 FSD 进展迅速
+    and 技术面分析 (Technical)
+        Expert->>Expert: 寻找Stage 2、量价齐升 (OBV看多背离)<br/>精确计算：阻力位 $398.01，支撑位 $366.98
+    and 情绪面分析 (Sentiment)
+        Expert->>Expert: 扫描社交媒体与新闻<br/>结论：散户情绪极度贪婪 (FOMO)
+    end
+    
+    Expert-->>CIO: 汇聚生成综合决策简报 (Decision Briefing)
 
     CIO->>CIO: 检查交易记忆：近14天无被套记录<br/>宏观评分：65分 (安全)<br/>技术面：处于阻力位下方，未突破
     CIO->>Broker: 下达【LIT 触及限价单】，触发价设在阻力位上方($400)<br/>坚守右侧交易：“不见兔子不撒鹰”

@@ -71,7 +71,11 @@ def main():
 
     orchestrator = ExpertOrchestrator(llm=analyst_llm)
     trading_memory = get_trading_memory()
-    feishu_notifier = FeishuNotifier(webhook_url=config.feishu.webhook_url) if config.feishu.enabled else None
+    feishu_notifier = FeishuNotifier(
+        webhook_url=config.feishu.webhook_url,
+        app_id=config.feishu.app_id,
+        app_secret=config.feishu.app_secret
+    ) if config.feishu.enabled else None
 
     agent = ReActAgent(
         llm=primary_llm,

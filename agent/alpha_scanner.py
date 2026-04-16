@@ -19,7 +19,7 @@ class AlphaScanner:
         self.llm = llm
         self.search_client = get_search_client()
 
-    def run(self) -> list:
+    def run(self) -> tuple[list, str]:
         logger.info("[Phase 0] 启动 Alpha Scanner 进行盘前动态选股...")
         
         # 1. 搜索当前强势板块与个股
@@ -99,14 +99,15 @@ class AlphaScanner:
             logger.info(f"选股完成！\n主线板块: {data.get('sectors')}\n逻辑: {data.get('reasoning')}\n最终监控标的池(含持仓): {watchlist}")
             
             self._save_watchlist(watchlist, data.get("reasoning", ""))
-            return watchlist
+            return watchlist, data.get("reasoning", "基于板块轮动和量化因子选出的强势标的。")
             
         except Exception as e:
             holdings = self._get_current_holdings()
             fallback_watchlist = list(set(DEFAULT_WATCHLIST + holdings))
-            logger.error(f"Alpha Scanner 选股失败: {e}，将回退到默认列表并合并持仓。最终监控标的池: {fallback_watchlist}")
+            error_msg = f"Alpha Scanner 选股失败: {e}，将回退到默认列表并合并持仓。"
+            logger.error(f"{error_msg} 最终监控标的池: {fallback_watchlist}")
             self._save_watchlist(fallback_watchlist, "Alpha Scanner failed, fallback to default")
-            return fallback_watchlist
+            return fallback_watchlist, error_msg
 
     def _get_current_holdings(self) -> list:
         try:

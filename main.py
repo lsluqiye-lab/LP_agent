@@ -424,7 +424,11 @@ def main():
 
     orchestrator = ExpertOrchestrator(llm=analyst_llm)
     trading_memory = get_trading_memory()
-    feishu_notifier = FeishuNotifier(webhook_url=config.feishu.webhook_url) if config.feishu.enabled else None
+    feishu_notifier = FeishuNotifier(
+        webhook_url=config.feishu.webhook_url,
+        app_id=config.feishu.app_id,
+        app_secret=config.feishu.app_secret
+    ) if config.feishu.enabled else None
 
     agent = ReActAgent(
         llm=primary_llm,
@@ -467,11 +471,18 @@ def main():
                 try:
                     from agent.alpha_scanner import AlphaScanner
                     scanner = AlphaScanner(llm=analyst_llm)
-                    new_watchlist = scanner.run()
-                    
+                    new_watchlist, scan_reason = scanner.run()
+
                     import config as app_config
                     app_config.update_watchlist_in_place(new_watchlist)
                     logger.info(f"[Phase 0] Alpha Scanner 完毕，当前内存标的池已更新为: {app_config.WATCHLIST}")
+
+                    if feishu_notifier:
+                        feishu_notifier.send_card(
+                            title="🌅 每日动态标的池更新",
+                            content=f"**选股逻辑：**\n{scan_reason}\n\n**今日监控名单：**\n`{', '.join(new_watchlist)}`",
+                            color="turquoise"
+                        )
                 except Exception as e:
                     logger.error(f"Alpha Scanner 运行异常: {e}")
                 scanner_ran = True

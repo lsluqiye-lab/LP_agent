@@ -314,13 +314,19 @@ class FeishuConfig:
     """飞书推送配置"""
     enabled: bool = False
     webhook_url: str = ""
+    app_id: str = ""
+    app_secret: str = ""
 
     @classmethod
     def from_env(cls) -> "FeishuConfig":
         webhook_url = os.getenv("FEISHU_WEBHOOK_URL", "")
+        app_id = os.getenv("FEISHU_APP_ID", "")
+        app_secret = os.getenv("FEISHU_APP_SECRET", "")
         return cls(
-            enabled=bool(webhook_url),
+            enabled=bool(webhook_url or (app_id and app_secret)),
             webhook_url=webhook_url,
+            app_id=app_id,
+            app_secret=app_secret,
         )
 
 

@@ -67,7 +67,7 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 
 【账户状态】资产 $XXX | 现金 $XXX | 仓位 XX% | 宏观评分: {risk_score}
 
-【逻辑心流】(简述你如何从宏观推导到个股，你化解了什么矛盾？你如何利用支撑/阻力位设定了买入或止损价格？)
+【逻辑心流】(简述你从宏观到个股的推导逻辑，重点说明你参考了哪些具体的量化指标（如 Qlib 评分、RSI、MA 均线等）以及如何利用支撑/阻力位设定的价格。)
 
 【最终指令】
 - Symbol: XXXX
@@ -153,10 +153,41 @@ class ReActAgent:
                     final_content = response.content or "No action taken."
                     
                     if self.feishu_notifier and executed_tool_details:
-                        # 构造增强版交易通知
-                        results_str = "\n".join([f"✅ 执行结果: {d['name']} -> {d['result']}" for d in executed_tool_details])
-                        msg = f"⚡ 【交易执行报告】\n\n{final_content}\n\n{results_str}"
-                        self.feishu_notifier.send_text(msg)
+                        # 尝试生成交易图表
+                        chart_info = ""
+                        image_key = None
+                        try:
+                            from tools.visualizer import plot_trade_signal
+                            for d in executed_tool_details:
+                                if d['name'] in ['buy_stock', 'sell_stock']:
+                                    # 解析参数获取 ticker 和价格
+                                    args = d.get('arguments', {})
+                                    ticker = args.get('symbol')
+                                    price = args.get('price') or 0
+                                    action = "BUY" if d['name'] == 'buy_stock' else "SELL"
+                                    
+                                    plot_path = plot_trade_signal(ticker, action, float(price), final_content)
+                                    if plot_path:
+                                        # 尝试上传图片到飞书获取 image_key
+                                        img_key = self.feishu_notifier.upload_image(plot_path)
+                                        if img_key:
+                                            image_key = img_key
+                                            chart_info = "\n\n📈 **附交易图表**"
+                                        else:
+                                            chart_info = f"\n\n📈 **交易图表已保存本地**: `{plot_path}`"
+                                        break # 暂只处理第一笔交易
+                        except Exception as e:
+                            self.logger.error(f"生成图表失败: {e}")
+
+                        # 构造增强版交易通知 (卡片格式)
+                        exec_log = "\n".join([f"✅ **{d['name']}**: {d['result']}" for d in executed_tool_details])
+                        
+                        self.feishu_notifier.send_card(
+                            title="⚡ 交易执行报告",
+                            content=f"### 决策逻辑\n{final_content}\n\n### 执行详情\n{exec_log}{chart_info}",
+                            color="orange",
+                            image_key=image_key
+                        )
                         
                     return final_content
 

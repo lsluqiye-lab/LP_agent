@@ -10,3 +10,6 @@ data/memory.json
 
 # Environment variables
 .env*
+
+.main_pid
+data/plots/

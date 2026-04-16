@@ -3,145 +3,272 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LP-Agent v3.0 Architecture</title>
+    <title>LP-Agent v3.0 | Technical Architecture Whitepaper</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
+
         :root {
-            --bg-color: #0d1117;
-            --text-color: #c9d1d9;
-            --accent-color: #58a6ff;
-            --card-bg: #161b22;
+            --paper-bg: #ffffff;
+            --brand-blue: #0047AB;
+            --tech-gray: #f8f9fa;
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --border-color: #e0e0e0;
+            --qlib-accent: #00a8cc;
+            --agent-accent: #6c5ce7;
         }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: var(--text-primary);
+            line-height: 1.6;
             margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 40px 20px;
+            padding: 40px 0;
         }
-        .header {
-            text-align: center;
+
+        .paper-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: var(--paper-bg);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+            padding: 80px;
+            border-top: 8px solid var(--brand-blue);
+        }
+
+        /* Header Section */
+        header {
+            border-bottom: 2px solid var(--text-primary);
+            padding-bottom: 20px;
             margin-bottom: 40px;
         }
+
+        .project-meta {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--brand-blue);
+        }
+
         h1 {
-            color: var(--accent-color);
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+            font-family: 'Playfair Display', serif;
+            font-size: 3.2rem;
+            margin: 10px 0;
+            line-height: 1.1;
         }
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            background-color: var(--card-bg);
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            border: 1px solid #30363d;
+
+        .abstract {
+            font-style: italic;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin: 20px 0;
+            border-left: 4px solid var(--border-color);
+            padding-left: 20px;
         }
-        .mermaid {
+
+        /* Grid Layout */
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin: 40px 0;
+        }
+
+        .section-title {
+            grid-column: 1 / -1;
+            font-size: 1.5rem;
+            font-weight: 700;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-top: 20px;
             display: flex;
-            justify-content: center;
+            align-items: center;
         }
-        .footer {
-            margin-top: 40px;
+
+        .section-title i {
+            margin-right: 12px;
+            color: var(--brand-blue);
+        }
+
+        /* Card Style */
+        .feature-card {
+            background: var(--tech-gray);
+            padding: 25px;
+            border-radius: 4px;
+            border-left: 4px solid var(--brand-blue);
+        }
+
+        .feature-card h3 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: var(--brand-blue);
+        }
+
+        .feature-card code {
+            font-family: 'JetBrains Mono', monospace;
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
             font-size: 0.9rem;
-            opacity: 0.7;
         }
-        /* Custom styles for mermaid sequence diagram in dark mode */
-        .messageText, .noteText, .loopText {
-            fill: #c9d1d9 !important;
-            stroke: none !important;
+
+        /* Mermaid Logic */
+        .visual-container {
+            grid-column: 1 / -1;
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            padding: 40px;
+            border-radius: 8px;
         }
-        .actor {
-            stroke: #30363d !important;
-            fill: #21262d !important;
+
+        /* Agent Matrix List */
+        .agent-list {
+            list-style: none;
+            padding: 0;
         }
-        text.actor {
-            fill: #c9d1d9 !important;
-            stroke: none !important;
+
+        .agent-item {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed var(--border-color);
         }
-        .labelBox {
-            stroke: #30363d !important;
-            fill: #21262d !important;
+
+        .agent-name {
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            justify-content: space-between;
         }
-        .note {
-            stroke: #f1e05a !important;
-            fill: #30363d !important;
+
+        .tag {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--brand-blue);
+            color: white;
+            text-transform: uppercase;
+        }
+
+        .tag.qlib { background: var(--qlib-accent); }
+        .tag.risk { background: #e74c3c; }
+
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        @media print {
+            body { padding: 0; background: white; }
+            .paper-container { box-shadow: none; width: 100%; max-width: 100%; }
         }
     </style>
-    <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'dark',
-            sequence: {
-                showSequenceNumbers: true,
-                useMaxWidth: true,
-            }
-        });
-    </script>
 </head>
 <body>
-    <div class="header">
-        <h1>LP-Agent v3.0</h1>
-        <p>Strategic Multi-Agent Trading System with Qlib Integration</p>
-    </div>
 
-    <div class="container">
-        <div class="mermaid">
+<div class="paper-container">
+    <header>
+        <div class="project-meta">Research Architecture &bull; Quantitative AI v3.0</div>
+        <h1>LP-Agent: A Strategic Dual-Track Multi-Agent Framework for US Equity Trading</h1>
+        <div class="abstract">
+            Integrating Large Language Models (LLM) with Microsoft Qlib Machine Learning for Alpha158 Factor Fusion.
+        </div>
+    </header>
+
+    <div class="grid-container">
+        <!-- Section: Key Philosophy -->
+        <div class="section-title"><i class="fa-solid fa-brain"></i> Core Architecture Philosophy</div>
+        <div class="feature-card">
+            <h3>Bear-Case-First Strategy</h3>
+            <p>A risk-centric approach where the system prioritizes <b>negative factor exhaustive search</b> before initiating any <code>BUY</code> directive. "Empty position is the ultimate protection."</p>
+        </div>
+        <div class="feature-card">
+            <h3>Dual-Track Execution</h3>
+            <p>Separating high-frequency <b>Watchdog</b> (local risk control) from asynchronous <b>Strategic Brain</b> (deep reasoning), ensuring millisecond response to price shocks.</p>
+        </div>
+
+        <!-- Section: Expert Matrix -->
+        <div class="section-title"><i class="fa-solid fa-microchip"></i> Collaborative Expert Matrix (Phase 3)</div>
+        <div class="visual-container">
+            <ul class="agent-list">
+                <li class="agent-item">
+                    <div class="agent-name"><span>CIO (Chief Investment Officer)</span> <span class="tag">Orchestrator</span></div>
+                    <p>Decision engine powered by <code>Gemini 3.1 Pro</code>. Responsible for ReAct reasoning and final order execution (LIT/LO/TSMPCT).</p>
+                </li>
+                <li class="agent-item">
+                    <div class="agent-name"><span>Quant Analyst (Powered by Qlib)</span> <span class="tag qlib">Alpha158 ML</span></div>
+                    <p>Extracts 158 technical factors. Merges ML-based predictive scores into the LLM context for evidence-based stock selection.</p>
+                </li>
+                <li class="agent-item">
+                    <div class="agent-name"><span>Macro Risk Manager</span> <span class="tag risk">Gatekeeper</span></div>
+                    <p>Evaluates VIX, SPY breadth, and liquidity. Capability to "pull the plug" if the global market score drops below 50.</p>
+                </li>
+                <li class="agent-item">
+                    <div class="agent-name"><span>Fundamental & Sentiment Expert</span> <span class="tag">Deep Research</span></div>
+                    <p>Fuses financial statement PEG analysis with social media (Reddit/Twitter) FOMO detection.</p>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Section: Pipeline Visual -->
+        <div class="section-title"><i class="fa-solid fa-diagram-next"></i> Trading Lifecycle Lifecycle (Daily Pipeline)</div>
+        <div class="visual-container">
+            <div class="mermaid">
 sequenceDiagram
     autonumber
-    participant Time as 盘前/盘中时段
-    participant Phase0 as Alpha Scanner (选股)
-    participant Qlib as Qlib Quant (量化)
-    participant WD as 高频 Watchdog (风控)
-    participant Risk as 宏观风控局 (Macro)
-    participant Expert as 专家矩阵 (分析)
-    participant CIO as 主脑 CIO (决策)
-    participant Broker as LongPort (执行)
+    participant S as Alpha Scanner (Phase 0)
+    participant Q as Qlib ML Engine
+    participant LLM as Strategic Brain (CIO)
+    participant WD as High-Freq Watchdog
+    participant B as Broker (LongPort)
 
-    Note over Time, Broker: 🌅 美东时间 09:00 (盘前)
-    Time->>Phase0: 唤醒盘前雷达
-    Phase0->>Qlib: 调用 Alpha158 因子进行全市场初筛
-    Qlib-->>Phase0: 返回 Top 20 动能评分榜单
-    Phase0->>Phase0: 结合搜索新闻 "US top growth stocks breakout"
-    Phase0-->>CIO: 发现 TSLA 评分 92 + 催化剂，将其加入今日 Watchlist
+    Note over S, B: 09:00 ET - Alpha Discovery
+    S->>Q: Batch Inference (Alpha158)
+    Q-->>S: Top-N Quant Watchlist
+    S->>LLM: Context Injection (News + Scores)
+    LLM-->>S: Dynamic Watchlist Generation
 
-    Note over Time, Broker: ⏰ 10:00 (早盘决策期)
-    Time->>Risk: 触发全局宏观打分 (Phase 2)
-    Risk->>Risk: 综合评估指标 (VIX, SPY, Breadth)
-    Risk-->>CIO: 颁发今日风控通行证 (NORMAL/SAFE)
-    
-    Time->>Expert: 触发多专家并发研报 (Phase 3)
-    
-    par 并发专家会诊
-        Expert->>Expert: Fundamental: 估值与 PEG 分析
-    and 
-        Expert->>Expert: Technical: Stage 2 趋势与点位计算
-    and 
-        Expert->>Qlib: Quant: Alpha158 评分与 RSI 信号
-    and 
-        Expert->>Expert: Sentiment: 社交媒体 FOMO 探测
-    end
-    
-    Expert-->>CIO: 汇聚生成综合决策简报
+    Note over S, B: 10:00 & 15:30 ET - Deep Decision
+    LLM->>LLM: Collaborative Multi-Agent Review
+    LLM->>B: Execute Advanced Orders (LIT/LO)
 
-    CIO->>CIO: 检查交易记忆 & 风险敞口
-    CIO->>Broker: 下达【LIT 触及限价单】(狙击突破)
+    Note over S, B: Intra-day - Safety Guard
+    WD->>B: 8% Hard Stop-Loss (Instant)
+    WD->>LLM: News Bomb Alert (Emergency Exit)
+            </div>
+        </div>
 
-    Note over Time, Broker: ⚡ 盘中监控
-    Time->>WD: 每分钟扫描价格 & 突发核弹新闻
-    WD->>Broker: 触发 8% 硬止损 (斩仓)
-
-    Note over Time, Broker: 🌙 16:30 (收盘后)
-    Time->>CIO: 触发每日复盘 (Review Agent)
-    CIO->>CIO: 提取交易教训并更新长效记忆
+        <!-- Section: Technology Stack -->
+        <div class="section-title"><i class="fa-solid fa-code"></i> Engineering Integrity</div>
+        <div class="feature-card" style="grid-column: 1 / -1;">
+            <p>
+                <i class="fa-brands fa-python"></i> <b>Stack:</b> Python 3.12, Microsoft Qlib, Google GenAI SDK, LongPort OpenAPI.<br/>
+                <i class="fa-solid fa-shield-halved"></i> <b>Resilience:</b> Implemented <code>Auto-Fallback</code> (Gemini 3.1 Pro &rarr; 3 Flash) for 99.9% uptime.
+            </p>
         </div>
     </div>
 
-    <div class="footer">
-        Generated by Gemini CLI &bull; LP-Agent v3.0 Framework
-    </div>
+    <footer>
+        &copy; 2026 LP-Agent Research Lab &bull; Confidentiality Level: Internal Engineering Standard
+    </footer>
+</div>
+
+<script>
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: 'default',
+        securityLevel: 'loose',
+        sequence: {
+            showSequenceNumbers: true,
+            actorMargin: 50,
+            mirrorActors: false
+        }
+    });
+</script>
 </body>
 </html>

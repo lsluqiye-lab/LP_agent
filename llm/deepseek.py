@@ -24,8 +24,9 @@ class DeepSeekLLM(BaseLLM):
         model: str = "deepseek-chat",
         temperature: float = 0.5,
         max_tokens: int = 4096,
+        fallback_model: Optional[str] = None,
     ):
-        super().__init__(api_key, base_url, model, temperature, max_tokens)
+        super().__init__(api_key, base_url, model, temperature, max_tokens, fallback_model)
         self.client = OpenAI(
             api_key=api_key,
             base_url=base_url,

@@ -33,7 +33,8 @@ async def test_alpha_scanner():
         from llm.gemini import GeminiLLM
         analyst_llm = GeminiLLM(
             api_key=llm_conf.api_key,
-            model=llm_conf.model
+            model=llm_conf.model,
+            fallback_model=llm_conf.fallback_model
         )
     
     scanner = AlphaScanner(llm=analyst_llm)

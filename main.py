@@ -84,6 +84,7 @@ def create_llm(llm_config: "LLMConfig"):
             model=llm_config.model,
             temperature=llm_config.temperature,
             max_tokens=llm_config.max_tokens,
+            fallback_model=llm_config.fallback_model,
         )
     elif provider == "gemini":
         return GeminiLLM(
@@ -91,6 +92,7 @@ def create_llm(llm_config: "LLMConfig"):
             model=llm_config.model,
             temperature=llm_config.temperature,
             max_tokens=llm_config.max_tokens,
+            fallback_model=llm_config.fallback_model,
         )
     else:
         raise ValueError(f"不支持的LLM提供商: {provider}")

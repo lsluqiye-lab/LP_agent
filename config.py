@@ -212,6 +212,7 @@ class LLMConfig:
     api_key: str = ""
     base_url: str = "https://api.deepseek.com"
     model: str = "deepseek-chat"
+    fallback_model: Optional[str] = None  # 降级模型
     temperature: float = 0.7
     max_tokens: int = 4096
 
@@ -230,6 +231,7 @@ class LLMConfig:
                 api_key=os.getenv("GEMINI_API_KEY", ""),
                 base_url=os.getenv("GEMINI_BASE_URL", ""),
                 model=os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview"),
+                fallback_model=os.getenv("GEMINI_FALLBACK_MODEL", "gemini-1.5-flash-latest"),
             )
         elif provider == "openai":
             return cls(
@@ -261,6 +263,7 @@ class LLMConfig:
                 api_key=os.getenv("ANALYST_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", ""),
                 base_url=os.getenv("ANALYST_GEMINI_BASE_URL", ""),
                 model=os.getenv("ANALYST_GEMINI_MODEL", "gemini-3.1-pro-preview"),
+                fallback_model=os.getenv("ANALYST_GEMINI_FALLBACK_MODEL") or os.getenv("GEMINI_FALLBACK_MODEL", "gemini-1.5-flash-latest"),
             )
         elif provider == "openai":
             return cls(

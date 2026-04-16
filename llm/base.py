@@ -92,12 +92,14 @@ class BaseLLM(ABC):
         model: str,
         temperature: float = 0.7,
         max_tokens: int = 4096,
+        fallback_model: Optional[str] = None,
     ):
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.fallback_model = fallback_model
 
     @abstractmethod
     def chat(

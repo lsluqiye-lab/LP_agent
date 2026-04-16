@@ -5,12 +5,15 @@ Gemini LLM实现
 """
 import json
 import uuid
+import logging
 from typing import Optional
 
 from google import genai
 from google.genai import types
 
 from llm.base import BaseLLM, ChatMessage, Role, LLMResponse, ToolCall
+
+logger = logging.getLogger("gemini_llm")
 
 
 class GeminiLLM(BaseLLM):
@@ -28,8 +31,9 @@ class GeminiLLM(BaseLLM):
         model: str = "gemini-3.1-pro-preview",
         temperature: float = 0.7,
         max_tokens: int = 4096,
+        fallback_model: Optional[str] = None,
     ):
-        super().__init__(api_key, base_url, model, temperature, max_tokens)
+        super().__init__(api_key, base_url, model, temperature, max_tokens, fallback_model)
         self.client = genai.Client(api_key=api_key)
 
     def _convert_tools(self, openai_tools: list[dict]) -> list:
@@ -148,7 +152,7 @@ class GeminiLLM(BaseLLM):
         tool_choice: str = "auto"
     ) -> LLMResponse:
         """
-        发送聊天请求到 Gemini
+        发送聊天请求到 Gemini (支持自动降级)
 
         Args:
             messages: 消息列表
@@ -157,6 +161,30 @@ class GeminiLLM(BaseLLM):
 
         Returns:
             LLM响应
+        """
+        try:
+            return self._execute_chat(self.model, messages, tools, tool_choice)
+        except Exception as e:
+            if self.fallback_model:
+                logger.warning(f"Gemini 主模型 {self.model} 调用失败: {e}。正在尝试降级到备用模型 {self.fallback_model}...")
+                try:
+                    return self._execute_chat(self.fallback_model, messages, tools, tool_choice)
+                except Exception as fe:
+                    logger.error(f"Gemini 备用模型 {self.fallback_model} 调用也失败: {fe}")
+                    raise fe
+            else:
+                logger.error(f"Gemini 模型 {self.model} 调用失败且未配置备用模型: {e}")
+                raise e
+
+    def _execute_chat(
+        self,
+        model_name: str,
+        messages: list[ChatMessage],
+        tools: Optional[list[dict]] = None,
+        tool_choice: str = "auto"
+    ) -> LLMResponse:
+        """
+        执行具体的聊天请求逻辑
         """
         system_instruction, contents = self._convert_messages(messages)
 
@@ -178,7 +206,7 @@ class GeminiLLM(BaseLLM):
         config = types.GenerateContentConfig(**config_kwargs)
 
         response = self.client.models.generate_content(
-            model=self.model,
+            model=model_name,
             contents=contents,
             config=config,
         )

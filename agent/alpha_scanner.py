@@ -37,9 +37,19 @@ class AlphaScanner:
             except Exception as e:
                 logger.error(f"Search failed for {q}: {e}")
 
-        # 2. LLM 分析并生成 Ticker 列表
-        system_prompt = """你是一个对冲基金的 Alpha 策略分析师。
-你的任务是根据提供的最新市场新闻和分析，找出当前美股市场中最强势的 2-3 个板块，并选出 10-15 只具备极高动能和催化剂的领头羊个股 (Tickers)。
+        # 2. 获取量化评分 (Qlib)
+        from agent.quant_analyst import QuantAnalyst
+        quant_analyst = QuantAnalyst()
+        # 预选一些标的进行评分，或者对搜索结果中提到的标的进行评分
+        potential_tickers = ["NVDA", "TSM", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "AVGO", "TSLA", "NFLX"]
+        quant_results = quant_analyst.get_alpha_scores(potential_tickers)
+
+        # 3. LLM 分析并生成 Ticker 列表
+        system_prompt = f"""你是一个对冲基金的 Alpha 策略分析师。
+你的任务是根据提供的最新市场新闻和量化模型评分，找出当前美股市场中最强势的 2-3 个板块，并选出 10-15 只具备极高动能和催化剂的领头羊个股 (Tickers)。
+
+量化模型评分参考 (Qlib Alpha158):
+{json.dumps(quant_results, indent=2)}
 
 选股原则：
 1. 必须是流动性极好的大中盘股 (市值 > 100亿)。
@@ -50,15 +60,15 @@ class AlphaScanner:
 输出格式要求：
 仅返回纯 JSON 格式数据，不要包含任何 markdown 标记或解释说明。
 格式如下：
-{
+{{
     "sectors": ["Sector 1", "Sector 2"],
     "watchlist": ["AAPL", "NVDA", "TSLA", ...],
-    "reasoning": "简短的一句话选股逻辑总结"
-}
+    "reasoning": "结合量化评分和新闻的选股逻辑总结"
+}}
 """
         messages = [
             ChatMessage(role=Role.SYSTEM, content=system_prompt),
-            ChatMessage(role=Role.USER, content=f"这是今天搜索到的市场动态，请帮我生成今天的动态标的池：\n{search_results}")
+            ChatMessage(role=Role.USER, content=f"这是今天搜索到的市场动态：\n{search_results}\n请结合量化评分和新闻，生成今天的动态标动池。")
         ]
 
         try:

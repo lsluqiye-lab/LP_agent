@@ -53,6 +53,22 @@ class ExpertOrchestrator:
                     if isinstance(r, Exception):
                         logger.error(f"Expert analysis failed: {r}")
 
+            # --- Extract historical stats if trade_logger exists ---
+            history_summary = "无该标的近期交易历史。"
+            try:
+                from data.trade_logger import get_trade_logger
+                trade_log = get_trade_logger()
+                recent_logs = trade_log.get_recent_logs(days=14)
+                trade_count = 0
+                for log in recent_logs:
+                    for t in log.get("trades", []):
+                        if t.get("symbol") == symbol:
+                            trade_count += 1
+                if trade_count > 0:
+                    history_summary = f"近14天内对 {symbol} 进行过 {trade_count} 笔交易。请复盘是否陷入频繁买卖或反复止损陷阱，如果屡战屡败请避开。"
+            except Exception as e:
+                logger.error(f"获取 {symbol} 的交易历史失败: {e}")
+
             # Assemble
             briefing: DecisionBriefing = {
                 "symbol": symbol,
@@ -61,7 +77,8 @@ class ExpertOrchestrator:
                 "fundamental": fundamental_res,
                 "technical": technical_res,
                 "sentiment": sentiment_res,
-                "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res)
+                "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res),
+                "trading_history": history_summary
             }
             
             return briefing

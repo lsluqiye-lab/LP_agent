@@ -62,3 +62,6 @@ class DecisionBriefing(TypedDict):
     #   "基本面强劲 vs. 技术面超买",
     #   "市场情绪极度乐观 vs. 宏观环境谨慎"
     # ]
+    
+    # 该股票在本账户的近期历史战绩（胜率/盈亏等），用于长效记忆反思
+    trading_history: str

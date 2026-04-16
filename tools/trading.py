@@ -379,6 +379,26 @@ class BuyStockTool(BaseTool):
         **kwargs
     ) -> str:
         try:
+            from config import WATCHLIST
+            
+            # 1. 标的池硬拦截
+            clean_symbol = symbol.split('.')[0] if '.' in symbol else symbol
+            if clean_symbol not in WATCHLIST:
+                error_msg = f"拦截: {symbol} 不在允许交易的标的池(WATCHLIST)中。当前仅允许交易: {WATCHLIST}"
+                logging.warning(error_msg)
+                return json.dumps({"error": error_msg, "success": False})
+
+            # 2. 风控评分硬拦截
+            trade_logger = get_trade_logger()
+            latest_risk = trade_logger.get_latest_risk_score()
+            risk_score = latest_risk["score"] if latest_risk else 0
+            
+            # 按照风控规则，评分 < 50 (LOCKDOWN/CAUTIOUS) 时禁止建仓
+            if risk_score > 0 and risk_score < 50:
+                error_msg = f"风控拦截: 当前宏观评分 {risk_score} < 50 (CAUTIOUS/LOCKDOWN)，处于高风险模式，系统已硬性锁定买入权限，仅允许平仓/卖出。"
+                logging.warning(error_msg)
+                return json.dumps({"error": error_msg, "success": False})
+
             config = get_longport_config()
             trade = TradeContext(config)
 
@@ -501,6 +521,32 @@ class SellStockTool(BaseTool):
             trade = TradeContext(config)
 
             full_symbol = modify_symbol(symbol)
+            clean_symbol = symbol.split('.')[0] if '.' in symbol else symbol
+
+            # 安全校验：获取真实持仓，防止因状态未同步导致重复卖出或意外做空
+            try:
+                positions_resp = trade.positions()
+                positions = getattr(positions_resp, 'channels', []) if hasattr(positions_resp, 'channels') else positions_resp
+                
+                # 兼容不同返回结构
+                if hasattr(positions, '__iter__') and not isinstance(positions, dict):
+                    my_qty = Decimal('0')
+                    for pos in positions:
+                        pos_sym = getattr(pos, 'symbol', '')
+                        if clean_symbol in pos_sym or full_symbol in pos_sym:
+                            my_qty += getattr(pos, 'quantity', Decimal('0'))
+                    
+                    if my_qty == Decimal('0'):
+                        error_msg = f"卖出拦截: 当前未持有 {symbol}，无法执行卖出操作（防止做空）。"
+                        logging.warning(error_msg)
+                        return json.dumps({"error": error_msg, "success": False})
+                    
+                    # 限制最大卖出量为当前持仓量
+                    if Decimal(str(quantity)) > my_qty:
+                        logging.warning(f"卖出数量 {quantity} 超过实际持仓 {my_qty}，自动修正为 {my_qty}")
+                        quantity = int(my_qty)
+            except Exception as e:
+                logging.warning(f"获取持仓进行卖出前校验时出错: {e}，将继续尝试下发订单。")
 
             order_params = {
                 "side": OrderSide.Sell,

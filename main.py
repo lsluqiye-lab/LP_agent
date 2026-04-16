@@ -26,6 +26,7 @@ from config import AppConfig, WATCHLIST
 from logger import setup_logger
 from llm.deepseek import DeepSeekLLM
 from llm.gemini import GeminiLLM
+from llm.base import ChatMessage, Role
 from tools.base import ToolRegistry
 from tools.trading import create_trading_tools
 from tools.search import create_search_tools
@@ -191,20 +192,46 @@ def phase2_5_extract_candidates(collected_data: dict, risk_result: dict, logger:
     except Exception:
         pass
 
-    # 2. 信号筛选
-    if allow_buy:
-        scan_raw = collected_data.get("scan_watchlist", "{}")
-        try:
-            scan_data = json.loads(scan_raw) if isinstance(scan_raw, str) else scan_raw
-            held_symbols = {c["symbol"] for c in candidates}
-            for item in scan_data.get("watchlist_scan", []):
+    # 2. 信号与动能筛选 (加入投资组合强弱对比逻辑)
+    scan_raw = collected_data.get("scan_watchlist", "{}")
+    try:
+        scan_data = json.loads(scan_raw) if isinstance(scan_raw, str) else scan_raw
+        scan_list = scan_data.get("watchlist_scan", [])
+        
+        # 获取各标的的动能/阶段情况
+        symbol_momentum = {}
+        for item in scan_list:
+            sym = item.get("symbol", "")
+            stage2 = item.get("stage_2", False)
+            rs = item.get("rs_vs_spy", 0)
+            symbol_momentum[sym] = {"stage2": stage2, "rs": rs}
+            
+        held_symbols = {c["symbol"] for c in candidates}
+        
+        # 标记极弱的持仓 (跌破Stage2且RS极差)
+        for c in candidates:
+            if c["type"] == "POSITION":
+                mom = symbol_momentum.get(c["symbol"])
+                if mom and not mom["stage2"] and mom["rs"] < -0.05:
+                    c["type"] = "WEAK_POSITION"
+                    logger.warning(f"发现极弱持仓: {c['symbol']}, 准备提示 CIO 进行汰弱留强")
+
+        # 若环境允许买入，提取极强信号
+        if allow_buy:
+            for item in scan_list:
                 sym = item.get("symbol", "")
                 if sym in held_symbols: continue
-                if item.get("needs_attention"):
-                    candidates.append({"symbol": sym, "type": "SIGNAL"})
-        except Exception:
-            pass
+                # 如果是明确的 Stage 2 且表现显著强于大盘 (RS > 0.05)
+                if item.get("needs_attention") or (item.get("stage_2") and item.get("rs_vs_spy", 0) > 0.05):
+                    candidates.append({"symbol": sym, "type": "STRONG_SIGNAL"})
+                    
+    except Exception as e:
+        logger.error(f"Phase 2.5 解析 scan_watchlist 异常: {e}")
 
+    # 排序：WEAK_POSITION 优先，STRONG_SIGNAL 其次，普通 POSITION 最后
+    type_priority = {"WEAK_POSITION": 1, "STRONG_SIGNAL": 2, "SIGNAL": 3, "POSITION": 4}
+    candidates.sort(key=lambda x: type_priority.get(x["type"], 99))
+    
     return candidates
 
 
@@ -417,6 +444,7 @@ def main():
     
     # 记录当天是否执行过深度分析
     run_history = {"morning": False, "afternoon": False}
+    scanner_ran = False
 
     while True:
         try:
@@ -428,7 +456,23 @@ def main():
                 last_date = current_date
                 morning_briefing_sent = False
                 run_history = {"morning": False, "afternoon": False}
+                scanner_ran = False
                 logger.info(f"新交易日: {current_date}")
+
+            # 盘前 9:00 - 9:30 执行 Alpha Scanner 获取动态标的池
+            time_str = current_time.strftime("%H:%M")
+            if "09:00" <= time_str < "09:30" and not scanner_ran:
+                try:
+                    from agent.alpha_scanner import AlphaScanner
+                    scanner = AlphaScanner(llm=analyst_llm)
+                    new_watchlist = scanner.run()
+                    
+                    import config as app_config
+                    app_config.update_watchlist_in_place(new_watchlist)
+                    logger.info(f"[Phase 0] Alpha Scanner 完毕，当前内存标的池已更新为: {app_config.WATCHLIST}")
+                except Exception as e:
+                    logger.error(f"Alpha Scanner 运行异常: {e}")
+                scanner_ran = True
 
             if not is_trading_hours(current_time):
                 if review_agent.should_run():
@@ -467,6 +511,41 @@ def main():
 
             # Watchdog 循环频率：1 分钟
             time.sleep(60)
+            
+            # --- Event-Driven News Watchdog ---
+            # 每 15 分钟扫一次核弹级新闻 (只有在盘中且非深度决策时执行)
+            current_minute = current_time.minute
+            if not should_run_strategic and current_minute % 15 == 0:
+                try:
+                    logger.info("[News Watchdog] 执行盘中突发新闻巡检...")
+                    news_client = tool_registry.get_tool("search_macro_economics") # 或者用 get_search_client
+                    if news_client:
+                        # 借用 LLM 做快速情感判断
+                        news_res = news_client.execute(topic="US stock market breaking news crash emergency surprise")
+                        prompt = f"分析以下最新市场新闻，是否包含可能引发美股大盘暴跌/暴涨的核弹级突发事件（如战争爆发、美联储突发紧急行动、大型黑天鹅）？如果有，仅回复 'CRITICAL: [事件简述]'。如果没有，回复 'NORMAL'。\n\n新闻:\n{news_res[:2000]}"
+                        
+                        messages = [
+                            ChatMessage(role=Role.SYSTEM, content="You are a fast market news sentiment detector."),
+                            ChatMessage(role=Role.USER, content=prompt)
+                        ]
+                        alert_resp = analyst_llm.chat(messages).content.strip()
+                        
+                        if alert_resp.startswith("CRITICAL"):
+                            logger.error(f"🚨 [News Watchdog] 侦测到突发核弹级事件: {alert_resp}。强行唤醒 CIO 进行计划外避险决策！")
+                            # 强行拉起深度决策层
+                            loop = asyncio.get_event_loop()
+                            # 为了速度，直接跳过选股，强行对持仓进行避险评估
+                            emergency_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
+                            emergency_candidates = [c for c in emergency_candidates if c["type"] == "POSITION"] # 只管手里的票
+                            if emergency_candidates:
+                                emergency_briefings = loop.run_until_complete(
+                                    phase3_map_experts(emergency_candidates, orchestrator, risk_result, logger)
+                                )
+                                loop.run_until_complete(
+                                    phase4_strategic_decision(agent, collected_data, emergency_briefings, 0.0, logger) # 强制给 0 分(最极端的恐惧分)
+                                )
+                except Exception as e:
+                    logger.error(f"[News Watchdog] 巡检异常: {e}")
 
         except KeyboardInterrupt:
             logger.info("收到中断信号，正在退出...")

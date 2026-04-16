@@ -29,10 +29,14 @@ def load_dotenv(filepath=".env"):
 load_dotenv()
 
 
+import json
+from datetime import datetime
+import pytz
+
 # ═══════════════════════════════════════════
-# 固定标的池 - 仅交易这10只股票
+# 动态标的池 (Dynamic Watchlist)
 # ═══════════════════════════════════════════
-WATCHLIST = [
+DEFAULT_WATCHLIST = [
     "NVDA",   # NVIDIA - AI算力龙头
     "TSM",    # 台积电 - 半导体代工垄断
     "MSFT",   # 微软 - 云+AI双引擎
@@ -45,8 +49,34 @@ WATCHLIST = [
     "GE",     # GE航空 - 航空发动机垄断
 ]
 
-# 标的池对应的 LongPort 代码
+def load_dynamic_watchlist():
+    """尝试加载每日动态生成的标的池，失败则返回默认列表"""
+    try:
+        watchlist_path = "data/daily_watchlist.json"
+        if os.path.exists(watchlist_path):
+            with open(watchlist_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                
+            # 校验是否为今天的标的池 (美东时间)
+            today_str = datetime.now(pytz.timezone("US/Eastern")).strftime("%Y-%m-%d")
+            if data.get("date") == today_str and "watchlist" in data:
+                print(f"✅ 成功加载 {today_str} 动态标的池: {data['watchlist']}")
+                return data["watchlist"]
+    except Exception as e:
+        print(f"⚠️ 加载动态标的池失败 ({e})，使用默认列表。")
+        
+    return DEFAULT_WATCHLIST
+
+WATCHLIST = load_dynamic_watchlist()
 WATCHLIST_SYMBOLS = [f"{s}.US" for s in WATCHLIST]
+
+def update_watchlist_in_place(new_watchlist: list):
+    """就地更新内存中的标的池，防止模块重载导致的引用脱节"""
+    WATCHLIST.clear()
+    WATCHLIST.extend(new_watchlist)
+    WATCHLIST_SYMBOLS.clear()
+    WATCHLIST_SYMBOLS.extend([f"{s}.US" for s in new_watchlist])
+    print(f"🔄 内存标的池已就地更新: {WATCHLIST}")
 
 
 # ═══════════════════════════════════════════

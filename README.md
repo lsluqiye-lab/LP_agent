@@ -1,114 +1,103 @@
 # LP-Agent v3.0
 
-基于 **Strategic Multi-Agent** 架构的美股自动交易智能体。系统模拟对冲基金运行模式，由 **CIO (首席投资官)** 决策大脑统筹多个**领域专家智能体**，通过 LongPort OpenAPI 执行实盘交易。
+基于 **Strategic Multi-Agent** 架构的美股自动交易智能体。系统模拟华尔街对冲基金运行模式，由 **CIO (首席投资官)** 决策大脑统筹多个**领域专家智能体**，并结合高频 Watchdog，通过 LongPort OpenAPI 执行实盘狙击。
 
-系统核心哲学：**Bear-Case-First (风险优先)** —— 所有的买入必须建立在对风险因素的彻底调查和证伪之上。
-
----
-
-## 🚀 决策漏斗：如何选取标的？
-
-系统并不是盲目扫描，而是通过一个**三层过滤漏斗**，从数千只股票中锁定最具爆发力的目标：
-
-### 层级 1：动态标的池 (Daily Warm-up)
-*   **触发时间**：每日美东时间开盘前。
-*   **逻辑**：调用 `gemini-3-flash` 结合实时搜索，扫描市场热度、成交量异动及重大新闻催化剂。
-*   **结果**：动态生成 10-15 只核心观察名单（包含 NVDA, MSFT 等常驻标的），确保系统始终聚焦在“市场风口”上。
-
-### 层级 2：定量信号筛选 (Phase 2.5 - The Filter)
-*   **触发时间**：每 10 分钟循环。
-*   **核心逻辑**：
-    1.  **持仓巡检 (Mandatory)**：所有当前持仓标的一键送审，强制检查止损位（8% 或跌破 SMA50）和止盈机会。
-    2.  **技术信号筛选**：从未持仓标的中提取符合以下条件的“候选人”：
-        *   **Minervini Stage 2**：确认股价处于主升浪（股价 > 50日均线 > 200日均线）。
-        *   **动量爆发**：出现 MACD 金叉、RSI 处于 40-70 健康区、或 20 日收益显著跑赢大盘。
-        *   **成交量确认**：成交量比 (Vol Ratio) 放大，显示机构进场迹象。
-    3.  **Fallback 兜底**：若环境优良但无明确信号，强制选取 20 日表现最强的 Top 3 标的进入下一轮，防止错过“静默启动”的牛股。
-
-### 层级 3：多智能体深度投研 (Phase 3 - Expert Matrix)
-*   **触发时间**：通过层级 2 筛选后的每一只候选股。
-*   **动作**：
-    *   **FundamentalAnalyst**：计算 PEG、毛利率及机构动向。
-    *   **TechnicalAnalyst**：识别杯柄形态、计算精确支撑阻力。
-    *   **SentimentAnalyst**：扫描 Reddit/Twitter 情绪及最新利空消息。
-*   **终审**：将所有专家报告汇总为 `Decision Briefing` 提交给 **CIO (ReAct Agent)** 进行最终审判。
+系统核心哲学：**Bear-Case-First (风险优先) & Tactical Execution (战术狙击)** —— 宁可错过，绝不追高被套。
 
 ---
 
-## 架构设计 (Dual-Track Architecture V3.0)
+## 🚀 LP-Agent v3.0 完整生命周期 (以 TSLA 为例)
 
-系统采用“高频监控 + 深度决策”的双轨制引擎架构，兼顾了止损的极速响应与研报的深度思考：
+系统不再是机械地定时扫盘，而是具备“嗅觉”、“肌肉记忆”和“狙击能力”的智能体。以下是系统在一天中如何捕获并交易 TSLA 的完整流程：
 
 ```mermaid
-graph TD
-    subgraph Watchdog [高频监控层 Watchdog - 每分钟运行]
-        A[拉取持仓与秒级报价] --> B{是否触发止损?}
-        B -- "硬止损: 跌破成本8%" --> C[直接发起市价单斩仓 MO]
-        B -- "保护止盈: 利润保护" --> D[发起锁定利润市价单 MO]
-        B -- "安全" --> E[等待下一次心跳]
-    end
+sequenceDiagram
+    participant Time as 盘前/盘中时段
+    participant Phase0 as Alpha Scanner (选股)
+    participant WD as 高频 Watchdog (风控)
+    participant Expert as 专家矩阵 (分析)
+    participant CIO as 主脑 CIO (决策)
+    participant Broker as LongPort (执行)
 
-    subgraph StrategicBrain [深度决策层 Strategic Brain - 定时触发]
-        F[Phase 1: 数据收集] --> G[Phase 2: 宏观风控]
-        G --> H[Phase 2.5: 候选筛选]
-        H --> I[Phase 3: 专家并行研报]
-        I --> J[Fundamental Analyst]
-        I --> K[Technical Analyst]
-        I --> L[Sentiment Analyst]
-        J --> M[Phase 4: CIO 决策 ReAct]
-        K --> M
-        L --> M
-        M --> N[使用高级订单精准狙击]
-    end
+    Note over Time, Broker: 🌅 美东时间 09:00 (盘前)
+    Time->>Phase0: 唤醒盘前雷达
+    Phase0->>Phase0: 搜索全网新闻 "US top growth stocks breakout"
+    Phase0-->>CIO: 发现 TSLA 存在“A15芯片流片”催化剂，将其加入今日 Watchlist
+
+    Note over Time, Broker: ⏰ 10:00 (早盘决策期)
+    Time->>Expert: 触发多专家并发研报
+    Expert->>Expert: Fundamental: 发现估值极高，但 FSD 进展迅速<br/>Technical: 量价齐升 (OBV看多背离)，算出阻力位 $398.01<br/>Sentiment: 市场情绪极度贪婪 (FOMO)
+    Expert-->>CIO: 提交综合决策简报 (Decision Briefing)
+
+    CIO->>CIO: 检查交易记忆：近14天无被套记录<br/>宏观评分：65分 (安全)<br/>技术面：处于阻力位下方，未突破
+    CIO->>Broker: 下达【LIT 触及限价单】，触发价设在阻力位上方($400)<br/>坚守右侧交易：“不见兔子不撒鹰”
+
+    Note over Time, Broker: ⚡ 盘中随机时间 (e.g. 13:15)
+    Time->>WD: 每分钟/15分钟心跳
+    WD->>WD: 1. 价格跌破成本8%？否<br/>2. 检索全网是否有核弹级突发新闻？否
+
+    Note over Time, Broker: 🔔 15:30 (尾盘决策期)
+    Time->>CIO: 再次唤醒
+    CIO->>CIO: 发现持仓中有走弱的股票 (WEAK_POSITION)<br/>且 TSLA 依然极强 (STRONG_SIGNAL)
+    CIO->>Broker: 执行“配对换仓” (Pair Trading)，卖弱买强
+    
+    Note over Time, Broker: 🌙 16:30 (收盘后)
+    Time->>CIO: 触发 Review Agent 每日复盘
+    CIO->>CIO: 总结今日盈亏，提取 1-3 条交易教训写入长效记忆
 ```
 
 ---
 
-## 专家团详情
+## 🧠 系统核心能力升级
 
-### 1. 基本面专家 (FundamentalAnalyst)
-- **职责**：挖掘公司核心护城河、估值水平及业绩指引。
-- **核心指标**：PE (TTM), Forward PE, PEG (核心准则), 毛利率趋势, 机构持仓变动。
+### 1. 动态雷达：Phase 0 (Alpha Scanner)
+系统告别了死板的硬编码标的池。每天盘前 (09:00)，Alpha Scanner 会自动在全网检索最近一周的强势板块、机构评级上调以及具有爆发催化剂的股票，自动将 10-15 只“金股”热更新进当日的内存池。今天的主线是 AI，明天可能就会自动切换到核电或生物医药。
 
-### 2. 技术面专家 (TechnicalAnalyst)
-- **职责**：基于 Mark Minervini 的趋势模板进行形态识别。
-- **核心指标**：Stage 2 确认, 相对强度 (RS vs SPY), SMA 20/50/200 排列, ADX 趋势强度。
+### 2. 战术狙击手：告别无脑市价单 (LIT & LO 订单)
+在震荡市中，市价单 (MO) 是被割韭菜的罪魁祸首。
+- **技术点位绑定**：技术面专家被强制要求精确计算支撑位 (Support) 和阻力位 (Resistance)。
+- **LIT 突破单**：对于看好的未突破股票，CIO 被强制使用 **LIT (触及限价单)**，将买单挂在阻力位上方 0.5% 处，只买确定的突破。
+- **LO 低吸单**：对于强趋势的回调，CIO 会在均线支撑位挂 **LO (限价单)** 埋伏。
 
-### 3. 舆情专家 (SentimentAnalyst)
-- **职责**：捕捉市场情绪过热或过度恐慌的信号。
-- **核心来源**：X (Twitter), Reddit (WSB), 金融新闻网站。
+### 3. 三重防线：极速与深度的完美结合
+1. **秒级硬止损 (Watchdog)**：每 1 分钟纯本地扫描一次持仓，一旦跌破成本价 8%，直接无脑市价斩仓，绝不交给大模型思考。
+2. **盘中防空警报 (News Watchdog)**：每 15 分钟扫描一次带血腥味的突发宏观新闻（如战争、暴雷）。一旦发现，强行拉响警报唤醒 CIO 紧急避险。
+3. **宏观评分硬拦截**：当大盘技术面破位或市场过热导致宏观评分跌破 50 时，交易执行层会在物理层面没收 CIO 的“买入按钮”，仅允许卖出。
 
----
-
-## 执行流程
-
-### CIO 的决策艺术
-在 v3.0 中，主 Agent 的推理逻辑遵循 **"审判"模式**：
-
-1.  **首查矛盾**：如果基本面显示 `Undervalued` 但技术面显示 `Stage 4`，CIO 会立即启动额外搜索，调查是否有未公开的利空。
-2.  **硬约束过滤**：即便所有专家都看看好，只要技术面不符合 `Stage 2` 或股价在 `SMA50` 之下，买入指令将被否决。
-3.  **动态仓位**：根据 `Macro Risk Score` 和专家共鸣程度，自动计算 40% (试探), 70% (标准) 或 100% (满额) 的计划仓位。
+### 4. 汰弱留强与肌肉记忆
+- **配对交易 (Pair Trading)**：CIO 能够识别组合内的极弱标的 (`WEAK_POSITION`) 和极强候选 (`STRONG_SIGNAL`)，自动卖出弱势股去换仓强势股。
+- **长效记忆**：系统在组装研报时会附带过去 14 天该标的的战绩记录。如果系统发现自己在某只股票上反复亏损/频繁止损，会自动触发防御机制，避免变成绞肉机。
 
 ---
 
-## 快速开始
+## 🛠️ 快速开始
 
-### 环境变量更新 (v3.0 推荐)
-建议在 `.env` 中配置分析师专用模型：
+### 环境变量要求
+建议在 `.env` 中配置至少两个级别的模型，以兼顾决策深度和扫盘速度：
 
 ```bash
-# ── 主 LLM (用于决策) ──
+# ── 主脑 CIO (需具备极高逻辑推理能力) ──
 LLM_PROVIDER=gemini
 GEMINI_API_KEY="your_pro_key"
 GEMINI_MODEL="gemini-3.1-pro-preview"
 
-# ── 分析师专用 LLM (用于并行扫描) ──
+# ── 专家与巡检犬 (需快响应，低成本) ──
 ANALYST_LLM_PROVIDER=gemini
 ANALYST_GEMINI_API_KEY="your_flash_key"
 ANALYST_GEMINI_MODEL="gemini-3-flash-preview"
 ```
 
+### 启动命令
+使用随附的脚本安全启动并管理进程：
+```bash
+./start.sh
+```
+实时查看系统流心与交易日志：
+```bash
+tail -f agent.log
+```
+
 ---
 
-## 免责声明
-本项目仅供学习和研究目的。实盘交易风险巨大，请务必在充分了解风险并有专人监控的情况下运行。
+## ⚠️ 免责声明
+本项目仅供学习和研究目的。自动交易具备极高的资金风险，实盘接入前务必在纸面交易 (Paper Trading) 或模拟账户中长期验证。请务必在有专人监控的情况下运行。

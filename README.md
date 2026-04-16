@@ -14,6 +14,7 @@
 sequenceDiagram
     participant Time as 盘前/盘中时段
     participant Phase0 as Alpha Scanner (选股)
+    participant Qlib as Qlib Quant (量化)
     participant WD as 高频 Watchdog (风控)
     participant Risk as 宏观风控局 (Macro)
     participant Expert as 专家矩阵 (分析)
@@ -22,8 +23,10 @@ sequenceDiagram
 
     Note over Time, Broker: 🌅 美东时间 09:00 (盘前)
     Time->>Phase0: 唤醒盘前雷达
-    Phase0->>Phase0: 搜索全网新闻 "US top growth stocks breakout"
-    Phase0-->>CIO: 发现 TSLA 存在“A15芯片流片”催化剂，将其加入今日 Watchlist
+    Phase0->>Qlib: 调用 Alpha158 因子进行全市场初筛
+    Qlib-->>Phase0: 返回 Top 20 动能评分榜单
+    Phase0->>Phase0: 结合搜索新闻 "US top growth stocks breakout"
+    Phase0-->>CIO: 发现 TSLA 评分 92 + 催化剂，将其加入今日 Watchlist
 
     Note over Time, Broker: ⏰ 10:00 (早盘决策期)
     Time->>Risk: 触发全局宏观打分 (Phase 2)
@@ -36,6 +39,9 @@ sequenceDiagram
         Expert->>Expert: 计算PEG、研读财报<br/>结论：估值极高，但 FSD 进展迅速
     and 技术面分析 (Technical)
         Expert->>Expert: 寻找Stage 2、量价齐升 (OBV看多背离)<br/>精确计算：阻力位 $398.01，支撑位 $366.98
+    and 量化因子分析 (Qlib Quant)
+        Expert->>Qlib: 获取该标的 Alpha158 综合评分
+        Qlib-->>Expert: 返回：Score 88, RSI: Oversold, Trend: Strong
     and 情绪面分析 (Sentiment)
         Expert->>Expert: 扫描社交媒体与新闻<br/>结论：散户情绪极度贪婪 (FOMO)
     end
@@ -81,6 +87,10 @@ sequenceDiagram
 ### 3. 情绪面舆情专家 (SentimentAnalyst)
 - **职责**：作为反向指标探测器，捕捉市场极端过热 (FOMO) 或过度恐慌的信号。
 - **分析内容**：扫描全网新闻、Reddit (WSB) 讨论热度、Twitter 情绪，以及是否有导致大跌的黑天鹅催化剂。
+
+### 4. 量化分析专家 (QuantAnalyst - Powered by Qlib)
+- **职责**：提供基于传统机器学习的硬指标评分，作为 LLM 逻辑推理的底层数据支撑。
+- **分析内容**：调用微软 Qlib 框架，提取 **Alpha158** 因子集，输出综合预测评分、RSI 状态及趋势强度信号。它在 Alpha Scanner 阶段负责初筛，在个股研报阶段负责精准打分。
 
 ---
 

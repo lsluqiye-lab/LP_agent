@@ -1,130 +1,133 @@
-<svg width="1000" height="800" viewBox="0 0 1000 800" xmlns="http://www.w3.org/2000/svg">
+<svg width="1000" height="850" viewBox="0 0 1000 850" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景层 -->
+  <rect width="1000" height="850" fill="#05080a" rx="15" />
+  
   <defs>
-    <!-- 专业色彩渐变 -->
-    <linearGradient id="hub-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#00e5ff;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#006064;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="box-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#1c2331;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#10141d;stop-opacity:1" />
-    </linearGradient>
-    <linearGradient id="accent-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#00e5ff;stop-opacity:0" />
-      <stop offset="50%" style="stop-color:#00e5ff;stop-opacity:0.5" />
-      <stop offset="100%" style="stop-color:#00e5ff;stop-opacity:0" />
-    </linearGradient>
-
-    <!-- 霓虹发光 -->
-    <filter id="neon" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
+    <!-- 装饰背景：网格线 -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#0f172a" stroke-width="1"/>
+    </pattern>
     
-    <!-- 容器阴影 -->
-    <filter id="box-shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="10" stdDeviation="15" flood-color="#000" flood-opacity="0.8"/>
-    </filter>
+    <!-- 箭头定义 -->
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#00e5ff" />
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ff1744" />
+    </marker>
   </defs>
 
-  <!-- 全背景 -->
-  <rect width="1000" height="800" fill="#0b0e14" rx="20"/>
-  
-  <!-- 电路纹理装饰线 -->
-  <path d="M100 100 L900 100 M100 700 L900 700 M100 100 L100 700 M900 100 L900 700" stroke="#1c2331" stroke-width="1" fill="none"/>
-  <circle cx="100" cy="100" r="3" fill="#1c2331"/>
-  <circle cx="900" cy="100" r="3" fill="#1c2331"/>
-  <circle cx="100" cy="700" r="3" fill="#1c2331"/>
-  <circle cx="900" cy="700" r="3" fill="#1c2331"/>
+  <!-- 绘制背景装饰网格 -->
+  <rect width="1000" height="850" fill="url(#grid)" />
 
-  <!-- 1. 顶层：Watchdog 防御层 (The Shield) -->
-  <g transform="translate(250, 40)" filter="url(#box-shadow)">
-    <rect width="500" height="80" rx="15" fill="url(#box-grad)" stroke="#ff3d00" stroke-width="2" opacity="0.9"/>
-    <text x="250" y="30" fill="#ff3d00" font-family="Verdana" font-size="12" text-anchor="middle" font-weight="bold" letter-spacing="2">ACTIVE VIGILANCE SHIELD</text>
-    <text x="250" y="55" fill="#fff" font-family="Arial" font-size="16" text-anchor="middle" font-weight="bold">Watchdog 1min High-Freq Protection</text>
-    <text x="250" y="72" fill="#ff7043" font-family="Arial" font-size="10" text-anchor="middle">Hard Stop | Capital Preservation | Crash Detection</text>
+  <!-- 1. 顶层：WATCHDOG SHIELD (具象盾牌设计) -->
+  <g transform="translate(500, 100)">
+    <!-- 盾牌外廓 -->
+    <path d="M 0 -60 L 60 -40 L 60 20 C 60 50, 0 80, 0 80 C 0 80, -60 50, -60 20 L -60 -40 Z" fill="#263238" stroke="#ff1744" stroke-width="3" />
+    <path d="M 0 -50 L 50 -35 L 50 15 C 50 40, 0 65, 0 65 C 0 65, -50 40, -50 15 L -50 -35 Z" fill="none" stroke="#ff1744" stroke-width="1" opacity="0.5" />
+    <text x="0" y="-10" fill="#ff1744" font-family="Arial Black" font-size="22" text-anchor="middle">WATCHDOG</text>
+    <text x="0" y="15" fill="#fff" font-family="Arial" font-size="10" text-anchor="middle" font-weight="bold">VIGILANCE LAYER</text>
+    <text x="0" y="35" fill="#ff1744" font-family="Arial" font-size="9" text-anchor="middle">1min High-Freq Protection</text>
+    
+    <!-- 盾牌核心功能描述 -->
+    <rect x="-180" y="-30" width="100" height="30" rx="5" fill="#b71c1c" />
+    <text x="-130" y="-10" fill="#fff" font-family="Arial" font-size="10" text-anchor="middle" font-weight="bold">Hard Stop</text>
+    <rect x="80" y="-30" width="100" height="30" rx="5" fill="#b71c1c" />
+    <text x="130" y="-10" fill="#fff" font-family="Arial" font-size="10" text-anchor="middle" font-weight="bold">News Alert</text>
   </g>
 
-  <!-- 2. 中央核心：CIO 决策中枢 (The Brain) -->
-  <g transform="translate(350, 300)" filter="url(#neon)">
-    <circle cx="150" cy="100" r="100" fill="url(#hub-grad)" opacity="0.15" stroke="#00e5ff" stroke-width="1"/>
-    <circle cx="150" cy="100" r="80" fill="url(#hub-grad)" opacity="0.3" stroke="#00e5ff" stroke-width="2"/>
-    <circle cx="150" cy="100" r="60" fill="url(#hub-grad)" />
-    <text x="150" y="95" fill="#fff" font-family="Impact" font-size="32" text-anchor="middle">CIO</text>
-    <text x="150" y="120" fill="#fff" font-family="Arial" font-size="12" text-anchor="middle" font-weight="bold">RE-ACT BRAIN</text>
-    <text x="150" y="135" fill="#00e5ff" font-family="Arial" font-size="9" text-anchor="middle" font-style="italic">v3.0 Strategic Intelligence</text>
+  <!-- 2. 中央核心：CIO DECISION CORE (六边形发光中枢) -->
+  <g transform="translate(500, 420)">
+    <!-- 装饰性光圈 -->
+    <circle r="140" fill="none" stroke="#00e5ff" stroke-width="1" stroke-dasharray="10,5" opacity="0.3" />
+    <circle r="120" fill="none" stroke="#00e5ff" stroke-width="0.5" opacity="0.2" />
+    
+    <!-- 六边形主核 -->
+    <path d="M 0 -100 L 86 -50 L 86 50 L 0 100 L -86 50 L -86 -50 Z" fill="#0a1929" stroke="#00e5ff" stroke-width="4" />
+    <path d="M 0 -85 L 73 -43 L 73 43 L 0 85 L -73 43 L -73 -43 Z" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0.5" />
+    
+    <text x="0" y="-20" fill="#fff" font-family="Arial Black" font-size="45" text-anchor="middle">CIO</text>
+    <text x="0" y="15" fill="#00e5ff" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">RE-ACT AGENT</text>
+    <text x="0" y="35" fill="rgba(255,255,255,0.7)" font-family="Arial" font-size="10" text-anchor="middle">Strategic Reasoning Center</text>
+    
+    <!-- 连接线到盾牌 -->
+    <path d="M 0 -100 L 0 -240" stroke="#ff1744" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrow-red)" />
   </g>
 
-  <!-- 3. 左翼：输入与风控 (Inflow) -->
-  <g transform="translate(50, 250)">
-    <rect width="250" height="220" rx="15" fill="url(#box-grad)" stroke="#00e5ff" stroke-width="0.5"/>
-    <text x="20" y="30" fill="#00e5ff" font-family="Verdana" font-size="11" font-weight="bold">DATA SENSING</text>
+  <!-- 3. 左翼能力槽：INPUT & RISK (感知能力) -->
+  <g transform="translate(100, 320)">
+    <rect width="220" height="200" rx="10" fill="rgba(0, 229, 255, 0.05)" stroke="#00e5ff" stroke-width="1" />
+    <text x="110" y="25" fill="#00e5ff" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">SENSING CAPABILITIES</text>
     
-    <g transform="translate(20, 50)">
-      <rect width="210" height="40" rx="5" fill="#121826" stroke="#00bcd4" stroke-dasharray="4,2"/>
-      <text x="105" y="25" fill="#fff" font-family="Arial" font-size="12" text-anchor="middle">Macro Risk Scoring</text>
+    <g transform="translate(15, 50)">
+      <rect width="190" height="35" rx="5" fill="#1e293b" stroke="#00e5ff" />
+      <text x="95" y="22" fill="#fff" font-family="Arial" font-size="11" text-anchor="middle">Macro Risk Scoring (0-100)</text>
     </g>
-    <g transform="translate(20, 105)">
-      <rect width="210" height="40" rx="5" fill="#121826" stroke="#00bcd4" stroke-dasharray="4,2"/>
-      <text x="105" y="25" fill="#fff" font-family="Arial" font-size="12" text-anchor="middle">Alpha Scanner (选股)</text>
+    <g transform="translate(15, 100)">
+      <rect width="190" height="35" rx="5" fill="#1e293b" stroke="#00e5ff" />
+      <text x="95" y="22" fill="#fff" font-family="Arial" font-size="11" text-anchor="middle">Alpha Scanner (选股雷达)</text>
     </g>
-    <g transform="translate(20, 160)">
-      <rect width="210" height="40" rx="5" fill="#121826" stroke="#00bcd4" stroke-dasharray="4,2"/>
-      <text x="105" y="25" fill="#fff" font-family="Arial" font-size="12" text-anchor="middle">Real-time Order Status</text>
+    <g transform="translate(15, 150)">
+      <rect width="190" height="35" rx="5" fill="#1e293b" stroke="#00e5ff" />
+      <text x="95" y="22" fill="#fff" font-family="Arial" font-size="11" text-anchor="middle">Trade Logger (闭环监控)</text>
     </g>
+    
+    <!-- 连接到中枢 -->
+    <path d="M 220 100 L 314 100" stroke="#00e5ff" stroke-width="2" marker-end="url(#arrow)" />
   </g>
 
-  <!-- 4. 右翼：专家矩阵 (Analyst Panel) -->
-  <g transform="translate(700, 250)">
-    <rect width="250" height="220" rx="15" fill="url(#box-grad)" stroke="#00e5ff" stroke-width="0.5"/>
-    <text x="230" y="30" fill="#00e5ff" font-family="Verdana" font-size="11" font-weight="bold" text-anchor="end">EXPERT ANALYSTS</text>
+  <!-- 4. 右翼能力槽：EXPERT PANEL (分析能力) -->
+  <g transform="translate(680, 320)">
+    <rect width="220" height="200" rx="10" fill="rgba(0, 229, 255, 0.05)" stroke="#00e5ff" stroke-width="1" />
+    <text x="110" y="25" fill="#00e5ff" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">ANALYST PANEL</text>
     
-    <rect x="20" y="50" width="210" height="35" rx="5" fill="#0d1b2a" stroke="#00e5ff" />
-    <text x="125" y="72" fill="#00e5ff" font-family="Arial" font-size="11" text-anchor="middle">Technical (VCP/Stage 2)</text>
+    <g transform="translate(15, 50)">
+      <rect width="190" height="35" rx="5" fill="#1e293b" stroke="#00e5ff" />
+      <text x="95" y="22" fill="#fff" font-family="Arial" font-size="11" text-anchor="middle">Technical (VCP / Stage 2)</text>
+    </g>
+    <g transform="translate(15, 100)">
+      <rect width="190" height="35" rx="5" fill="#1e293b" stroke="#00e5ff" />
+      <text x="95" y="22" fill="#fff" font-family="Arial" font-size="11" text-anchor="middle">Fundamental (PEG / Value)</text>
+    </g>
+    <g transform="translate(15, 150)">
+      <rect width="190" height="35" rx="5" fill="#1e293b" stroke="#00e5ff" />
+      <text x="95" y="22" fill="#fff" font-family="Arial" font-size="11" text-anchor="middle">Sentiment (FOMO Detector)</text>
+    </g>
     
-    <rect x="20" y="95" width="210" height="35" rx="5" fill="#0d1b2a" stroke="#00e5ff" />
-    <text x="125" y="117" fill="#00e5ff" font-family="Arial" font-size="11" text-anchor="middle">Fundamental (PEG/Value)</text>
-    
-    <rect x="20" y="140" width="210" height="35" rx="5" fill="#0d1b2a" stroke="#00e5ff" />
-    <text x="125" y="162" fill="#00e5ff" font-family="Arial" font-size="11" text-anchor="middle">Sentiment (FOMO Detector)</text>
-    
-    <rect x="20" y="185" width="210" height="25" rx="5" fill="#0d1b2a" stroke="#7986cb" opacity="0.6"/>
-    <text x="125" y="202" fill="#fff" font-family="Arial" font-size="9" text-anchor="middle">Quant (Qlib Alpha158)</text>
+    <!-- 连接到中枢 -->
+    <path d="M 0 100 L -94 100" stroke="#00e5ff" stroke-width="2" marker-end="url(#arrow)" />
   </g>
 
-  <!-- 5. 底层：战术执行 (Execution) -->
-  <g transform="translate(150, 580)" filter="url(#box-shadow)">
-    <rect width="700" height="100" rx="15" fill="url(#box-grad)" stroke="#00e676" stroke-width="1"/>
-    <text x="350" y="25" fill="#00e676" font-family="Verdana" font-size="12" text-anchor="middle" font-weight="bold" letter-spacing="2">TACTICAL EXECUTION ENGINE</text>
+  <!-- 5. 底层：TACTICAL EXECUTION (订单能力) -->
+  <g transform="translate(150, 680)">
+    <rect width="700" height="120" rx="10" fill="rgba(0, 230, 118, 0.05)" stroke="#00e676" stroke-width="1" />
+    <text x="350" y="30" fill="#00e676" font-family="Arial" font-size="16" text-anchor="middle" font-weight="bold">TACTICAL EXECUTION ENGINE (LongPort)</text>
     
-    <g transform="translate(40, 45)">
-      <rect width="180" height="40" rx="5" fill="#1b5e20" filter="url(#neon)"/>
-      <text x="90" y="70" fill="#fff" font-family="Arial" font-size="13" text-anchor="middle" font-weight="bold">LIT Sniper (突破)</text>
+    <g transform="translate(40, 50)">
+      <rect width="180" height="45" rx="5" fill="#1b5e20" stroke="#00e676" />
+      <text x="90" y="27" fill="#fff" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">LIT Sniper</text>
+      <text x="90" y="40" fill="#81c784" font-family="Arial" font-size="9" text-anchor="middle">突破狙击单</text>
     </g>
-    <g transform="translate(260, 45)">
-      <rect width="180" height="40" rx="5" fill="#1b5e20" filter="url(#neon)"/>
-      <text x="90" y="70" fill="#fff" font-family="Arial" font-size="13" text-anchor="middle" font-weight="bold">LO Support (低吸)</text>
+    <g transform="translate(260, 50)">
+      <rect width="180" height="45" rx="5" fill="#1b5e20" stroke="#00e676" />
+      <text x="90" y="27" fill="#fff" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">LO Support</text>
+      <text x="90" y="40" fill="#81c784" font-family="Arial" font-size="9" text-anchor="middle">支撑低吸单</text>
     </g>
-    <g transform="translate(480, 45)">
-      <rect width="180" height="40" rx="5" fill="#1b5e20" filter="url(#neon)"/>
-      <text x="90" y="70" fill="#fff" font-family="Arial" font-size="13" text-anchor="middle" font-weight="bold">TSMPCT (盈亏锁)</text>
+    <g transform="translate(480, 50)">
+      <rect width="180" height="45" rx="5" fill="#1b5e20" stroke="#00e676" />
+      <text x="90" y="27" fill="#fff" font-family="Arial" font-size="14" text-anchor="middle" font-weight="bold">TSMPCT</text>
+      <text x="90" y="40" fill="#81c784" font-family="Arial" font-size="9" text-anchor="middle">追踪止盈单</text>
     </g>
+    
+    <!-- 连接到中枢 -->
+    <path d="M 350 -10 L 350 -160" stroke="#00e676" stroke-width="2" stroke-dasharray="5,2" marker-end="url(#arrow)" />
   </g>
 
-  <!-- 6. 核心链路：动态发光连线 -->
-  <path d="M300 360 L350 360" stroke="#00e5ff" stroke-width="2" filter="url(#neon)"/>
-  <path d="M650 360 L700 360" stroke="#00e5ff" stroke-width="2" filter="url(#neon)"/>
-  <path d="M500 480 L500 580" stroke="#00e5ff" stroke-width="2" filter="url(#neon)"/>
-  <path d="M500 120 L500 300" stroke="#ff3d00" stroke-width="1" stroke-dasharray="5,5"/>
+  <!-- 6. 记忆反馈环 (EXPERIENCE LOOP) -->
+  <path d="M 150 740 C 0 740, -50 420, 100 420" fill="none" stroke="#ba68c8" stroke-width="2" stroke-dasharray="8,4" />
+  <text x="40" y="580" fill="#ba68c8" font-family="Arial" font-size="11" transform="rotate(-90, 40, 580)">Experience Feedback & Memory Evolution</text>
+  <circle cx="100" cy="420" r="5" fill="#ba68c8" />
 
-  <!-- 7. 记忆反馈环 (Evolution Loop) -->
-  <path d="M150 630 C50 630, 20 500, 50 360" stroke="#aa00ff" stroke-width="2" stroke-dasharray="10,5" fill="none" opacity="0.6"/>
-  <circle cx="50" cy="360" r="4" fill="#aa00ff" filter="url(#neon)"/>
-  <text x="40" y="550" fill="#aa00ff" font-family="Arial" font-size="11" font-weight="bold" transform="rotate(-90 40 550)">SELF-EVOLUTION MEMORY</text>
-
-  <!-- 核心能力水印 -->
-  <text x="950" y="770" fill="#1c2331" font-family="Arial" font-size="18" text-anchor="end" font-weight="bold">LP-AGENT CAPABILITIES V3.0</text>
+  <!-- 核心水印与版本 -->
+  <text x="980" y="830" fill="#1e293b" font-family="Arial Black" font-size="24" text-anchor="end">LP-AGENT v3.0 CAPABILITIES</text>
 </svg>

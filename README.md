@@ -10,43 +10,7 @@ LP-Agent 是一款基于 **Strategic Multi-Agent (SMA)** 架构的美股量化�
 
 ## 🏛️ 系统逻辑架构 (Core Architecture)
 
-```mermaid
-graph TB
-    %% 颜色定义
-    classDef brain fill:#1a237e,stroke:#7986cb,stroke-width:2px,color:#fff;
-    classDef watchdog fill:#bf360c,stroke:#ff7043,stroke-width:2px,color:#fff;
-    classDef execution fill:#1b5e20,stroke:#81c784,stroke-width:2px,color:#fff;
-    classDef memory fill:#4a148c,stroke:#ba68c8,stroke-width:2px,color:#fff;
-
-    subgraph Monitoring_Layer [实时预警层 - Watchdog]
-        W1[1min 高频轮询] --> W2{生存级止损?}
-        W2 -- 触发 --> W3[Market Order 斩仓]
-    end
-
-    subgraph Strategy_Layer [战略决策层 - Strategic Brain]
-        S1[宏观风控局<br/>Risk Score] --> S2[Alpha Scanner<br/>动态选股]
-        S2 --> S3[专家委员会<br/>Parallel Expert Panel]
-        S3 --> CIO{CIO 决策大脑<br/>ReAct Reasoning}
-    end
-
-    subgraph Execution_Layer [战术执行层 - Tactical Execution]
-        CIO -- LIT --> EX1[突破狙击单]
-        CIO -- LO --> EX2[支撑低吸单]
-        CIO -- TSMPCT --> EX3[移动止盈单]
-    end
-
-    subgraph Evolution_Layer [进化层 - Long-term Memory]
-        EX1 & EX2 & EX3 --> M1[复盘 Agent]
-        M1 --> M2[(经验记忆库)]
-        M2 -.-> |反思与注入| CIO
-    end
-
-    %% 应用样式
-    class Strategy_Layer brain;
-    class Monitoring_Layer watchdog;
-    class Execution_Layer execution;
-    class Evolution_Layer memory;
-```
+![LP-Agent v3.0 Architecture](architecture_v3.svg)
 
 ---
 

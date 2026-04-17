@@ -448,6 +448,9 @@ class BuyStockTool(BaseTool):
                 risk_score=risk_score,
             )
 
+            status_msg = "已成交 (FILLING/MO)" if order_type == "MO" else "已挂单 (PENDING/WAITING)"
+            execution_hint = "该订单为限价/触及单，仅在价格满足条件时成交。请在后续循环中通过 get_today_orders 确认其实际状态。"
+
             return json.dumps({
                 "success": True,
                 "order_id": resp.order_id,
@@ -455,9 +458,11 @@ class BuyStockTool(BaseTool):
                 "side": "Buy",
                 "quantity": quantity,
                 "order_type": order_type,
-                "price": price if order_type == "LO" else "市价",
-                "message": f"买入订单已提交: {quantity}股 {symbol}"
-            })
+                "price": price if order_type in ["LO", "LIT"] else "市价",
+                "trigger_price": trigger_price if order_type in ["LIT", "MIT"] else None,
+                "status": status_msg,
+                "message": f"买入指令下达成功 [{status_msg}]: {quantity}股 {symbol}。{execution_hint}"
+            }, ensure_ascii=False)
 
         except Exception as e:
             return json.dumps({"error": str(e), "success": False})
@@ -586,6 +591,9 @@ class SellStockTool(BaseTool):
                 risk_score=risk_score,
             )
 
+            status_msg = "已成交 (FILLING/MO)" if order_type == "MO" else "已挂单 (PENDING/WAITING)"
+            execution_hint = "该订单已提交。若是限价单或追踪止损单，需满足价格条件方可成交。"
+
             return json.dumps({
                 "success": True,
                 "order_id": resp.order_id,
@@ -594,8 +602,9 @@ class SellStockTool(BaseTool):
                 "quantity": quantity,
                 "order_type": order_type,
                 "price": price if order_type == "LO" else "市价",
-                "message": f"卖出订单已提交: {quantity}股 {symbol}"
-            })
+                "status": status_msg,
+                "message": f"卖出指令下达成功 [{status_msg}]: {quantity}股 {symbol}。{execution_hint}"
+            }, ensure_ascii=False)
 
         except Exception as e:
             return json.dumps({"error": str(e), "success": False})

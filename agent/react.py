@@ -32,24 +32,22 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 - 检查 `宏观评分: {risk_score}`。(注意：评分为 0-100。**100 代表极其安全，0 代表极端风险！分数越低越危险**)。
 - **LOCKDOWN/CAUTIOUS (<50)**: 代表高风险环境。你的主基调是“减仓”和“止损收紧”。拒绝任何新买入单，除非是平仓。
 - **NORMAL/FAVORABLE (>=50)**: 代表健康/安全环境。允许进攻。确认 `position_multiplier` 对仓位的限制。
-- 注意：不要编造不存在的风控规则（例如 Rule 17 等），严格以当前分数和档位(<50 或 >=50)进行判断。
 
 ### STEP 2: 审判矛盾与深度调查
 - 查看 `identified_conflicts`。如果技术面看好但基本面有疑虑（或反之），你**必须**使用 `search` 工具调查最新财报、新闻或研报。
-- 逻辑断层处理：如果专家数据缺失，优先保持现状或减仓。
+- **RSI 硬约束**: 严禁在 **日线 RSI > 75** 且属于“回踩低吸 (LO)”逻辑时执行买入。超买区的回踩往往是派发的开始。只有在确认是**强力突破 (LIT)** 且有量能配合时，才允许在 RSI 高位少量参与。
 
 ### STEP 3: 确定性评估 (Confidence Scoring)
 - **趋势验证**: 必须符合 **Stage 2**（股价 > SMA50 > SMA200）。
 - **量价验证**: 观察 `volume_price_analysis`。缩量回调是加仓点，放量下跌是清仓点。
 - **盈利验证**: 如果是加仓 (ADD)，检查 `profit_pct` 是否 > 5%。
 
-### STEP 4: 狙击手执行指令 (Tactical Execution)
+### STEP 4: 狙击手执行指令
 **禁止在震荡期使用市价单 (MO) 无脑买入！必须结合技术面专家提供的 `support_levels` 和 `resistance_levels` 精准锚定价格！**
 - **突破买入 (LIT 触及限价单)**: 股价接近或即将突破 `resistance_levels` 时，下达 **LIT** 订单，触发价设在阻力位上方 0.5%（确认突破），限价与触发价相同。
 - **回踩低吸 (LO 限价单)**: 股价在强趋势中缩量回调至 `support_levels`（如 20日/50日均线）时，下达 **LO** 订单埋伏。
 - **紧急斩仓/锁定利润**: 环境急剧恶化或发现致命利空时，才使用 **MO (市价卖出)**。
-- **利润保护**: 在盈利达标且环境转弱时，必须下达 **TSMPCT (追踪止损)**。
-- **换仓逻辑 (Pair Trading)**: 当资金有限时，若发现持仓中有极弱标的 (WEAK_POSITION)，且外部有极强突破标的 (STRONG_SIGNAL)，坚决执行“汰弱留强”，卖出弱势股获取现金后立刻挂单买入强势股。
+- **换仓逻辑 (Pair Trading)**: 当资金有限时，若发现持仓中有极弱标的 (WEAK_POSITION)，且外部有极强突破标的 (STRONG_SIGNAL)，坚决执行“汰弱留强”。
 
 ## ═══════════════════════════════════════
 ## 你的能力 (Tools)
@@ -67,7 +65,7 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 
 【账户状态】资产 $XXX | 现金 $XXX | 仓位 XX% | 宏观评分: {risk_score}
 
-【逻辑心流】(简述你从宏观到个股的推导逻辑，重点说明你参考了哪些具体的量化指标（如 Qlib 评分、RSI、MA 均线等）以及如何利用支撑/阻力位设定的价格。)
+【逻辑心流】(简述你从宏观到个股的推导逻辑，重点说明你参考了哪些具体的量化指标（如 RSI、MA 均线等）以及如何利用支撑/阻力位设定的价格。)
 
 【最终指令】
 - Symbol: XXXX
@@ -102,6 +100,9 @@ class ReActAgent:
         self.feishu_notifier = feishu_notifier
         self.trading_memory = trading_memory or get_trading_memory()
         self.logger = logger or logging.getLogger(__name__)
+        # 获取日志记录器
+        from data.trade_logger import get_trade_logger
+        self.trade_logger = get_trade_logger()
 
     async def run(
         self,
@@ -147,20 +148,20 @@ class ReActAgent:
             
             try:
                 response = self.llm.chat(messages, tools=tools)
+                current_thought = response.content or ""
                 
                 if not response.has_tool_calls:
                     self.logger.info("Decision loop complete.")
                     final_content = response.content or "No action taken."
                     
                     if self.feishu_notifier and executed_tool_details:
-                        # 尝试生成交易图表
+                        # (保持原有的飞书通知逻辑不变...)
                         chart_info = ""
                         image_key = None
                         try:
                             from tools.visualizer import plot_trade_signal
                             for d in executed_tool_details:
                                 if d['name'] in ['buy_stock', 'sell_stock']:
-                                    # 解析参数获取 ticker 和价格
                                     args = d.get('arguments', {})
                                     ticker = args.get('symbol')
                                     price = args.get('price') or 0
@@ -168,20 +169,17 @@ class ReActAgent:
                                     
                                     plot_path = plot_trade_signal(ticker, action, float(price), final_content)
                                     if plot_path:
-                                        # 尝试上传图片到飞书获取 image_key
                                         img_key = self.feishu_notifier.upload_image(plot_path)
                                         if img_key:
                                             image_key = img_key
                                             chart_info = "\n\n📈 **附交易图表**"
                                         else:
                                             chart_info = f"\n\n📈 **交易图表已保存本地**: `{plot_path}`"
-                                        break # 暂只处理第一笔交易
+                                        break
                         except Exception as e:
                             self.logger.error(f"生成图表失败: {e}")
 
-                        # 构造增强版交易通知 (卡片格式)
                         exec_log = "\n".join([f"✅ **{d['name']}**: {d['result']}" for d in executed_tool_details])
-                        
                         self.feishu_notifier.send_card(
                             title="⚡ 交易执行报告",
                             content=f"### 决策逻辑\n{final_content}\n\n### 执行详情\n{exec_log}{chart_info}",
@@ -205,11 +203,30 @@ class ReActAgent:
                     try:
                         result = self.tool_registry.execute(tc.name, **tc.arguments)
                         if tc.name in ["buy_stock", "sell_stock"]:
-                            executed_tool_details.append({"name": tc.name, "result": result})
+                            executed_tool_details.append({"name": tc.name, "result": result, "arguments": tc.arguments})
+                            
+                            # 记录决策日志
+                            try:
+                                action_type = "BUY" if tc.name == "buy_stock" else "SELL"
+                                symbol = tc.arguments.get("symbol", "UNKNOWN")
+                                self.trade_logger.log_decision(
+                                    symbol=symbol,
+                                    action=action_type,
+                                    reasoning={
+                                        "thought": current_thought,
+                                        "tool_call": f"{tc.name}({tc.arguments})",
+                                        "execution_result": result
+                                    },
+                                    risk_score=risk_score,
+                                    approved=True # 如果能执行到这里说明已通过初步校验
+                                )
+                            except Exception as le:
+                                self.logger.error(f"Failed to log decision to trade_logger: {le}")
+
                     except Exception as e:
                         result = json.dumps({"error": str(e)})
                         if tc.name in ["buy_stock", "sell_stock"]:
-                            executed_tool_details.append({"name": tc.name, "result": f"FAILED: {str(e)}"})
+                            executed_tool_details.append({"name": tc.name, "result": f"FAILED: {str(e)}", "arguments": tc.arguments})
                     
                     messages.append(ChatMessage(
                         role=Role.TOOL,
@@ -223,6 +240,7 @@ class ReActAgent:
                 return f"Error: {str(e)}"
 
         return "Reached max iterations without a final conclusion."
+
 
     def _build_tools_section(self, available_tools: list[dict]) -> str:
         # Simplified tool section builder

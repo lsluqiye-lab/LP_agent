@@ -1,12 +1,57 @@
-# LP-Agent v3.0
+# LP-Agent v3.0: 证券交易自主智能体
 
-基于 **Strategic Multi-Agent** 架构的美股自动交易智能体。系统模拟华尔街对冲基金运行模式，由 **CIO (首席投资官)** 决策大脑统筹多个**领域专家智能体**，并结合高频 Watchdog，通过 LongPort OpenAPI 执行实盘狙击。
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Status](https://img.shields.io/badge/Status-Trading-success.svg)](#)
 
-系统核心哲学：**Bear-Case-First (风险优先) & Tactical Execution (战术狙击)** —— 宁可错过，绝不追高被套。
+LP-Agent 是一款基于 **Strategic Multi-Agent (SMA)** 架构的美股量化交易智能体。系统模拟对冲基金运行模式，由 **CIO (首席投资官)** 统筹技术、基本面、情绪、量化四大专家矩阵，并结合 **Watchdog (生存级监控)** 与 **Long-term Memory (自主进化记忆)**，实现从研报分析到战术下单的全闭环自动化。
+
+---
+
+## 🏛️ 系统逻辑架构 (Core Architecture)
+
+```mermaid
+graph TB
+    %% 颜色定义
+    classDef brain fill:#1a237e,stroke:#7986cb,stroke-width:2px,color:#fff;
+    classDef watchdog fill:#bf360c,stroke:#ff7043,stroke-width:2px,color:#fff;
+    classDef execution fill:#1b5e20,stroke:#81c784,stroke-width:2px,color:#fff;
+    classDef memory fill:#4a148c,stroke:#ba68c8,stroke-width:2px,color:#fff;
+
+    subgraph Monitoring_Layer [实时预警层 - Watchdog]
+        W1[1min 高频轮询] --> W2{生存级止损?}
+        W2 -- 触发 --> W3[Market Order 斩仓]
+    end
+
+    subgraph Strategy_Layer [战略决策层 - Strategic Brain]
+        S1[宏观风控局<br/>Risk Score] --> S2[Alpha Scanner<br/>动态选股]
+        S2 --> S3[专家委员会<br/>Parallel Expert Panel]
+        S3 --> CIO{CIO 决策大脑<br/>ReAct Reasoning}
+    end
+
+    subgraph Execution_Layer [战术执行层 - Tactical Execution]
+        CIO -- LIT --> EX1[突破狙击单]
+        CIO -- LO --> EX2[支撑低吸单]
+        CIO -- TSMPCT --> EX3[移动止盈单]
+    end
+
+    subgraph Evolution_Layer [进化层 - Long-term Memory]
+        EX1 & EX2 & EX3 --> M1[复盘 Agent]
+        M1 --> M2[(经验记忆库)]
+        M2 -.-> |反思与注入| CIO
+    end
+
+    %% 应用样式
+    class Strategy_Layer brain;
+    class Monitoring_Layer watchdog;
+    class Execution_Layer execution;
+    class Evolution_Layer memory;
+```
 
 ---
 
 ## 🚀 LP-Agent v3.0 完整生命周期 (以 TSLA 为例)
+
 
 系统不再是机械地定时扫盘，而是具备“嗅觉”、“肌肉记忆”和“狙击能力”的智能体。以下是系统在一天中如何捕获并交易 TSLA 的完整流程：
 

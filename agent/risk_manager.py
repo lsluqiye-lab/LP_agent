@@ -375,18 +375,15 @@ class MacroRiskManager:
     def _calculate_constraints(self, score: float, regime: str) -> dict:
         """
         根据评分计算交易约束
-
-        Returns:
-            {
-                "allow_new_buy": bool,
-                "allow_add_position": bool,
-                "max_single_position_pct": float,
-                "max_total_position_pct": float,
-                "position_multiplier": float,
-                "message": str,
-            }
         """
         cfg = self.config
+        
+        # 情绪修正：如果情绪极度贪婪(分项分低)，额外压低乘数
+        sentiment_score = self._last_components.get("sentiment", 50) if self._last_components else 50
+        sentiment_penalty = 0.0
+        if sentiment_score <= 25: # 对应 sentiment > 85
+            sentiment_penalty = 0.2
+            logger.warning("检测到极端贪婪情绪，将强制下调仓位上限 20% 以防高位接盘")
 
         if regime == RiskRegime.LOCKDOWN:
             return {
@@ -400,6 +397,7 @@ class MacroRiskManager:
             }
         elif regime == RiskRegime.CAUTIOUS:
             multiplier = (score - 30) / 20 * 0.3  # 30-50分 → 0-0.3倍
+            multiplier = max(0, multiplier - sentiment_penalty)
             return {
                 "allow_new_buy": False,
                 "allow_add_position": False,
@@ -411,6 +409,7 @@ class MacroRiskManager:
             }
         elif regime == RiskRegime.NORMAL:
             multiplier = 0.3 + (score - 50) / 20 * 0.5  # 50-70分 → 0.3-0.8倍
+            multiplier = max(0.1, multiplier - sentiment_penalty)
             return {
                 "allow_new_buy": True,
                 "allow_add_position": True,
@@ -423,6 +422,7 @@ class MacroRiskManager:
         else:  # FAVORABLE
             multiplier = 0.8 + (score - 70) / 30 * 0.2  # 70-100分 → 0.8-1.0倍
             multiplier = min(multiplier, 1.0)
+            multiplier = max(0.5, multiplier - sentiment_penalty)
             return {
                 "allow_new_buy": True,
                 "allow_add_position": True,
@@ -430,7 +430,7 @@ class MacroRiskManager:
                 "max_single_position_pct": round(cfg.base_max_position_pct * multiplier, 3),
                 "max_total_position_pct": round(cfg.base_total_position_pct * multiplier, 3),
                 "position_multiplier": round(multiplier, 2),
-                "message": f"FAVORABLE (score={score}): 环境良好，仓位按 {multiplier:.0%} 执行",
+                "message": f"FAVORABLE (score={score}): 环境良好，但已考虑情绪过热修正，仓位按 {multiplier:.0%} 执行",
             }
 
     # ═══════════════════════════════════════

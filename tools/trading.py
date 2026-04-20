@@ -3,6 +3,7 @@
 封装LongPort OpenAPI的交易功能
 """
 import json
+import logging
 from datetime import datetime, timedelta, time
 from decimal import Decimal
 from typing import Optional
@@ -404,11 +405,19 @@ class BuyStockTool(BaseTool):
 
             full_symbol = modify_symbol(symbol)
 
+            # 动态决定订单有效期限 (Time in Force)
+            # 市价单 (MO) 必须是当日有效 (Day)
+            # 限价/条件单 (LO, LIT, 等) 使用撤销前有效 (GTC)，适合中长线趋势交易挂单
+            if order_type == "MO":
+                tif = TimeInForceType.Day
+            else:
+                tif = TimeInForceType.GoodTilCanceled
+                
             order_params = {
                 "side": OrderSide.Buy,
                 "symbol": full_symbol,
                 "submitted_quantity": Decimal(str(quantity)),
-                "time_in_force": TimeInForceType.Day,
+                "time_in_force": tif,
                 "remark": reason[:100] if reason else "AI Agent Buy Order"
             }
 
@@ -530,34 +539,38 @@ class SellStockTool(BaseTool):
 
             # 安全校验：获取真实持仓，防止因状态未同步导致重复卖出或意外做空
             try:
-                positions_resp = trade.positions()
-                positions = getattr(positions_resp, 'channels', []) if hasattr(positions_resp, 'channels') else positions_resp
+                positions_resp = trade.stock_positions()
+                my_qty = Decimal('0')
+                if hasattr(positions_resp, 'channels'):
+                    for channel in positions_resp.channels:
+                        for pos in channel.positions:
+                            pos_sym = getattr(pos, 'symbol', '')
+                            if clean_symbol in pos_sym or full_symbol in pos_sym:
+                                my_qty += getattr(pos, 'quantity', Decimal('0'))
                 
-                # 兼容不同返回结构
-                if hasattr(positions, '__iter__') and not isinstance(positions, dict):
-                    my_qty = Decimal('0')
-                    for pos in positions:
-                        pos_sym = getattr(pos, 'symbol', '')
-                        if clean_symbol in pos_sym or full_symbol in pos_sym:
-                            my_qty += getattr(pos, 'quantity', Decimal('0'))
-                    
-                    if my_qty == Decimal('0'):
-                        error_msg = f"卖出拦截: 当前未持有 {symbol}，无法执行卖出操作（防止做空）。"
-                        logging.warning(error_msg)
-                        return json.dumps({"error": error_msg, "success": False})
-                    
-                    # 限制最大卖出量为当前持仓量
-                    if Decimal(str(quantity)) > my_qty:
-                        logging.warning(f"卖出数量 {quantity} 超过实际持仓 {my_qty}，自动修正为 {my_qty}")
-                        quantity = int(my_qty)
+                if my_qty == Decimal('0'):
+                    error_msg = f"卖出拦截: 当前未持有 {symbol}，无法执行卖出操作（防止做空）。"
+                    logging.warning(error_msg)
+                    return json.dumps({"error": error_msg, "success": False})
+                
+                # 限制最大卖出量为当前持仓量
+                if Decimal(str(quantity)) > my_qty:
+                    logging.warning(f"卖出数量 {quantity} 超过实际持仓 {my_qty}，自动修正为 {my_qty}")
+                    quantity = int(my_qty)
             except Exception as e:
                 logging.warning(f"获取持仓进行卖出前校验时出错: {e}，将继续尝试下发订单。")
+
+            # 动态决定订单有效期限 (Time in Force)
+            if order_type == "MO":
+                tif = TimeInForceType.Day
+            else:
+                tif = TimeInForceType.GoodTilCanceled
 
             order_params = {
                 "side": OrderSide.Sell,
                 "symbol": full_symbol,
                 "submitted_quantity": Decimal(str(quantity)),
-                "time_in_force": TimeInForceType.Day,
+                "time_in_force": tif,
                 "remark": reason[:100] if reason else "AI Agent Sell Order"
             }
 

@@ -38,6 +38,19 @@ class RiskRegime:
     FAVORABLE = "favorable"
 
 
+# 板块细分映射表
+SECTOR_MAP = {
+    "NVDA": "Semi-Fabless", "AMD": "Semi-Fabless", 
+    "TSM": "Semi-Foundry", 
+    "ASML": "Semi-Equipment", "AMAT": "Semi-Equipment",
+    "AAPL": "Consumer Electronics", "MSFT": "Software", 
+    "GOOGL": "Internet", "META": "Internet",
+    "TSLA": "EV", 
+    "SPY": "ETF", "QQQ": "ETF",
+    "RCL": "Travel", "HOOD": "Financials",
+    "NOW": "Software", "PANW": "Cybersecurity", "EQIX": "REIT", "AVGO": "Semi-Fabless"
+}
+
 class MacroRiskManager:
     """
     宏观风控评分管理器
@@ -52,6 +65,10 @@ class MacroRiskManager:
         self._last_score: Optional[float] = None
         self._last_regime: Optional[str] = None
         self._last_components: Optional[dict] = None
+        
+        # 记录日内已批准的买入板块
+        self.approved_sectors_today = set()
+        self.last_approval_date = None
 
     @property
     def last_score(self) -> Optional[float]:
@@ -496,6 +513,26 @@ class MacroRiskManager:
                 "adjusted_amount_pct": 0,
             }
 
+        # ── 新增板块集中度防守 (Sector Concentration Risk) ──
+        # 每天清理一次记录的板块
+        today = datetime.now(pytz.timezone('US/Eastern')).date()
+        if self.last_approval_date != today:
+            self.approved_sectors_today.clear()
+            self.last_approval_date = today
+
+        if action in ["BUY", "ADD"]:
+            rsi_breadth = self._last_components.get("rsi_breadth", 50) if self._last_components else 50
+            # 当大盘极度超买 (RSI广度 > 75) 时，启用板块集中度防守
+            if rsi_breadth > 75:
+                sector = SECTOR_MAP.get(clean_symbol)
+                if sector:
+                    if sector in self.approved_sectors_today:
+                        return {
+                            "approved": False,
+                            "reason": f"板块集中度风险拦截: 当前大盘极度超买(RSI广度={rsi_breadth:.1f}>75)，且今日已批准过同赛道({sector})的建仓，防范共振回调，驳回。",
+                            "adjusted_amount_pct": 0,
+                        }
+
         max_pct = constraints["max_single_position_pct"]
         adjusted = min(amount_pct, max_pct)
 
@@ -505,6 +542,12 @@ class MacroRiskManager:
                 "reason": f"风控约束下仓位为0 (multiplier={constraints['position_multiplier']})",
                 "adjusted_amount_pct": 0,
             }
+            
+        # 如果通过审批且是买入操作，记录该板块
+        if action in ["BUY", "ADD"]:
+            sector = SECTOR_MAP.get(clean_symbol)
+            if sector:
+                self.approved_sectors_today.add(sector)
 
         return {
             "approved": True,

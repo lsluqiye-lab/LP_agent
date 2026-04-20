@@ -262,7 +262,12 @@ async def phase3_map_experts(
         "key_events": []
     }
 
-    tasks = [orchestrator.get_full_briefing(c["symbol"], macro_briefing) for c in candidates]
+    # 获取全局的板块轮动简报
+    logger.info("[Phase 3] 获取全局板块分析 (Sector Analysis)...")
+    sector_briefing = await orchestrator.get_sector_briefing()
+    logger.info(f"板块轮动总结: {sector_briefing.get('summary')}")
+
+    tasks = [orchestrator.get_full_briefing(c["symbol"], macro_briefing, sector_briefing) for c in candidates]
     briefings = await asyncio.gather(*tasks)
     
     return json.dumps(briefings, ensure_ascii=False, indent=2)

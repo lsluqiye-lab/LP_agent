@@ -7,10 +7,11 @@ import logging
 from typing import List, Dict
 from datetime import datetime
 
-from agent.schemas import DecisionBriefing, MacroBriefing
+from agent.schemas import DecisionBriefing, MacroBriefing, SectorBriefing
 from agent.fundamental_analyst import FundamentalAnalyst
 from agent.technical_analyst import TechnicalAnalyst
 from agent.sentiment_analyst import SentimentAnalyst
+from agent.sector_analyst import SectorAnalyst
 from llm.base import BaseLLM
 
 logger = logging.getLogger("Orchestrator")
@@ -27,8 +28,13 @@ class ExpertOrchestrator:
         self.f_analyst = FundamentalAnalyst(llm)
         self.t_analyst = TechnicalAnalyst(llm)
         self.s_analyst = SentimentAnalyst(llm)
+        self.sec_analyst = SectorAnalyst(llm)
 
-    async def get_full_briefing(self, symbol: str, macro_briefing: MacroBriefing) -> DecisionBriefing:
+    async def get_sector_briefing(self) -> SectorBriefing:
+        """Runs the sector rotation analysis once globally."""
+        return await self.sec_analyst.analyze()
+
+    async def get_full_briefing(self, symbol: str, macro_briefing: MacroBriefing, sector_briefing: SectorBriefing) -> DecisionBriefing:
         """
         Runs all expert agents in parallel and assembles the results.
         """
@@ -74,6 +80,7 @@ class ExpertOrchestrator:
                 "symbol": symbol,
                 "timestamp": datetime.now().isoformat(),
                 "macro": macro_briefing,
+                "sector": sector_briefing,
                 "fundamental": fundamental_res,
                 "technical": technical_res,
                 "sentiment": sentiment_res,

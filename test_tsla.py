@@ -39,12 +39,15 @@ async def test_tsla_analysis():
     print("==================================================\n")
     
     symbol = "TSLA"
-    
+
     try:
+        print("正在获取全局板块分析...")
+        sector_briefing = await orchestrator.get_sector_briefing()
+        print(f"板块分析: {sector_briefing.get('summary')}")
+
         # 并发跑三个专家的分析
         print(f"正在呼叫三位专家分析 {symbol} (这可能需要20-30秒)...")
-        briefing = await orchestrator.get_full_briefing(symbol, macro_briefing)
-        
+        briefing = await orchestrator.get_full_briefing(symbol, macro_briefing, sector_briefing)        
         print("\n✅ 分析完成！以下是专家简报结果：\n")
         print(json.dumps(briefing, indent=2, ensure_ascii=False))
         

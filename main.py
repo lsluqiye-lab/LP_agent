@@ -283,6 +283,7 @@ async def phase4_strategic_decision(
     briefings_json: str,
     risk_score: float,
     logger: logging.Logger,
+    interrupt_events: Optional[str] = None
 ) -> str:
     """
     Phase 4: 主决策智能体执行决策
@@ -291,7 +292,8 @@ async def phase4_strategic_decision(
     result = await agent.run(
         decision_briefings_json=briefings_json,
         risk_score=risk_score,
-        pre_executed_data=collected_data
+        pre_executed_data=collected_data,
+        interrupt_events=interrupt_events
     )
     return result
 
@@ -339,63 +341,131 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
     logger.info(f"本轮决策结论:\n{result}")
     return morning_briefing_sent
 
+async def run_event_driven_cycle(events, tool_registry, config, logger, orchestrator, agent, feishu_notifier, trade_logger):
+    """
+    事件驱动循环：处理 Watchdog 抛出的日内高优中断事件
+    """
+    logger.info("============== ⚡ 事件驱动紧急避险/进攻 (Event-Driven Cycle) ==============")
+    
+    candidates = []
+    event_msgs = []
+    for e in events:
+        # 将事件直接强行变成候选股
+        candidates.append({"symbol": e["symbol"], "type": "EVENT_TRIGGER", "weight": 100})
+        event_msgs.append(f"- [{e['symbol']}] {e['type']}: {e['reason']}")
+        
+    event_str = "\n".join(event_msgs)
+    if feishu_notifier:
+        feishu_notifier.send_text(f"🚨 【Watchdog 雷达预警】\n发现 {len(events)} 个异动事件:\n{event_str}\n\n🤖 主脑(CIO)已介入，正在紧急研判...")
+
+    # 1. 收集全局上下文
+    collected_data = phase1_collect_data(tool_registry, logger)
+    # 2. 依然进行宏观打分，避免逆势
+    risk_result = phase2_risk_scoring(collected_data, config, logger)
+    # 3. 让专家对涉及异动的股票出具报告
+    logger.info(f"触发异动的标的: {[c['symbol'] for c in candidates]}，唤醒专家...")
+    briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
+    
+    # 4. CIO决策，传入特殊的 interrupt_events 参数
+    logger.info("呼叫 CIO 进行事件应对决策...")
+    result = await phase4_strategic_decision(agent, collected_data, briefings_json, risk_result["score"], logger, interrupt_events=event_str)
+    logger.info(f"事件驱动决策结论:\n{result}")
+
+def calculate_rsi_from_candles(candles, period=14):
+    if len(candles) < period + 1:
+        return 50.0
+    gains = []
+    losses = []
+    for i in range(1, len(candles)):
+        change = float(candles[i].close) - float(candles[i-1].close)
+        if change > 0:
+            gains.append(change)
+            losses.append(0.0)
+        else:
+            gains.append(0.0)
+            losses.append(abs(change))
+    
+    avg_gain = sum(gains[-period:]) / period
+    avg_loss = sum(losses[-period:]) / period
+    
+    if avg_loss == 0:
+        return 100.0
+    
+    rs = avg_gain / avg_loss
+    return 100.0 - (100.0 / (1.0 + rs))
+
 def watchdog_check(tool_registry, logger):
     """
-    高频监控 (Watchdog) 层：纯本地计算，不调用大模型。
-    功能：
-    1. 获取当前所有持仓。
-    2. 如果跌破成本价 8%，自动触发生存级市价单硬止损 (Hard Stop)。
-    3. 如果盈利超 15%，触发简易追踪止盈（锁定 5% 利润的止损线）。
+    高频监控雷达 (Watchdog)：纯本地计算
+    功能：发现右侧突破、短期衰竭、跌破支撑等事件，并将决策权移交 CIO。
     """
+    events = []
     try:
+        import config as app_config
         from tools.market_data import get_quote_ctx, modify_symbol
+        from longport.openapi import Period, AdjustType
         
         pos_resp = tool_registry.execute("get_positions")
         pos_data = json.loads(pos_resp)
         positions = pos_data.get("positions", [])
         
-        if not positions:
-            return
+        pos_map = {p["symbol"]: p for p in positions if float(p.get("quantity", 0)) > 0}
+        
+        # 监控范围：当前持仓 + Watchlist
+        monitor_symbols = set(list(pos_map.keys()) + app_config.WATCHLIST)
+        
+        if not monitor_symbols:
+            return events
             
         quote_ctx = get_quote_ctx()
         
-        for pos in positions:
-            symbol = pos["symbol"]
-            qty = float(pos["quantity"])
-            cost = float(pos["cost_price"])
-            
-            if qty <= 0:
-                continue
-                
+        for symbol in monitor_symbols:
             full_symbol = modify_symbol(symbol)
             quotes = quote_ctx.quote([full_symbol])
             if not quotes:
                 continue
-            
-            current_price = float(quotes[0].last_done)
-            
-            # 1. 硬止损: 默认买入价跌去 8%
-            hard_stop_price = cost * 0.92
-            
-            # 2. 简易保护止盈: 若已经暴涨超 15%，则底线提高到获利 5%
-            stop_loss_price = cost * 1.05 if current_price > cost * 1.15 else hard_stop_price
-            
-            if current_price < stop_loss_price:
-                action = "锁定利润" if stop_loss_price > cost else "硬止损割肉"
-                logger.warning(f"🚨 [Watchdog] {symbol} 触发{action}! 最新价 ${current_price:.2f} 跌破警戒线 ${stop_loss_price:.2f} (成本: ${cost:.2f})")
                 
-                # 紧急呼叫市价单斩仓
-                sell_resp = tool_registry.execute(
-                    "sell_stock",
-                    symbol=symbol,
-                    quantity=int(qty),
-                    order_type="MO",
-                    reason=f"Watchdog 触发自动{action}: 跌破 {stop_loss_price:.2f}"
-                )
-                logger.info(f"[Watchdog] 斩仓结果: {sell_resp}")
-                
+            quote = quotes[0]
+            current_price = float(quote.last_done)
+            day_high = float(quote.high)
+            day_low = float(quote.low)
+            
+            # 获取 15 分钟 K 线计算 RSI
+            candles = quote_ctx.history_candlesticks_by_offset(full_symbol, Period.Min_15, AdjustType.ForwardAdjust, True, 20)
+            rsi_15 = calculate_rsi_from_candles(candles, 14) if candles else 50.0
+            
+            # 1. 检查当前持仓
+            if symbol in pos_map:
+                cost = float(pos_map[symbol]["cost_price"])
+                # 1.1 防守：跌破成本 8%
+                if current_price < cost * 0.92:
+                    events.append({
+                        "symbol": symbol,
+                        "type": "DEFENSIVE_DROP",
+                        "reason": f"最新价 ${current_price:.2f} 已跌破持仓成本 ${cost:.2f} 的 8%，需要紧急评估止损！"
+                    })
+                # 1.2 做T：暴涨锁润
+                elif current_price > cost * 1.15 and rsi_15 > 80:
+                    events.append({
+                        "symbol": symbol,
+                        "type": "SWING_EXHAUSTION",
+                        "reason": f"持仓盈利已超 15% 且 15分钟RSI({rsi_15:.1f})极度超买，动能可能衰竭，建议逢高卖出部分做T锁定利润。"
+                    })
+            
+            # 2. 检查 Watchlist 和持仓的右侧突破
+            # 当日涨幅突破或接近日内高点，且 RSI 强势
+            if day_high > 0 and current_price >= day_high * 0.995 and day_high > day_low * 1.01:
+                if 60 < rsi_15 < 85: # 强势但还未极度超买
+                    events.append({
+                        "symbol": symbol,
+                        "type": "OFFENSIVE_BREAKOUT",
+                        "reason": f"股价(${current_price:.2f})接近或突破日内高点(${day_high:.2f})，15分钟RSI({rsi_15:.1f})强势，存在右侧动能爆发可能！"
+                    })
+                    
     except Exception as e:
-        logger.error(f"[Watchdog] 执行异常: {e}")
+        logger.error(f"[Watchdog] 雷达扫描异常: {e}", exc_info=True)
+        
+    return events
 
 def main():
     # 信号处理
@@ -501,7 +571,16 @@ def main():
                 continue
                 
             # 交易时段: 运行高频 Watchdog
-            watchdog_check(tool_registry, logger)
+            watchdog_events = watchdog_check(tool_registry, logger)
+            if watchdog_events:
+                logger.warning(f"🚨 Watchdog 触发了 {len(watchdog_events)} 个中断事件! 准备唤醒 CIO...")
+                try:
+                    loop = asyncio.get_event_loop()
+                    loop.run_until_complete(
+                        run_event_driven_cycle(watchdog_events, tool_registry, config, logger, orchestrator, agent, feishu_notifier, trade_logger)
+                    )
+                except Exception as e:
+                    logger.error(f"事件驱动循环执行异常: {e}", exc_info=True)
 
             # 交易时段: 判断是否需要唤醒深度决策层 (Strategic Brain)
             # 策略：每天 10:00 (开盘后消化完剧烈波动) 和 15:30 (收盘前确定日线形态)

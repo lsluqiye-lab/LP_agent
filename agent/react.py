@@ -109,7 +109,8 @@ class ReActAgent:
         decision_briefings_json: str,
         risk_context: str = "Risk: NORMAL",
         risk_score: float = 50.0,
-        pre_executed_data: Optional[Dict] = None
+        pre_executed_data: Optional[Dict] = None,
+        interrupt_events: Optional[str] = None
     ) -> str:
         """
         Runs the ReAct loop based on provided expert briefings.
@@ -133,6 +134,14 @@ class ReActAgent:
         if pre_executed_data:
             data_msg = "Current Account/Position Context:\n" + json.dumps(pre_executed_data, indent=2)
             messages.append(ChatMessage(role=Role.USER, content=data_msg))
+
+        if interrupt_events:
+            interrupt_msg = (
+                "🚨🚨🚨 HIGH PRIORITY INTERRUPT EVENTS (WATCHDOG) 🚨🚨🚨\n"
+                f"你是由高频雷达(Watchdog)强行唤醒的！以下是刚刚发生的盘中异动：\n{interrupt_events}\n"
+                "请必须针对上述异动做出回应（如：右侧突破则加仓建仓，动能衰竭则卖出做T锁定利润，跌破重要支撑则果断止损）。你可以自由调度所有工具，如果认为异动是噪音，也可选择忽略。\n"
+            )
+            messages.append(ChatMessage(role=Role.USER, content=interrupt_msg))
 
         messages.append(ChatMessage(
             role=Role.USER, 

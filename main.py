@@ -18,6 +18,7 @@ import logging
 import asyncio
 import concurrent.futures
 from datetime import datetime, time as dt_time
+from typing import Optional, Dict, List, Any
 
 import pytz
 import holidays

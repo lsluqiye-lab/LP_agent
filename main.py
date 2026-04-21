@@ -616,7 +616,7 @@ def main():
             if not should_run_strategic and current_minute % 15 == 0:
                 try:
                     logger.info("[News Watchdog] 执行盘中突发新闻巡检...")
-                    news_client = tool_registry.get_tool("search_macro_economics") # 或者用 get_search_client
+                    news_client = tool_registry.get("search_macro_economics") # 或者用 get_search_client
                     if news_client:
                         # 借用 LLM 做快速情感判断
                         news_res = news_client.execute(topic="US stock market breaking news crash emergency surprise")

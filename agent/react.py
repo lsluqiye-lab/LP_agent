@@ -70,8 +70,8 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 【最终指令】
 - Symbol: XXXX
 - Action: BUY / SELL / ADD / HOLD / TIGHTEN_STOP
-- OrderType: MO / LO / LIT / TSMPCT
-- Parameters: (Price, TriggerPrice, Quantity, TrailingPercent 等详细参数)
+- OrderType: MO / LO / LIT
+- Parameters: (Price, TriggerPrice, Quantity 等详细参数)
 - Reason: (必须说明锚定了哪个技术面价格/均线进行买卖操作)
 
 【指令状态】已发出指令 / 无操作

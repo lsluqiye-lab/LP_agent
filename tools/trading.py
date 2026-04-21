@@ -481,7 +481,7 @@ class SellStockTool(BaseTool):
     """卖出股票工具"""
 
     name = "sell_stock"
-    description = "卖出股票，支持市价单(MO)、限价单(LO)和追踪止损市价单(TSMPCT)"
+    description = "卖出股票，支持市价单(MO)和限价单(LO)"
     parameters = [
         ToolParameter(
             name="symbol",
@@ -496,19 +496,13 @@ class SellStockTool(BaseTool):
         ToolParameter(
             name="order_type",
             type="string",
-            description="订单类型: MO(市价), LO(限价), TSMPCT(追踪止损, 保护利润)",
-            enum=["MO", "LO", "TSMPCT"]
+            description="订单类型: MO(市价), LO(限价)",
+            enum=["MO", "LO"]
         ),
         ToolParameter(
             name="price",
             type="number",
             description="限价单价格（仅限价单需要）",
-            required=False
-        ),
-        ToolParameter(
-            name="trailing_percent",
-            type="number",
-            description="追踪止损的回撤百分比 (如 5.0 代表 5%)，仅 TSMPCT 需要",
             required=False
         ),
         ToolParameter(
@@ -526,7 +520,6 @@ class SellStockTool(BaseTool):
         quantity: int,
         order_type: str,
         price: Optional[float] = None,
-        trailing_percent: Optional[float] = None,
         reason: str = "",
         **kwargs
     ) -> str:
@@ -579,11 +572,6 @@ class SellStockTool(BaseTool):
                     return json.dumps({"error": "限价单必须指定价格"})
                 order_params["order_type"] = OrderType.LO
                 order_params["submitted_price"] = Decimal(str(price))
-            elif order_type == "TSMPCT":
-                if trailing_percent is None:
-                    return json.dumps({"error": "追踪止损单(TSMPCT)必须指定 trailing_percent 回撤百分比"})
-                order_params["order_type"] = OrderType.TSMPCT
-                order_params["trailing_percent"] = Decimal(str(trailing_percent))
             else:
                 order_params["order_type"] = OrderType.MO
 

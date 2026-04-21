@@ -13,3 +13,6 @@ data/memory.json
 
 .main_pid
 data/plots/
+
+.gemini/
+gha-creds-*.json

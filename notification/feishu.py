@@ -38,10 +38,10 @@ class FeishuNotifier:
                 self._tenant_access_token = data.get("tenant_access_token")
                 return self._tenant_access_token
             else:
-                self.logger.error(f"获取 tenant_access_token 失败: {data}")
+                print(f"获取 tenant_access_token 失败: {data}")
                 return None
         except Exception as e:
-            self.logger.error(f"获取 tenant_access_token 异常: {e}")
+            print(f"获取 tenant_access_token 异常: {e}")
             return None
 
     def upload_image(self, file_path: str) -> Optional[str]:
@@ -68,16 +68,16 @@ class FeishuNotifier:
                     self.logger.info(f"图片上传成功: {image_key}")
                     return image_key
                 else:
-                    self.logger.error(f"图片上传失败: {result}")
+                    print(f"图片上传失败: {result}")
                     return None
         except Exception as e:
-            self.logger.error(f"图片上传异常: {e}")
+            print(f"图片上传异常: {e}")
             return None
 
     def send_text(self, content: str) -> bool:
         """发送文本消息 (优先通过 Webhook)"""
         if not self.webhook_url:
-            self.logger.error("未配置 Webhook URL，无法发送文本消息。")
+            print("未配置 Webhook URL，无法发送文本消息。")
             return False
             
         try:
@@ -97,13 +97,13 @@ class FeishuNotifier:
 
             if data.get("code") != 0 and data.get("StatusCode") != 0:
                 if data.get("StatusMessage") != "success" and data.get("msg") != "success":
-                    self.logger.error(f"飞书消息发送失败: {data}")
+                    print(f"飞书消息发送失败: {data}")
                     return False
 
             return True
 
         except Exception as e:
-            self.logger.error(f"飞书消息发送网络异常: {e}")
+            print(f"飞书消息发送网络异常: {e}")
             return False
 
     def send_card(self, title: str, content: str, color: str = "blue", footer: str = "LP-Agent v3.0", image_key: Optional[str] = None) -> bool:
@@ -112,7 +112,7 @@ class FeishuNotifier:
         支持传入 image_key 以在卡片中嵌入图片
         """
         if not self.webhook_url:
-            self.logger.error("未配置 Webhook URL，无法发送卡片消息。")
+            print("未配置 Webhook URL，无法发送卡片消息。")
             return False
             
         try:
@@ -170,9 +170,9 @@ class FeishuNotifier:
             )
             data = resp.json()
             if data.get("code") != 0 and data.get("StatusCode") != 0:
-                self.logger.error(f"飞书卡片发送失败: {data}")
+                print(f"飞书卡片发送失败: {data}")
                 return False
             return True
         except Exception as e:
-            self.logger.error(f"飞书卡片发送异常: {e}")
+            print(f"飞书卡片发送异常: {e}")
             return False

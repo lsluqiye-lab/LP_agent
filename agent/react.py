@@ -155,8 +155,9 @@ class ReActAgent:
         for i in range(self.max_iterations):
             self.logger.info(f"Iteration {i+1}/{self.max_iterations}")
             
+            import asyncio
             try:
-                response = self.llm.chat(messages, tools=tools)
+                response = await asyncio.to_thread(self.llm.chat, messages, tools=tools)
                 current_thought = response.content or ""
                 
                 if not response.has_tool_calls:
@@ -210,7 +211,7 @@ class ReActAgent:
                     self.logger.info(f"Executing: {tc.name}({tc.arguments})")
                     
                     try:
-                        result = self.tool_registry.execute(tc.name, **tc.arguments)
+                        result = await asyncio.to_thread(self.tool_registry.execute, tc.name, **tc.arguments)
                         if tc.name in ["buy_stock", "sell_stock"]:
                             executed_tool_details.append({"name": tc.name, "result": result, "arguments": tc.arguments})
                             

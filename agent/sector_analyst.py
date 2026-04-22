@@ -29,11 +29,12 @@ class SectorAnalyst:
     async def analyze(self) -> SectorBriefing:
         logger.info(f"[{self.__class__.__name__}] Performing sector rotation analysis...")
 
+        import asyncio
         raw_data_map = {}
         for symbol, name in self.sector_etfs.items():
             try:
-                # Synchronous tool call
-                raw_json = self.tech_tool.execute(symbol=symbol)
+                # Synchronous tool call wrapped in to_thread
+                raw_json = await asyncio.to_thread(self.tech_tool.execute, symbol=symbol)
                 raw_data = json.loads(raw_json)
                 if "error" not in raw_data:
                     raw_data_map[name] = raw_data
@@ -51,7 +52,7 @@ class SectorAnalyst:
         ]
         
         try:
-            response = self.llm.chat(messages)
+            response = await asyncio.to_thread(self.llm.chat, messages)
             content = response.content.strip()
             if content.startswith("```json"):
                 content = content[7:-3].strip()

@@ -44,7 +44,7 @@ class FundamentalAnalyst:
         # To avoid rate limits (15 RPM for free tier), we do them sequentially or with small delays.
         results = []
         for q in queries:
-            res = self.search_client.search(q)
+            res = await asyncio.to_thread(self.search_client.search, q)
             results.append(res)
             # Small sleep to be nice to the API
             await asyncio.sleep(1)
@@ -64,7 +64,8 @@ class FundamentalAnalyst:
             ChatMessage(role=Role.USER, content=prompt)
         ]
         
-        response = self.llm.chat(messages)
+        import asyncio
+        response = await asyncio.to_thread(self.llm.chat, messages)
         
         if not response.content:
             raise ValueError("LLM returned an empty response.")
@@ -106,16 +107,17 @@ Format as a single JSON object:
 
     def _parse_llm_response(self, response_text: str) -> FundamentalBriefing:
         """Parses the JSON response and validates its structure."""
+        import re
         try:
             # Clean possible markdown formatting
-            json_str = response_text.strip()
-            if json_str.startswith("```json"):
-                json_str = json_str[7:]
-            if json_str.endswith("```"):
-                json_str = json_str[:-3]
-            json_str = json_str.strip()
+            match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
+            if match:
+                json_str = match.group(1)
+            else:
+                match = re.search(r'(\{.*\})', response_text, re.DOTALL)
+                json_str = match.group(1) if match else response_text
             
-            data = json.loads(json_str)
+            data = json.loads(json_str.strip())
 
             # Validate keys
             required_keys = ["valuation", "summary", "strengths", "weaknesses", "institutional_ownership_trend"]

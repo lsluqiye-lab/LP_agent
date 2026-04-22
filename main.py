@@ -268,7 +268,13 @@ async def phase3_map_experts(
     sector_briefing = await orchestrator.get_sector_briefing()
     logger.info(f"板块轮动总结: {sector_briefing.get('summary')}")
 
-    tasks = [orchestrator.get_full_briefing(c["symbol"], macro_briefing, sector_briefing) for c in candidates]
+    sem = asyncio.Semaphore(2) # 限制最高并发量，避免触发大模型限流和阻塞
+    
+    async def _analyze_with_sem(c):
+        async with sem:
+            return await orchestrator.get_full_briefing(c["symbol"], macro_briefing, sector_briefing)
+
+    tasks = [_analyze_with_sem(c) for c in candidates]
     briefings = await asyncio.gather(*tasks)
     
     return json.dumps(briefings, ensure_ascii=False, indent=2)
@@ -633,6 +639,8 @@ def main():
                             # 强行拉起深度决策层
                             loop = asyncio.get_event_loop()
                             # 为了速度，直接跳过选股，强行对持仓进行避险评估
+                            collected_data = phase1_collect_data(tool_registry, logger)
+                            risk_result = {"score": 0.0, "level": "PANIC", "reason": alert_resp, "constraints": {"allow_new_buy": False, "must_reduce": True}}
                             emergency_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
                             emergency_candidates = [c for c in emergency_candidates if c["type"] == "POSITION"] # 只管手里的票
                             if emergency_candidates:
@@ -640,7 +648,7 @@ def main():
                                     phase3_map_experts(emergency_candidates, orchestrator, risk_result, logger)
                                 )
                                 loop.run_until_complete(
-                                    phase4_strategic_decision(agent, collected_data, emergency_briefings, 0.0, logger) # 强制给 0 分(最极端的恐惧分)
+                                    phase4_strategic_decision(agent, collected_data, emergency_briefings, 0.0, logger, interrupt_events=alert_resp)
                                 )
                 except Exception as e:
                     logger.error(f"[News Watchdog] 巡检异常: {e}")

@@ -13,8 +13,9 @@ from agent.technical_analyst import TechnicalAnalyst
 from agent.sentiment_analyst import SentimentAnalyst
 from agent.sector_analyst import SectorAnalyst
 from llm.base import BaseLLM
+from logger import setup_logger
 
-logger = logging.getLogger("Orchestrator")
+logger = setup_logger("strategic_agent")
 
 class ExpertOrchestrator:
     """

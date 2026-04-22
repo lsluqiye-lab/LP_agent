@@ -29,7 +29,7 @@ class SentimentAnalyst:
         print(f"[{self.__class__.__name__}] Gathering sentiment via Gemini Search...")
         results = []
         for q in queries:
-            res = self.search_client.search(q)
+            res = await asyncio.to_thread(self.search_client.search, q)
             results.append(res)
             await asyncio.sleep(1) # Be nice to the API
         
@@ -46,7 +46,8 @@ class SentimentAnalyst:
         ]
         
         print(f"[{self.__class__.__name__}] Synthesizing sentiment with {self.llm.model}...")
-        response = self.llm.chat(messages)
+        import asyncio
+        response = await asyncio.to_thread(self.llm.chat, messages)
         
         if not response.content:
             raise ValueError("LLM returned empty sentiment briefing.")
@@ -79,9 +80,16 @@ Format as a single JSON object:
 """
 
     def _parse_llm_response(self, response_text: str) -> SentimentBriefing:
+        import re
         try:
-            json_str = response_text.strip().replace("```json", "").replace("```", "").strip()
-            return json.loads(json_str)
+            match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
+            if match:
+                json_str = match.group(1)
+            else:
+                match = re.search(r'(\{.*\})', response_text, re.DOTALL)
+                json_str = match.group(1) if match else response_text
+            
+            return json.loads(json_str.strip())
         except Exception as e:
             print(f"Error parsing Sentiment JSON: {e}\nRaw: {response_text}")
             raise

@@ -21,7 +21,8 @@ class TechnicalAnalyst:
 
         # Step 1: Get raw technical data
         # Note: BaseTool.execute is synchronous in this project
-        raw_data_json = self.tech_tool.execute(symbol=symbol)
+        import asyncio
+        raw_data_json = await asyncio.to_thread(self.tech_tool.execute, symbol=symbol)
         raw_data = json.loads(raw_data_json)
 
         if "error" in raw_data:
@@ -36,7 +37,8 @@ class TechnicalAnalyst:
         ]
         
         print(f"[{self.__class__.__name__}] Interpreting charts and indicators with {self.llm.model}...")
-        response = self.llm.chat(messages)
+        import asyncio
+        response = await asyncio.to_thread(self.llm.chat, messages)
         
         if not response.content:
             raise ValueError("LLM returned empty interpretation.")
@@ -75,9 +77,17 @@ class TechnicalAnalyst:
 """
 
     def _parse_llm_response(self, response_text: str) -> TechnicalBriefing:
+        import re
         try:
-            json_str = response_text.strip().replace("```json", "").replace("```", "").strip()
-            return json.loads(json_str)
+            # 尝试提取 ```json ... ``` 或 {...} 之间的内容
+            match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
+            if match:
+                json_str = match.group(1)
+            else:
+                match = re.search(r'(\{.*\})', response_text, re.DOTALL)
+                json_str = match.group(1) if match else response_text
+            
+            return json.loads(json_str.strip())
         except Exception as e:
             print(f"Error parsing Technical JSON: {e}\nRaw: {response_text}")
             raise

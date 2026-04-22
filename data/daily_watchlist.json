@@ -1,24 +1,23 @@
 {
     "date": "2026-04-21",
     "watchlist": [
-        "TSLA",
-        "FIX",
-        "RCL",
-        "QQQ",
-        "NVDA",
-        "MSFT",
-        "CSL",
-        "INTC",
-        "GOOGL",
-        "ASML",
-        "AAPL",
-        "AMZN",
+        "MRVL",
         "STLD",
-        "CFG",
-        "SPY",
+        "INTC",
+        "TSLA",
+        "TSM",
+        "META",
+        "NUE",
         "COP",
-        "AVGO"
+        "MSFT",
+        "SPY",
+        "DOW",
+        "GE",
+        "AAPL",
+        "ANET",
+        "NVDA",
+        "CRDO"
     ],
-    "reason": "当前市场呈现‘AI基建+周期复苏’双驱动格局。量化评分中 AMZN (92.77) 展现极强动能，配合消费复苏逻辑成为核心头寸。科技板块以 NVDA, MSFT 为定海神针，辅以有明确催化剂（如 Meta 合作）的 AVGO 和处于反转阶段的 INTC。由于市场参与度扩大，工业与材料板块表现出显著的相对强度，选入 Goldman 强力推荐的 CSL 和 IBD 榜首 FIX。能源(COP)与金融(CFG)作为高现金流与估值修复逻辑的补充，以应对板块轮动下的广度提升。",
-    "updated_at": "2026-04-21T02:00:09.174715-04:00"
+    "reason": "当前市场呈现双引擎驱动格局：一是AI基础设施的持续扩张，以NVDA（Vera Rubin架构预期）、AAPL（AI升级周期及高量化评分94.07）和TSM为核心，带动MRVL、CRDO等高动能半导体标的；二是周期性板块的强势轮动，Materials与Industrials板块受基建支出和制造业扩张推动，STLD与NUE等钢铁巨头出现技术性突破。TSLA与META凭借极高的量化评分和Stage 2趋势被选为动能增强器。此外，COP与INTC作为高确信度价值与反转标的，提供了良好的风险收益比对冲。",
+    "updated_at": "2026-04-21T10:11:18.674365-04:00"
 }

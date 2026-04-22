@@ -61,6 +61,7 @@ class GeminiSearchClient:
                 "max_output_tokens": 4096,
                 # 启用 Google Search
                 "tools": [types.Tool(google_search=types.GoogleSearch())],
+                "http_options": types.HttpOptions(timeout=60)
             }
 
             if system_prompt:

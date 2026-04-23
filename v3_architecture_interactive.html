@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LP-Agent V3.0 Interactive Architecture Dashboard</title>
+<style>
+    :root { 
+        --bg: #0b1120; 
+        --panel: rgba(30, 41, 59, 0.7); 
+        --border: #334155; 
+        --text: #f8fafc; 
+        --text-muted: #94a3b8; 
+    }
+    body { 
+        background: var(--bg); 
+        color: var(--text); 
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+        margin: 0; 
+        padding: 40px 20px; 
+        overflow-x: hidden;
+        background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, transparent 50%);
+    }
+    
+    h1 { text-align: center; color: #38bdf8; font-weight: 300; letter-spacing: 2px; margin-bottom: 50px; text-shadow: 0 0 20px rgba(56, 189, 248, 0.4); }
+
+    /* SVG Layer for animated connection lines */
+    #canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+    path.line { fill: none; transition: stroke-width 0.3s, stroke 0.3s; }
+    path.animated { stroke-dasharray: 6; animation: dash 1s linear infinite; }
+    @keyframes dash { to { stroke-dashoffset: -12; } }
+
+    /* Main Grid Layout */
+    .container { position: relative; z-index: 2; max-width: 1300px; margin: 0 auto; display: grid; grid-template-columns: 320px 1fr 320px; gap: 40px; }
+    .header-area { grid-column: 1 / -1; text-align: center; margin-bottom: 40px; position: relative; z-index: 2; }
+    
+    /* Common Box Styles */
+    .box { 
+        background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4); backdrop-filter: blur(12px); 
+        cursor: crosshair; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; 
+    }
+    .box:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 30px rgba(0,0,0,0.6); z-index: 10; }
+    .title { font-size: 1.05rem; font-weight: 600; margin-bottom: 8px; color: #e2e8f0; display: flex; align-items: center; gap: 8px;}
+    .desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* Specific Elements */
+    #longport { border-color: #475569; background: linear-gradient(180deg, #0f172a 0%, #020617 100%); max-width: 350px; margin: 0 auto; box-shadow: 0 0 30px rgba(255,255,255,0.05); }
+    #longport .title { color: #f8fafc; justify-content: center; }
+
+    .col { display: flex; flex-direction: column; gap: 25px; }
+    .group { border: 1px solid var(--border); padding: 20px; border-radius: 16px; background: rgba(0,0,0,0.3); box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
+    .group-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 3px; color: #64748b; margin-bottom: 20px; text-align: center; font-weight: bold;}
+
+    /* Watchdog Subsystem */
+    .wd-group { border-color: rgba(239, 68, 68, 0.2); background: linear-gradient(180deg, rgba(69, 10, 10, 0.3) 0%, rgba(0,0,0,0.3) 100%); }
+    .wd-group .group-title { color: #fca5a5; }
+    .wd-box { border-color: #7f1d1d; background: rgba(69, 10, 10, 0.7); }
+    .wd-box .title { color: #fca5a5; }
+    .wd-box:hover { border-color: #ef4444; box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); }
+
+    /* CIO / Brain Subsystem */
+    .brain-group { border-color: rgba(59, 130, 246, 0.3); background: linear-gradient(180deg, rgba(30, 58, 138, 0.15) 0%, rgba(0,0,0,0.3) 100%); }
+    .brain-group .group-title { color: #93c5fd; }
+    .cio-box { border: 1px solid #3b82f6; background: rgba(30, 58, 138, 0.6); }
+    .cio-box .title { color: #93c5fd; }
+    .cio-box:hover { border-color: #60a5fa; box-shadow: 0 0 30px rgba(59, 130, 246, 0.5); }
+
+    /* Qlib Subsystem */
+    .qlib-group { border-color: rgba(168, 85, 247, 0.3); background: linear-gradient(180deg, rgba(88, 28, 135, 0.15) 0%, rgba(0,0,0,0.3) 100%); }
+    .qlib-group .group-title { color: #d8b4fe; }
+    .qlib-box { 
+        border: 2px solid #a855f7; 
+        background: linear-gradient(135deg, rgba(88, 28, 135, 0.8) 0%, rgba(59, 7, 100, 0.9) 100%);
+        box-shadow: 0 0 20px rgba(168, 85, 247, 0.3); 
+    }
+    .qlib-box .title { color: #e9d5ff; font-size: 1.2rem;}
+    .qlib-box:hover { border-color: #c084fc; box-shadow: 0 0 40px rgba(168, 85, 247, 0.7); transform: scale(1.05); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+    /* Interactive Details Modal */
+    #info-panel { 
+        position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); 
+        width: 750px; background: rgba(15,23,42,0.95); backdrop-filter: blur(20px); 
+        border: 1px solid #38bdf8; border-radius: 12px; padding: 25px 30px; 
+        box-shadow: 0 25px 50px rgba(0,0,0,0.8), 0 0 30px rgba(56, 189, 248, 0.2); 
+        z-index: 100; opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+    }
+    #info-panel.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+    #info-panel h2 { margin: 0 0 12px; color: #38bdf8; display: flex; align-items: center; font-size: 1.4rem; }
+    #info-panel p { color: #cbd5e1; line-height: 1.7; margin: 0; font-size: 1rem; }
+    .badge { display: inline-block; background: rgba(56,189,248,0.2); border: 1px solid #38bdf8; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-left: 10px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<h1>LP-Agent V3.0 Dual-Track Engine</h1>
+
+<svg id="canvas"></svg>
+
+<div class="header-area">
+    <div id="longport" class="box" data-info="LongPort OpenAPI<br>系统的外部数据与物理执行层。负责提供全量历史K线、毫秒级实时盘口行情数据，以及最终发送真实/模拟交易订单。">
+        <div class="title">🌊 LongPort 券商通道</div>
+        <div class="desc">实时行情网关 & 订单结算网络</div>
+    </div>
+</div>
+
+<div class="container">
+    
+    <!-- LEFT COLUMN: WATCHDOG -->
+    <div class="col group wd-group">
+        <div class="group-title">高频监控层 (Watchdog)</div>
+        <div id="wd-timer" class="box wd-box" data-info="每 1 分钟调度一次，完全脱离大模型和 Qlib 的沉重计算，确保系统的低延迟生存能力。">
+            <div class="title">⏱️ 定时触发 (1分钟)</div>
+            <div class="desc">纯本地心跳，纳秒级响应</div>
+        </div>
+        <div id="wd-stoploss" class="box wd-box" data-info="生死防线模块。<br>一旦检测到某持仓亏损突破持仓成本的 8%，无视任何基本面和长远规划，直接通过 LongPort 发起无脑市价斩仓。">
+            <div class="title">🛡️ 8% 强制斩仓</div>
+            <div class="desc">纪律性防线，切断暴跌</div>
+        </div>
+        <div id="wd-takeprofit" class="box wd-box" data-info="动态止盈控制。<br>当持仓出现大幅浮盈后（如+15%），动态上移保护线，确保盈利能够落袋为安。">
+            <div class="title">💰 保护性止盈</div>
+            <div class="desc">利润回撤锁定机制</div>
+        </div>
+    </div>
+
+    <!-- CENTER COLUMN: STRATEGIC BRAIN -->
+    <div class="col group brain-group">
+        <div class="group-title">深度决策层 (Strategic Brain - LLM)</div>
+        
+        <div class="grid-2">
+            <div id="macrorisk" class="box" data-info="大盘宏观安全局。<br>综合评估 SPY 技术面、市场宽度和恐慌指数(VIX)。如果打分过低(<50分)，系统强制进入 LOCKDOWN 状态，收回 CIO 的建仓权限，仅允许平仓。">
+                <div class="title">📉 宏观风控局</div>
+                <div class="desc">一票否决买入权限</div>
+            </div>
+            <div id="alphascan" class="box" data-info="开盘前 (Phase 0) 运行。<br>动态扫描全网新闻与近期热点，结合量化榜单，自动刷新当日的 Top 10~15 交易金股候选池。">
+                <div class="title">🚀 Alpha 雷达</div>
+                <div class="desc">动态挖掘日内强势标的</div>
+            </div>
+        </div>
+
+        <div class="group" style="background: rgba(0,0,0,0.3); border-color: var(--border); box-shadow: none;">
+            <div class="group-title" style="color: #cbd5e1;">多维度专家会诊 (Phase 3)</div>
+            <div class="grid-2">
+                <div id="exp-tech" class="box" data-info="通过代码识别均线形态，严格寻找 Stage 2 (上升趋势) 的股票。<br>强制要求：必须计算精确的支撑位(Support)和阻力位(Resistance)供下单使用。">
+                    <div class="title">📊 技术面专家</div>
+                </div>
+                <div id="exp-fund" class="box" data-info="深度解构研报数据。<br>评估 PEG、Forward PE 与财报营收指引，过滤掉有杀估值风险的标的。">
+                    <div class="title">🏢 基本面专家</div>
+                </div>
+                <div id="exp-sent" class="box" data-info="反向指标与催化剂探测。<br>扫描 Reddit(WSB)/Twitter，探测散户极度 FOMO 或即将到来的黑天鹅新闻。">
+                    <div class="title">🔥 情绪面专家</div>
+                </div>
+                <div id="exp-sect" class="box" data-info="追踪行业 ETF 走势。<br>防范单一板块过度拥挤(例如半导体 RSI>85 时的系统性资金撤离风险)。">
+                    <div class="title">🔄 板块专家</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="cio" class="box cio-box" data-info="系统的最高指挥官 (Gemini Pro驱动)。<br>汇总专家研报与 Qlib 因子，在脑内进行 ReAct 链式推理，权衡风险收益比，并拍板决定买入级别(40%/70%/100%仓位)与具体的订单形式。">
+            <div class="title">🧠 主脑 CIO (ReAct)</div>
+            <div class="desc">终极逻辑推理，统筹所有情报并制定战术</div>
+        </div>
+
+        <div id="memory" class="box" data-info="系统的“肌肉记忆”。<br>记录过去 14 天的交易成败。如果 CIO 发现某只股票近期连续亏损被止损，将会被系统限制再次买入，防止反复被割。">
+            <div class="title">💾 交易记忆库</div>
+            <div class="desc">记录防坑经验与反思复盘</div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: QLIB & EXECUTION -->
+    <div class="col">
+        <div class="group qlib-group" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="group-title">量化数据基座</div>
+            <div id="qlib-core" class="box qlib-box" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;" 
+                 data-info="微软 Qlib Machine Learning 框架。<br>它是整个 AI 系统的数值基座。为大模型提供去除主观噪音的硬数据：<br>1. 全市场 Alpha158 因子提纯。<br>2. 输出个股绝对 RSI 与动能强度预测得分。">
+                <div class="title">🔮 微软 Qlib 引擎</div>
+                <div class="desc">Alpha158 核心因子模型<br><br>为系统提供全量化客观指标</div>
+            </div>
+        </div>
+
+        <div class="group" style="border-color: rgba(59, 130, 246, 0.3); background: rgba(0,0,0,0.3);">
+            <div class="group-title" style="color: #93c5fd;">末端执行与闭环</div>
+            <div id="order-exec" class="box cio-box" data-info="高级战术订单下达。<br>摒弃亏损元凶市价单(MO)。<br>针对未突破标的：下达 LIT (触及限价单) 埋伏在阻力位。<br>针对回撤标的：下达 LO (限价单) 挂在支撑线低吸。">
+                <div class="title">⚡ 智能订单路由</div>
+                <div class="desc">执行 LIT突破单 与 LO低吸</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="info-panel">
+    <h2 id="m-title">Title <span class="badge" id="m-badge">Module</span></h2>
+    <p id="m-desc">Description</p>
+</div>
+
+<script>
+    // Definition of logical connections between components
+    const connections = [
+        // LongPort Data Feeds
+        { from: 'longport', to: 'wd-timer', color: '#475569', dash: true },
+        { from: 'longport', to: 'macrorisk', color: '#475569', dash: true },
+        { from: 'longport', to: 'qlib-core', color: '#a855f7', dash: true, thick: true },
+        
+        // Watchdog Execution
+        { from: 'wd-timer', to: 'wd-stoploss', color: '#ef4444' },
+        { from: 'wd-timer', to: 'wd-takeprofit', color: '#ef4444' },
+        { from: 'wd-stoploss', to: 'longport', color: '#ef4444', dash: true, thick: true },
+        { from: 'wd-takeprofit', to: 'longport', color: '#ef4444', dash: true },
+
+        // Qlib specific empowers
+        { from: 'qlib-core', to: 'alphascan', color: '#c084fc', dash: true, thick: true },
+        { from: 'qlib-core', to: 'cio', color: '#c084fc', dash: true, thick: true },
+        
+        // Brain Internal Flow
+        { from: 'alphascan', to: 'exp-tech', color: '#3b82f6' },
+        { from: 'alphascan', to: 'exp-fund', color: '#3b82f6' },
+        { from: 'macrorisk', to: 'cio', color: '#f59e0b', dash: true }, // Risk warning line
+
+        { from: 'exp-tech', to: 'cio', color: '#38bdf8' },
+        { from: 'exp-fund', to: 'cio', color: '#38bdf8' },
+        { from: 'exp-sent', to: 'cio', color: '#38bdf8' },
+        { from: 'exp-sect', to: 'cio', color: '#38bdf8' },
+
+        // Execution & Memory
+        { from: 'memory', to: 'cio', color: '#10b981', dash: true },
+        { from: 'cio', to: 'order-exec', color: '#3b82f6', thick: true },
+        { from: 'order-exec', to: 'longport', color: '#3b82f6', dash: true },
+        { from: 'order-exec', to: 'memory', color: '#10b981', dash: true }
+    ];
+
+    function drawLines() {
+        const svg = document.getElementById('canvas');
+        let html = '';
+        
+        connections.forEach(conn => {
+            const el1 = document.getElementById(conn.from);
+            const el2 = document.getElementById(conn.to);
+            if(!el1 || !el2) return;
+
+            const rect1 = el1.getBoundingClientRect();
+            const rect2 = el2.getBoundingClientRect();
+
+            const x1 = rect1.left + rect1.width / 2 + window.scrollX;
+            const y1 = rect1.top + rect1.height / 2 + window.scrollY;
+            const x2 = rect2.left + rect2.width / 2 + window.scrollX;
+            const y2 = rect2.top + rect2.height / 2 + window.scrollY;
+
+            // Route dynamically (horizontal vs vertical curves)
+            let cp1x, cp1y, cp2x, cp2y;
+            if (Math.abs(x1 - x2) > Math.abs(y1 - y2)) {
+                // Horizontal bias
+                cp1x = x1 + (x2 - x1) * 0.4;
+                cp1y = y1;
+                cp2x = x1 + (x2 - x1) * 0.6;
+                cp2y = y2;
+            } else {
+                // Vertical bias
+                cp1x = x1;
+                cp1y = y1 + (y2 - y1) * 0.4;
+                cp2x = x2;
+                cp2y = y1 + (y2 - y1) * 0.6;
+            }
+
+            const path = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
+            
+            const classes = `line ${conn.dash ? 'animated' : ''}`;
+            const sw = conn.thick ? 2.5 : 1.5;
+            
+            html += `<path class="${classes}" d="${path}" stroke="${conn.color}" stroke-width="${sw}" stroke-opacity="0.6"/>`;
+        });
+        svg.innerHTML = html;
+    }
+
+    // Redraw on window resize
+    window.addEventListener('resize', drawLines);
+    setTimeout(drawLines, 200);
+
+    // Interaction Modal Logic
+    const boxes = document.querySelectorAll('.box');
+    const infoPanel = document.getElementById('info-panel');
+    const mTitle = document.getElementById('m-title');
+    const mDesc = document.getElementById('m-desc');
+    const mBadge = document.getElementById('m-badge');
+
+    boxes.forEach(box => {
+        box.addEventListener('mouseenter', () => {
+            const info = box.getAttribute('data-info');
+            if(!info) return;
+            
+            // Extract text from title div without inner spans if any
+            const titleHTML = box.querySelector('.title').innerHTML;
+            mTitle.innerHTML = titleHTML + `<span class="badge" id="m-badge">Details</span>`;
+            mDesc.innerHTML = info;
+            
+            // Highlight connected lines
+            const lines = document.querySelectorAll('#canvas path');
+            lines.forEach((l, idx) => {
+                const conn = connections[idx];
+                if(conn.from === box.id || conn.to === box.id) {
+                    l.setAttribute('stroke-width', conn.thick ? '4' : '3');
+                    l.setAttribute('stroke-opacity', '1');
+                    l.style.filter = `drop-shadow(0 0 5px ${conn.color})`;
+                } else {
+                    l.setAttribute('stroke-opacity', '0.1');
+                }
+            });
+
+            infoPanel.classList.add('show');
+        });
+        
+        box.addEventListener('mouseleave', () => {
+            infoPanel.classList.remove('show');
+            // Reset lines
+            const lines = document.querySelectorAll('#canvas path');
+            lines.forEach((l, idx) => {
+                const conn = connections[idx];
+                l.setAttribute('stroke-width', conn.thick ? '2.5' : '1.5');
+                l.setAttribute('stroke-opacity', '0.6');
+                l.style.filter = 'none';
+            });
+        });
+    });
+</script>
+
+</body>
+</html>

@@ -10,7 +10,92 @@ LP-Agent 是一款基于 **Strategic Multi-Agent (SMA)** 架构的美股量化�
 
 ## 🏛️ 系统逻辑架构 (Core Architecture)
 
-![LP-Agent v3.0 Architecture](architecture_v3.svg)
+*(注：以下为实时渲染的系统逻辑架构，展示了双轨制引擎的模块交互与 Qlib 在系统中的核心数据赋能作用)*
+
+```mermaid
+graph TD
+    classDef default fill:#1E293B,stroke:#475569,stroke-width:1px,color:#F8FAFC;
+    classDef core fill:#0F172A,stroke:#38BDF8,stroke-width:2px,color:#F0F9FF;
+    classDef qlib fill:#1e3a8a,stroke:#60a5fa,stroke-width:3px,color:#eff6ff,stroke-dasharray: 5 5;
+    classDef wd fill:#7f1d1d,stroke:#f87171,stroke-width:2px,color:#fef2f2;
+    classDef memory fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#f0fdf4;
+
+    subgraph Dual_Track_Engine ["Dual-Track Architecture (双轨制引擎)"]
+        direction TB
+
+        %% High-Frequency Watchdog
+        subgraph Watchdog ["高频监控层 (1分钟心跳) - 纯本地/低延迟"]
+            WD_Timer((定时触发))
+            WD_StopLoss[硬止损模块<br>触发-8%无脑斩仓]
+            WD_TakeProfit[动态保护止盈<br>浮盈回撤锁定利润]
+            
+            WD_Timer --> WD_StopLoss
+            WD_Timer --> WD_TakeProfit
+        end
+
+        %% Strategic Brain
+        subgraph Brain ["深度决策层 (定时触发) - LLM 驱动"]
+            direction TB
+            
+            %% Phase 1-2.5
+            subgraph Phase_Front ["风控与数据前置 (Phase 1-2.5)"]
+                MacroRisk[宏观风控局<br>计算全局系统安全分]
+                AlphaScan[Alpha Scanner<br>动态发现热点金股]
+            end
+
+            %% QLIB Core highlighting
+            QlibQuant((("微软 Qlib 量化引擎<br>(核心数据基座)"))):::qlib
+            
+            %% Phase 3
+            subgraph Phase_Experts ["专家多线程并行研报 (Phase 3)"]
+                TechExpert[技术面专家<br>趋势确认与阻力/支撑位]
+                FundExpert[基本面专家<br>PE/PEG与财报追踪]
+                SentExpert[情绪面专家<br>舆情与社交热度]
+                SectExpert[板块轮动专家<br>ETF资金流向预警]
+            end
+
+            %% Phase 4
+            subgraph Phase_CIO ["主脑决策与执行 (Phase 4)"]
+                CIO[CIO Agent<br>ReAct 终极推理与资金调配]
+                OrderExec[高级订单执行<br>LIT突破单/LO限价单/配对换仓]
+            end
+
+            %% Phase 5
+            subgraph Phase_Review ["复盘与记忆 (Phase 5)"]
+                Review[每日复盘 Reviewer]
+                Memory[(长效记忆库<br>Trading Memory)]:::memory
+            end
+        end
+    end
+
+    %% Data Flow
+    LongPort((LongPort 交易/行情数据))
+
+    %% Qlib specifics
+    LongPort -. "全量历史与实时行情" .-> QlibQuant
+    QlibQuant ==>|"1. 全市场 Alpha158 因子提纯<br>2. 动能打分榜单初筛"| AlphaScan
+    QlibQuant ==>|"3. 提供单票量化硬指标<br>(RSI、动能强弱模型预测)"| CIO
+    
+    LongPort --> MacroRisk
+    LongPort --> Watchdog
+    LongPort --> Phase_Experts
+
+    AlphaScan -->|"输送 Top 15 标的池"| Phase_Experts
+    MacroRisk -->|"若评分<50则一票否决<br>锁死买入权限"| CIO
+    
+    TechExpert & FundExpert & SentExpert & SectExpert -->|"汇聚多维度研报"| CIO
+    
+    Memory -. "注入防坑历史教训" .-> CIO
+    CIO -->|"下达战术指令"| OrderExec
+    OrderExec -->|"发送实盘/模拟单"| LongPort
+    Watchdog -->|"紧急市价平仓单"| LongPort
+
+    OrderExec --> Review
+    Review -->|"更新成功/失败经验"| Memory
+
+    class Watchdog wd;
+    class CIO,MacroRisk,AlphaScan core;
+```
 
 ---
 

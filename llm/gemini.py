@@ -192,7 +192,7 @@ class GeminiLLM(BaseLLM):
         config_kwargs = {
             "temperature": self.temperature,
             "max_output_tokens": self.max_tokens,
-            "http_options": types.HttpOptions(timeout=120.0)
+            "http_options": types.HttpOptions(timeout=120000)
         }
 
         if system_instruction:

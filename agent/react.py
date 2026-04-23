@@ -3,9 +3,9 @@ ReAct Agent v3.0 (The Strategic Brain)
 A sophisticated Reasoning + Acting framework that orchestrates experts to make 
 high-conviction trading decisions based on the 'Risk-First' philosophy.
 """
+import asyncio
 import json
 import logging
-import asyncio
 from typing import Optional, List, Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -43,9 +43,12 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 - **盈利验证**: 如果是加仓 (ADD)，检查 `profit_pct` 是否 > 5%。
 
 ### STEP 4: 狙击手执行指令
-**禁止在震荡期使用市价单 (MO) 无脑买入！必须结合技术面专家提供的 `support_levels` 和 `resistance_levels` 精准锚定价格！**
-- **突破买入 (LIT 触及限价单)**: 股价接近或即将突破 `resistance_levels` 时，下达 **LIT** 订单，触发价设在阻力位上方 0.5%（确认突破），限价与触发价相同。
+**禁止无脑追高，但要在确认趋势时果断出击！** 根据现价与支撑/阻力的距离决定订单类型：
+- **现价突破建仓 (MO / 紧凑 LO)**: 如果标的处于明确的 Stage 2 趋势，且当前价格**正好处于阻力位附近（已突破或只差不到 1%）**，为了防止踏空，允许直接使用 **MO (市价单)** 或 **现价 LO** 建立适量（如 1/3）的试探性底仓（需确保环境 Score >= 60）。
+- **确认突破买入 (LIT 触及单)**: 股价距离 `resistance_levels` 还有一定距离时，下达 **LIT** 订单。将触发价设在阻力位上方 **0.2%** 左右即可，**不要将触发价设置得过高导致长期无法成交**。
 - **回踩低吸 (LO 限价单)**: 股价在强趋势中缩量回调至 `support_levels`（如 20日/50日均线）时，下达 **LO** 订单埋伏。
+  - **🚨 致命红线**: 当大盘极度超买（例如 `sentiment` > 80 或 `rsi_breadth` > 75）时，**绝对禁止**使用静态的 **LO限价单** 在个股支撑位接盘。大盘高位回调极易击穿支撑，此时必须改用 **LIT 触及单** 等右侧信号确认反弹后再介入！
+- **板块集中度防守**: 同一天内，如果遇到多个同板块（如半导体）的标的同时出现买点，**禁止全仓买入所有同板块标的**。必须择优只买最强的一个，或者将仓位拆分，避免单一板块突发利空导致组合净值崩盘。
 - **紧急斩仓/锁定利润**: 环境急剧恶化或发现致命利空时，才使用 **MO (市价卖出)**。
 - **换仓逻辑 (Pair Trading)**: 当资金有限时，若发现持仓中有极弱标的 (WEAK_POSITION)，且外部有极强突破标的 (STRONG_SIGNAL)，坚决执行“汰弱留强”。
 
@@ -155,7 +158,6 @@ class ReActAgent:
         for i in range(self.max_iterations):
             self.logger.info(f"Iteration {i+1}/{self.max_iterations}")
             
-            import asyncio
             try:
                 response = await asyncio.to_thread(self.llm.chat, messages, tools=tools)
                 current_thought = response.content or ""

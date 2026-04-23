@@ -1,8 +1,8 @@
 """
 FundamentalAnalyst Agent
 """
-import json
 import asyncio
+import json
 from typing import List
 from agent.schemas import FundamentalBriefing, Valuation, OwnershipTrend
 from llm.base import BaseLLM, ChatMessage, Role
@@ -39,15 +39,10 @@ class FundamentalAnalyst:
         
         print(f"[{self.__class__.__name__}] Gathering information via Gemini Search...")
         
-        # We perform searches. Since GeminiSearchClient.search is synchronous but we are in an async method,
-        # we can use run_in_executor to keep it non-blocking if needed, but for simplicity here we call it directly.
-        # To avoid rate limits (15 RPM for free tier), we do them sequentially or with small delays.
-        results = []
-        for q in queries:
-            res = await asyncio.to_thread(self.search_client.search, q)
-            results.append(res)
-            # Small sleep to be nice to the API
-            await asyncio.sleep(1)
+        # As a paid user, we can leverage parallel execution without worrying about strict 15 RPM free tier limits.
+        # This will significantly speed up the research phase.
+        tasks = [asyncio.to_thread(self.search_client.search, q) for q in queries]
+        results = await asyncio.gather(*tasks)
         
         search_context = ""
         for q, res in zip(queries, results):
@@ -64,7 +59,6 @@ class FundamentalAnalyst:
             ChatMessage(role=Role.USER, content=prompt)
         ]
         
-        import asyncio
         response = await asyncio.to_thread(self.llm.chat, messages)
         
         if not response.content:

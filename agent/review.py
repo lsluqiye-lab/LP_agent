@@ -5,6 +5,7 @@
 触发时机: 美东时间 16:30（可配置）
 输出: JSON 复盘报告 + 飞书推送摘要
 """
+import asyncio
 import json
 import logging
 from datetime import datetime

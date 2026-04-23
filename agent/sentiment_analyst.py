@@ -1,8 +1,8 @@
 """
 SentimentAnalyst Agent
 """
-import json
 import asyncio
+import json
 from agent.schemas import SentimentBriefing, MarketSentiment
 from llm.base import BaseLLM, ChatMessage, Role
 from tools.search import get_search_client
@@ -27,11 +27,8 @@ class SentimentAnalyst:
         ]
         
         print(f"[{self.__class__.__name__}] Gathering sentiment via Gemini Search...")
-        results = []
-        for q in queries:
-            res = await asyncio.to_thread(self.search_client.search, q)
-            results.append(res)
-            await asyncio.sleep(1) # Be nice to the API
+        tasks = [asyncio.to_thread(self.search_client.search, q) for q in queries]
+        results = await asyncio.gather(*tasks)
         
         search_context = ""
         for q, res in zip(queries, results):
@@ -46,7 +43,6 @@ class SentimentAnalyst:
         ]
         
         print(f"[{self.__class__.__name__}] Synthesizing sentiment with {self.llm.model}...")
-        import asyncio
         response = await asyncio.to_thread(self.llm.chat, messages)
         
         if not response.content:

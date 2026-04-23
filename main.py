@@ -640,7 +640,7 @@ def main():
                             loop = asyncio.get_event_loop()
                             # 为了速度，直接跳过选股，强行对持仓进行避险评估
                             collected_data = phase1_collect_data(tool_registry, logger)
-                            risk_result = {"score": 0.0, "level": "PANIC", "reason": alert_resp, "constraints": {"allow_new_buy": False, "must_reduce": True}}
+                            risk_result = {"score": 0.0, "regime": "PANIC", "reason": alert_resp, "constraints": {"allow_new_buy": False, "must_reduce": True}}
                             emergency_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
                             emergency_candidates = [c for c in emergency_candidates if c["type"] == "POSITION"] # 只管手里的票
                             if emergency_candidates:

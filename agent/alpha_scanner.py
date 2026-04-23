@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -77,12 +78,16 @@ class AlphaScanner:
             
             # 清理和解析 JSON
             content = response.content.strip()
-            if content.startswith("```json"):
-                content = content[7:-3].strip()
-            elif content.startswith("```"):
-                content = content[3:-3].strip()
+            
+            import re
+            match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+            if match:
+                json_str = match.group(1)
+            else:
+                match = re.search(r'(\{.*\})', content, re.DOTALL)
+                json_str = match.group(1) if match else content
                 
-            data = json.loads(content)
+            data = json.loads(json_str.strip())
             watchlist = data.get("watchlist", [])
             
             # 清理 Tickers (转大写，去空格)

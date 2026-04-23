@@ -1,6 +1,7 @@
 """
 TechnicalAnalyst Agent
 """
+import asyncio
 import json
 from agent.schemas import TechnicalBriefing, TrendStage
 from llm.base import BaseLLM, ChatMessage, Role
@@ -21,7 +22,6 @@ class TechnicalAnalyst:
 
         # Step 1: Get raw technical data
         # Note: BaseTool.execute is synchronous in this project
-        import asyncio
         raw_data_json = await asyncio.to_thread(self.tech_tool.execute, symbol=symbol)
         raw_data = json.loads(raw_data_json)
 
@@ -37,7 +37,6 @@ class TechnicalAnalyst:
         ]
         
         print(f"[{self.__class__.__name__}] Interpreting charts and indicators with {self.llm.model}...")
-        import asyncio
         response = await asyncio.to_thread(self.llm.chat, messages)
         
         if not response.content:

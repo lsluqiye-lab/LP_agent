@@ -16,6 +16,7 @@
   50-70: NORMAL    - 中性，正常但谨慎
   70-100: FAVORABLE - 低风险，可积极建仓
 """
+import asyncio
 import json
 import logging
 from typing import Optional

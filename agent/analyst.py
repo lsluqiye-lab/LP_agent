@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from typing import Optional
@@ -48,15 +49,16 @@ class AnalystAgent:
             response = self.llm.chat(messages, tools=None)
             content = response.content.strip()
             
-            # 清理可能的 markdown 标记
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
+            # 使用正则表达式提取 JSON
+            import re
+            match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+            if match:
+                json_str = match.group(1)
+            else:
+                match = re.search(r'(\{.*\})', content, re.DOTALL)
+                json_str = match.group(1) if match else content
                 
-            report = json.loads(content.strip())
+            report = json.loads(json_str.strip())
             self.logger.info(f"[{symbol}] 分析完成，评分: {report.get('score')}，建议: {report.get('recommendation')}")
             return report
             

@@ -393,10 +393,18 @@ class BuyStockTool(BaseTool):
             trade_logger = get_trade_logger()
             latest_risk = trade_logger.get_latest_risk_score()
             risk_score = latest_risk["score"] if latest_risk else 0
-            
+            sentiment = latest_risk["components"].get("sentiment", 50) if latest_risk and "components" in latest_risk else 50
+            rsi_breadth = latest_risk["components"].get("rsi_breadth", 50) if latest_risk and "components" in latest_risk else 50
+
             # 按照风控规则，评分 < 50 (LOCKDOWN/CAUTIOUS) 时禁止建仓
             if risk_score > 0 and risk_score < 50:
                 error_msg = f"风控拦截: 当前宏观评分 {risk_score} < 50 (CAUTIOUS/LOCKDOWN)，处于高风险模式，系统已硬性锁定买入权限，仅允许平仓/卖出。"
+                logging.warning(error_msg)
+                return json.dumps({"error": error_msg, "success": False})
+
+            # 按照风控规则，极度超买禁止使用左侧限价单(LO)
+            if order_type == "LO" and (sentiment > 80 or rsi_breadth > 75):
+                error_msg = f"风控拦截: 当前大盘极度超买 (Sentiment={sentiment:.1f}, RSI={rsi_breadth:.1f})，禁止使用左侧 LO 限价单在支撑位接飞刀！请改用右侧突破/确认单 (LIT)。"
                 logging.warning(error_msg)
                 return json.dumps({"error": error_msg, "success": False})
 

@@ -205,17 +205,20 @@ def phase2_5_extract_candidates(collected_data: dict, risk_result: dict, logger:
         symbol_momentum = {}
         for item in scan_list:
             sym = item.get("symbol", "")
-            stage2 = item.get("stage_2", False)
-            rs = item.get("rs_vs_spy", 0)
-            symbol_momentum[sym] = {"stage2": stage2, "rs": rs}
+            stage2 = item.get("stage2", False) # fix key
+            ret_20d = item.get("return_20d_pct") or 0
+            flags = item.get("flags", [])
+            symbol_momentum[sym] = {"stage2": stage2, "ret_20d": ret_20d, "flags": flags, "price": item.get("price")}
             
         held_symbols = {c["symbol"] for c in candidates}
         
-        # 标记极弱的持仓 (跌破Stage2且RS极差)
+        # 标记极弱的持仓 (跌破Stage2且近期大跌)
         for c in candidates:
             if c["type"] == "POSITION":
                 mom = symbol_momentum.get(c["symbol"])
-                if mom and not mom["stage2"] and mom["rs"] < -0.05:
+                if mom:
+                    c["details"] = mom
+                if mom and not mom["stage2"] and mom["ret_20d"] < -5.0:
                     c["type"] = "WEAK_POSITION"
                     logger.warning(f"发现极弱持仓: {c['symbol']}, 准备提示 CIO 进行汰弱留强")
 
@@ -224,9 +227,11 @@ def phase2_5_extract_candidates(collected_data: dict, risk_result: dict, logger:
             for item in scan_list:
                 sym = item.get("symbol", "")
                 if sym in held_symbols: continue
-                # 如果是明确的 Stage 2 且表现显著强于大盘 (RS > 0.05)
-                if item.get("needs_attention") or (item.get("stage_2") and item.get("rs_vs_spy", 0) > 0.05):
-                    candidates.append({"symbol": sym, "type": "STRONG_SIGNAL"})
+                # 如果是明确的 Stage 2 且近期表现强劲或有其他关注信号
+                ret_20d = item.get("return_20d_pct") or 0
+                if item.get("needs_attention") or (item.get("stage2") and ret_20d > 5.0):
+                    cand = {"symbol": sym, "type": "STRONG_SIGNAL", "details": symbol_momentum.get(sym, {})}
+                    candidates.append(cand)
                     
     except Exception as e:
         logger.error(f"Phase 2.5 解析 scan_watchlist 异常: {e}")
@@ -332,15 +337,37 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
     
     # 推送选股和专家分析到飞书 (开盘简报)
     if feishu_notifier and candidates and not morning_briefing_sent:
-        risk_msg = f"🌡️ 【宏观风控简报】\n评分: {risk_result['score']} | 等级: {risk_result['regime']}\n核心逻辑: {risk_result['constraints']['message']}\n"
+        risk_msg = f"**评分:** {risk_result['score']} | **等级:** {risk_result['regime']}\\n**核心逻辑:** {risk_result['constraints']['message']}"
         
-        cand_details = []
+        cand_list = []
         for c in candidates:
-            reason = "持仓巡检" if c.get("type") == "POSITION" else "发现交易信号"
-            cand_details.append(f"• {c['symbol']} ({reason})")
+            c_type = c.get("type", "")
+            if c_type == "POSITION":
+                reason = "🛡️ 持仓巡检"
+            elif c_type == "WEAK_POSITION":
+                reason = "⚠️ 极弱持仓"
+            else:
+                reason = "💡 交易信号"
+            
+            details = c.get("details", {})
+            stage_str = "✅ Stage2" if details.get("stage2") else "❌ 非Stage2"
+            flags = details.get("flags", [])
+            flags_str = f" | 标签: {','.join(flags)}" if flags else ""
+            ret = details.get('ret_20d')
+            ret_str = f" | 20日涨幅: {ret}%" if ret is not None else ""
+            
+            cand_list.append(f"**{c['symbol']}** ({reason})\\n  └ {stage_str}{ret_str}{flags_str}")
+            
+        card_content = f"**🌡️ 宏观风控简报**\\n{risk_msg}\\n\\n**🔍 今日关注标的池**\\n" + "\\n".join(cand_list)
         
-        selection_msg = "🔍 【选股清单】\n" + "\n".join(cand_details)
-        feishu_notifier.send_text(f"{risk_msg}\n{selection_msg}")
+        color = "red" if risk_result['regime'] == "LOCKDOWN" else ("orange" if risk_result['regime'] == "CAUTIOUS" else "green")
+        
+        feishu_notifier.send_card(
+            title="🌅 LP-Agent 早盘扫描与战略部署",
+            content=card_content,
+            color=color,
+            footer="Phase 1 & 2: Market Scan & Risk Control"
+        )
         morning_briefing_sent = True
     
     # Phase 4: 决策 (Reduce)
@@ -504,13 +531,14 @@ def main():
     tool_registry.register_all(create_market_data_tools())
     tool_registry.register_all(create_search_tools())
 
-    orchestrator = ExpertOrchestrator(llm=analyst_llm)
-    trading_memory = get_trading_memory()
     feishu_notifier = FeishuNotifier(
         webhook_url=config.feishu.webhook_url,
         app_id=config.feishu.app_id,
         app_secret=config.feishu.app_secret
     ) if config.feishu.enabled else None
+
+    orchestrator = ExpertOrchestrator(llm=analyst_llm, feishu_notifier=feishu_notifier)
+    trading_memory = get_trading_memory()
 
     agent = ReActAgent(
         llm=primary_llm,

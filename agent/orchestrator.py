@@ -22,7 +22,7 @@ class ExpertOrchestrator:
     Coordinates specialized agents to produce a unified DecisionBriefing.
     """
 
-    def __init__(self, llm: BaseLLM):
+    def __init__(self, llm: BaseLLM, feishu_notifier=None):
         """
         Initializes the orchestrator with a specialized LLM (typically a faster Flash model).
         """
@@ -30,6 +30,7 @@ class ExpertOrchestrator:
         self.t_analyst = TechnicalAnalyst(llm)
         self.s_analyst = SentimentAnalyst(llm)
         self.sec_analyst = SectorAnalyst(llm)
+        self.feishu_notifier = feishu_notifier
 
     async def get_sector_briefing(self) -> SectorBriefing:
         """Runs the sector rotation analysis once globally."""
@@ -88,6 +89,30 @@ class ExpertOrchestrator:
                 "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res),
                 "trading_history": history_summary
             }
+            
+            # --- Send Live Broadcast Card to Feishu ---
+            if self.feishu_notifier:
+                t_summary = technical_res.get('summary', '无')
+                f_summary = fundamental_res.get('summary', '无')
+                s_summary = sentiment_res.get('summary', '无')
+                
+                # Format a nice markdown card
+                card_content = (
+                    f"**📈 技术面 ({technical_res.get('trend_stage', 'Unknown')}):**\\n{t_summary}\\n\\n"
+                    f"**🏢 基本面 ({fundamental_res.get('valuation', 'Unknown')}):**\\n{f_summary}\\n\\n"
+                    f"**🌐 消息面 ({sentiment_res.get('market_sentiment', 'Unknown')}):**\\n{s_summary}"
+                )
+                
+                if briefing.get('identified_conflicts'):
+                    conflict_str = "\\n- ".join(briefing['identified_conflicts'])
+                    card_content += f"\\n\\n**⚠️ 发现矛盾点:**\\n- {conflict_str}"
+
+                self.feishu_notifier.send_card(
+                    title=f"🔎 专家研报完成: {symbol}",
+                    content=card_content,
+                    color="blue",
+                    footer="Phase 3: Expert Analysis"
+                )
             
             return briefing
 

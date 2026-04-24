@@ -21,8 +21,8 @@ tool_registry.register_all(create_search_tools())
 primary_llm = create_llm(config.llm)
 analyst_llm = create_llm(config.analyst_llm) if config.analyst_llm else primary_llm
 
-orchestrator = ExpertOrchestrator(llm=analyst_llm)
 feishu_notifier = FeishuNotifier(webhook_url=config.feishu.webhook_url, app_id=config.feishu.app_id, app_secret=config.feishu.app_secret) if config.feishu.enabled else None
+orchestrator = ExpertOrchestrator(llm=analyst_llm, feishu_notifier=feishu_notifier)
 agent = ReActAgent(llm=primary_llm, tool_registry=tool_registry, system_prompt=STRATEGIC_SYSTEM_PROMPT, max_iterations=5, feishu_notifier=feishu_notifier, logger=logger)
 trade_logger = get_trade_logger()
 

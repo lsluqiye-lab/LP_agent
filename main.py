@@ -641,9 +641,6 @@ def main():
                     logger.error(f"深度决策层执行异常: {e}", exc_info=True)
                     trade_logger.log_error("cycle_error", str(e))
 
-            # Watchdog 循环频率：1 分钟
-            time.sleep(60)
-            
             # --- Event-Driven News Watchdog ---
             # 每 15 分钟扫一次核弹级新闻 (只有在盘中且非深度决策时执行)
             current_minute = current_time.minute
@@ -668,7 +665,7 @@ def main():
                             loop = asyncio.get_event_loop()
                             # 为了速度，直接跳过选股，强行对持仓进行避险评估
                             collected_data = phase1_collect_data(tool_registry, logger)
-                            risk_result = {"score": 0.0, "regime": "PANIC", "reason": alert_resp, "constraints": {"allow_new_buy": False, "must_reduce": True}}
+                            risk_result = {"score": 0.0, "regime": "PANIC", "reason": alert_resp, "constraints": {"allow_new_buy": False, "must_reduce": True, "message": alert_resp}}
                             emergency_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
                             emergency_candidates = [c for c in emergency_candidates if c["type"] == "POSITION"] # 只管手里的票
                             if emergency_candidates:
@@ -680,6 +677,11 @@ def main():
                                 )
                 except Exception as e:
                     logger.error(f"[News Watchdog] 巡检异常: {e}")
+
+            # Watchdog 循环频率：动态计算休眠时间，对齐到下一个整分钟，防止执行耗时导致时间漂移
+            now = datetime.now()
+            sleep_sec = 60 - now.second
+            time.sleep(sleep_sec)
 
         except KeyboardInterrupt:
             logger.info("收到中断信号，正在退出...")

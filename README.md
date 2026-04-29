@@ -12,7 +12,7 @@
 
 ### 层级 1：动态标的池 (Daily Warm-up)
 *   **触发时间**：每日美东时间开盘前。
-*   **逻辑**：调用 `gemini-3-flash` 结合实时搜索，扫描市场热度、成交量异动及重大新闻催化剂。
+*   **逻辑**：调用大语言模型（默认 DeepSeek，或配置 Gemini）结合搜索工具，扫描市场热度、成交量异动及重大新闻催化剂。
 *   **结果**：动态生成 10-15 只核心观察名单（包含 NVDA, MSFT 等常驻标的），确保系统始终聚焦在“市场风口”上。
 
 ### 层级 2：定量信号筛选 (Phase 2.5 - The Filter)
@@ -98,19 +98,35 @@
 ## 快速开始
 
 ### 环境变量更新 (v3.0 推荐)
-建议在 `.env` 中配置分析师专用模型：
+建议在 `.env` 中配置 DeepSeek 作为主 LLM 提供商：
 
 ```bash
-# ── 主 LLM (用于决策) ──
-LLM_PROVIDER=gemini
-GEMINI_API_KEY="your_pro_key"
-GEMINI_MODEL="gemini-3.1-pro-preview"
+# ── 主 LLM (用于决策、搜索、分析) ──
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY="your_api_key_here"
+DEEPSEEK_MODEL=deepseek-chat
 
-# ── 分析师专用 LLM (用于并行扫描) ──
-ANALYST_LLM_PROVIDER=gemini
-ANALYST_GEMINI_API_KEY="your_flash_key"
-ANALYST_GEMINI_MODEL="gemini-3-flash-preview"
+# ── 分析师专用 LLM (可选，用于并行扫描) ──
+# ANALYST_LLM_PROVIDER=deepseek
+# ANALYST_DEEPSEEK_API_KEY="your_api_key"
+# ANALYST_DEEPSEEK_MODEL=deepseek-chat
+
+# ── 或使用 Gemini (如需启用 Google Search 实时搜索) ──
+# LLM_PROVIDER=gemini
+# GEMINI_API_KEY="your_api_key"
+# GEMINI_MODEL="gemini-3.1-pro-preview"
 ```
+
+**搜索工具说明**：
+- 使用 **DeepSeek + Tavily** 时，搜索工具通过Tavily API获取实时网络信息，并由DeepSeek进行分析总结（推荐配置）
+- 使用 **DeepSeek（无Tavily）** 时，搜索工具仅基于模型训练数据提供信息（无实时网络搜索）
+- 使用 **Gemini** 时，搜索工具内置 Google Search，可提供实时网络信息
+- 可通过 `SEARCH_LLM_PROVIDER` 环境变量独立配置搜索工具的 LLM 提供商
+
+**Tavily API 配置**（推荐）：
+1. 访问 https://tavily.com 注册并获取免费 API Key（每月1000次搜索）
+2. 在 `.env` 文件中设置 `TAVILY_API_KEY=tvly-your_key_here`
+3. 系统会自动使用 Tavily 进行实时搜索，并由 DeepSeek 分析结果
 
 ---
 

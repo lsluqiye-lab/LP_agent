@@ -8,8 +8,10 @@ from typing import Optional
 
 import requests
 
+from notification.base import NotifierBase
 
-class FeishuNotifier:
+
+class FeishuNotifier(NotifierBase):
     """
     飞书 Webhook 消息推送器
 

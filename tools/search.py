@@ -1,6 +1,6 @@
 """
 搜索工具集
-使用 Gemini + Google Search 提供实时信息搜索能力
+支持多种LLM提供商（DeepSeek、Gemini等）进行实时信息搜索
 这些工具供 ReAct 智能体按需调用，避免每次 LLM 调用都开启搜索
 """
 import json
@@ -9,18 +9,17 @@ import logging
 import time
 from typing import Optional, ClassVar
 
-from google import genai
-from google.genai import types
-
 from tools.base import BaseTool, ToolParameter
 
 
-class GeminiSearchClient:
+class SearchClient:
     """
-    Gemini 搜索客户端（单例）
-    内部启用 Google Search，专门用于搜索工具
+    通用搜索客户端（单例）
+    根据LLM提供商自动选择合适的搜索实现：
+    - Gemini: 使用内置Google Search
+    - DeepSeek: 优先使用Tavily实时搜索，降级到LLM训练数据
     """
-    _instance: Optional["GeminiSearchClient"] = None
+    _instance: Optional["SearchClient"] = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -32,27 +31,101 @@ class GeminiSearchClient:
         if self._initialized:
             return
 
-        api_key = os.getenv("GEMINI_API_KEY", "")
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY 环境变量未设置，搜索工具不可用")
-
-        self.client = genai.Client(api_key=api_key)
-        self.model = os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
-        self.logger = logging.getLogger("GeminiSearch")
+        # 检测搜索LLM提供商
+        # 优先使用 SEARCH_LLM_PROVIDER，否则使用主 LLM_PROVIDER
+        self.provider = os.getenv("SEARCH_LLM_PROVIDER") or os.getenv("LLM_PROVIDER", "deepseek")
+        self.logger = logging.getLogger("SearchClient")
+        self._client = None
+        self._tavily_client = None
+        self._has_tavily = False
+        self._has_google_search = False
+        
+        # 根据提供商初始化客户端
+        if self.provider == "gemini":
+            self._init_gemini()
+        elif self.provider == "deepseek":
+            self._init_deepseek()
+        else:
+            raise ValueError(f"不支持的搜索LLM提供商: {self.provider}")
+        
         self._initialized = True
+    
+    def _init_gemini(self):
+        """初始化Gemini搜索客户端"""
+        try:
+            from google import genai
+            from google.genai import types
+            
+            api_key = os.getenv("GEMINI_API_KEY", "")
+            if not api_key:
+                raise ValueError("GEMINI_API_KEY 环境变量未设置")
+            
+            self._client = genai.Client(api_key=api_key)
+            self.model = os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
+            self._has_google_search = True
+            self.logger.info("搜索工具初始化成功: Gemini + Google Search")
+        except Exception as e:
+            self.logger.error(f"Gemini搜索客户端初始化失败: {e}")
+            raise
+    
+    def _init_deepseek(self):
+        """初始化DeepSeek搜索客户端（优先Tavily，降级到LLM）"""
+        # 1. 尝试初始化Tavily（实时搜索）
+        tavily_api_key = os.getenv("TAVILY_API_KEY", "")
+        if tavily_api_key:
+            try:
+                from tavily import TavilyClient
+                self._tavily_client = TavilyClient(api_key=tavily_api_key)
+                self._has_tavily = True
+                self.logger.info("Tavily实时搜索初始化成功")
+            except Exception as e:
+                self.logger.warning(f"Tavily初始化失败，将使用DeepSeek训练数据: {e}")
+        
+        # 2. 初始化DeepSeek LLM客户端（作为Tavily的补充或降级方案）
+        try:
+            from openai import OpenAI
+            
+            api_key = os.getenv("DEEPSEEK_API_KEY", "")
+            if not api_key:
+                raise ValueError("DEEPSEEK_API_KEY 环境变量未设置")
+            
+            base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+            self._client = OpenAI(api_key=api_key, base_url=base_url)
+            self.model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+            
+            if self._has_tavily:
+                self.logger.info("搜索工具初始化成功: Tavily + DeepSeek")
+            else:
+                self.logger.info("搜索工具初始化成功: DeepSeek (基于训练数据，无Tavily API Key)")
+        except Exception as e:
+            if not self._has_tavily:
+                self.logger.error(f"DeepSeek搜索客户端初始化失败: {e}")
+                raise
 
     def search(self, query: str, system_prompt: str = "") -> str:
         """
         执行搜索查询
-
+        
         Args:
             query: 搜索查询内容
             system_prompt: 系统提示词，指导搜索结果的格式和重点
-
+        
         Returns:
             搜索结果文本
         """
+        if self.provider == "gemini":
+            return self._search_gemini(query, system_prompt)
+        elif self.provider == "deepseek":
+            # DeepSeek优先使用Tavily实时搜索，降级到训练数据
+            return self._search_deepseek(query, system_prompt)
+        else:
+            return f"不支持的搜索提供商: {self.provider}"
+    
+    def _search_gemini(self, query: str, system_prompt: str = "") -> str:
+        """使用Gemini + Google Search执行搜索"""
         try:
+            from google.genai import types
+            
             # 增加延迟，防止并发过高触发免费版 Gemini API 15 RPM 的限流导致的长期重试卡死
             time.sleep(2)
             
@@ -68,7 +141,7 @@ class GeminiSearchClient:
 
             config = types.GenerateContentConfig(**config_kwargs)
 
-            response = self.client.models.generate_content(
+            response = self._client.models.generate_content(
                 model=self.model,
                 contents=[types.Content(
                     role="user",
@@ -89,11 +162,87 @@ class GeminiSearchClient:
         except Exception as e:
             self.logger.error(f"Gemini搜索出错: {e}")
             return f"搜索出错: {str(e)}"
+    
+    def _search_deepseek(self, query: str, system_prompt: str = "") -> str:
+        """
+        使用DeepSeek进行搜索
+        优先使用Tavily实时搜索 + DeepSeek分析，降级到纯训练数据
+        """
+        try:
+            # 增加延迟，防止并发过高触发限流
+            time.sleep(1)
+            
+            # 方案1: 使用Tavily实时搜索 + DeepSeek分析（推荐）
+            if self._has_tavily and self._client:
+                try:
+                    # 1. 使用Tavily获取实时信息
+                    tavily_results = self._tavily_client.search(
+                        query=query,
+                        search_depth="advanced",
+                        max_results=5,
+                        include_answer=True
+                    )
+                    
+                    # 2. 提取搜索结果文本
+                    search_context = ""
+                    if tavily_results.get("answer"):
+                        search_context = f"【Tavily直接答案】\n{tavily_results['answer']}\n\n"
+                    
+                    # 3. 添加搜索结果详情
+                    search_context += "【详细搜索结果】\n"
+                    for result in tavily_results.get("results", [])[:5]:
+                        search_context += f"- **{result.get('title', 'N/A')}**\n"
+                        search_context += f"  {result.get('content', '')}\n"
+                        search_context += f"  来源: {result.get('url', '')}\n\n"
+                    
+                    # 4. 使用DeepSeek分析搜索结果
+                    messages = []
+                    if system_prompt:
+                        messages.append({"role": "system", "content": system_prompt})
+                    
+                    messages.append({
+                        "role": "user", 
+                        "content": f"请基于以下实时搜索结果回答问题：\n\n{search_context}\n\n原始查询：{query}"
+                    })
+                    
+                    response = self._client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=0.3,
+                        max_tokens=4096,
+                    )
+                    
+                    result_text = response.choices[0].message.content or ""
+                    return result_text
+                    
+                except Exception as tavily_error:
+                    self.logger.warning(f"Tavily搜索失败，降级到DeepSeek训练数据: {tavily_error}")
+                    # 降级到方案2
+            
+            # 方案2: 仅使用DeepSeek训练数据（无实时搜索）
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": query})
+            
+            response = self._client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=4096,
+            )
+            
+            result_text = response.choices[0].message.content or ""
+            return result_text
+
+        except Exception as e:
+            self.logger.error(f"DeepSeek搜索出错: {e}")
+            return f"搜索出错: {str(e)}"
 
 
-def get_search_client() -> GeminiSearchClient:
+def get_search_client() -> SearchClient:
     """获取搜索客户端单例"""
-    return GeminiSearchClient()
+    return SearchClient()
 
 
 class CachedSearchTool(BaseTool):

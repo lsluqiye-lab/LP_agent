@@ -288,6 +288,24 @@ class FeishuConfig:
 
 
 @dataclass
+class DingTalkConfig:
+    """钉钉推送配置"""
+    enabled: bool = False
+    webhook_url: str = ""
+    sign_secret: str = ""  # 加签密钥（HMAC-SHA256）
+
+    @classmethod
+    def from_env(cls) -> "DingTalkConfig":
+        webhook_url = os.getenv("DINGTALK_WEBHOOK_URL", "")
+        sign_secret = os.getenv("DINGTALK_SIGN_SECRET", "")
+        return cls(
+            enabled=bool(webhook_url),
+            webhook_url=webhook_url,
+            sign_secret=sign_secret,
+        )
+
+
+@dataclass
 class AppConfig:
     """应用总配置"""
     longport: LongPortConfig = field(default_factory=LongPortConfig)
@@ -296,9 +314,20 @@ class AppConfig:
     log: LogConfig = field(default_factory=LogConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
     feishu: FeishuConfig = field(default_factory=FeishuConfig)
+    dingtalk: DingTalkConfig = field(default_factory=DingTalkConfig)
+    notification_channel: str = "feishu"  # 通知渠道: "feishu" 或 "dingtalk"
     risk: RiskConfig = field(default_factory=RiskConfig)
     review: ReviewConfig = field(default_factory=ReviewConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
+
+    @property
+    def notifier_enabled(self) -> bool:
+        """检查是否启用了通知"""
+        if self.notification_channel == "feishu":
+            return self.feishu.enabled
+        elif self.notification_channel == "dingtalk":
+            return self.dingtalk.enabled
+        return False
 
     @classmethod
     def from_env(cls, llm_provider: str = "deepseek") -> "AppConfig":
@@ -309,6 +338,8 @@ class AppConfig:
             log=LogConfig.from_env(),
             agent=AgentConfig.from_env(),
             feishu=FeishuConfig.from_env(),
+            dingtalk=DingTalkConfig.from_env(),
+            notification_channel=os.getenv("NOTIFICATION_CHANNEL", "feishu").lower(),
             risk=RiskConfig.from_env(),
             review=ReviewConfig.from_env(),
             memory=MemoryConfig.from_env(),

@@ -276,26 +276,54 @@ def test_llm(config):
 
 
 # ───────────────────────────────────────────
-# 5. 飞书通知
+# 5. 通知渠道测试（根据配置自动选择）
 # ───────────────────────────────────────────
-def test_feishu(config):
-    section("5. 飞书通知")
+def test_notification(config):
+    section("5. 通知渠道测试")
 
-    if not config or not config.feishu.enabled:
-        record_skip("飞书", "飞书 Webhook 未配置，跳过")
+    if not config:
+        record_skip("通知", "配置未加载，跳过")
         return
 
-    try:
-        from notification.feishu import FeishuNotifier
-        notifier = FeishuNotifier(webhook_url=config.feishu.webhook_url)
-        record("飞书", True, "飞书通知器初始化成功")
+    channel = config.notification_channel
 
-        # 发送测试消息
-        test_msg = f"🧪 LP-Agent 链路测试\n时间: {now_str()}\n状态: 测试消息，请忽略"
-        success = notifier.send_text(test_msg)
-        record("飞书", success, f"发送测试消息: {'成功（请查看飞书群）' if success else '发送失败'}")
-    except Exception as e:
-        record("飞书", False, f"飞书通知测试失败: {e}")
+    if channel == "dingtalk":
+        if not config.dingtalk.enabled:
+            record_skip("通知", "钉钉 Webhook 未配置，跳过")
+            return
+        try:
+            from notification.dingtalk import DingTalkNotifier
+            notifier = DingTalkNotifier(
+                webhook_url=config.dingtalk.webhook_url,
+                sign_secret=config.dingtalk.sign_secret
+            )
+            record("通知", True, "钉钉通知器初始化成功")
+
+            # 发送测试消息
+            test_msg = f"🧪 LP-Agent 链路测试\n时间: {now_str()}\n状态: 测试消息，请忽略"
+            success = notifier.send_text(test_msg)
+            record("通知", success, f"发送测试消息: {'成功（请查看钉钉群）' if success else '发送失败'}")
+        except Exception as e:
+            record("通知", False, f"钉钉通知测试失败: {e}")
+
+    elif channel == "feishu":
+        if not config.feishu.enabled:
+            record_skip("通知", "飞书 Webhook 未配置，跳过")
+            return
+        try:
+            from notification.feishu import FeishuNotifier
+            notifier = FeishuNotifier(webhook_url=config.feishu.webhook_url)
+            record("通知", True, "飞书通知器初始化成功")
+
+            # 发送测试消息
+            test_msg = f"🧪 LP-Agent 链路测试\n时间: {now_str()}\n状态: 测试消息，请忽略"
+            success = notifier.send_text(test_msg)
+            record("通知", success, f"发送测试消息: {'成功（请查看飞书群）' if success else '发送失败'}")
+        except Exception as e:
+            record("通知", False, f"飞书通知测试失败: {e}")
+
+    else:
+        record_skip("通知", f"未知通知渠道: {channel}")
 
 
 # ───────────────────────────────────────────
@@ -387,7 +415,7 @@ def main():
     test_longport()
     test_search()
     test_llm(config)
-    test_feishu(config)
+    test_notification(config)
     test_agent(config)
 
     # 汇总报告
@@ -411,12 +439,23 @@ def main():
     else:
         print(f"  ⚠️ 有 {failed} 项测试失败，请检查上述错误信息。\n")
 
-    # ───── 7. 通过飞书发送完整报告 ─────
-    section("7. 飞书推送完整报告")
-    if config and config.feishu.enabled:
+    # ───── 7. 通过配置的通知渠道发送完整报告 ─────
+    section("7. 推送完整报告到通知渠道")
+    if config and config.notifier_enabled:
+        channel = config.notification_channel
         try:
-            from notification.feishu import FeishuNotifier
-            notifier = FeishuNotifier(webhook_url=config.feishu.webhook_url)
+            if channel == "dingtalk":
+                from notification.dingtalk import DingTalkNotifier
+                notifier = DingTalkNotifier(
+                    webhook_url=config.dingtalk.webhook_url,
+                    sign_secret=config.dingtalk.sign_secret
+                )
+            elif channel == "feishu":
+                from notification.feishu import FeishuNotifier
+                notifier = FeishuNotifier(webhook_url=config.feishu.webhook_url)
+            else:
+                print(f"  ⏭️ 未知通知渠道: {channel}")
+                return 0 if failed == 0 else 1
 
             # 构建汇总消息
             summary_lines = [
@@ -437,11 +476,11 @@ def main():
 
             # 发送汇总
             ok1 = notifier.send_text(summary_msg)
-            print(f"  {'✅' if ok1 else '❌'} 测试汇总已推送飞书")
+            channel_name = "钉钉" if channel == "dingtalk" else "飞书"
+            print(f"  {'✅' if ok1 else '❌'} 测试汇总已推送{channel_name}")
 
             # 发送 ReAct 决策报告
             if agent_result_text:
-                # 飞书文本消息有长度限制，截断到 4000 字符
                 decision_msg = (
                     f"📊 【ReAct 智能体决策报告】\n"
                     f"⏰ {now_str()}\n"
@@ -452,14 +491,14 @@ def main():
                     decision_msg += "\n\n... (内容过长已截断)"
 
                 ok2 = notifier.send_text(decision_msg)
-                print(f"  {'✅' if ok2 else '❌'} ReAct 决策报告已推送飞书")
+                print(f"  {'✅' if ok2 else '❌'} ReAct 决策报告已推送{channel_name}")
             else:
                 print("  ⏭️ 无 Agent 推理结果，跳过决策报告推送")
 
         except Exception as e:
-            print(f"  ❌ 飞书推送失败: {e}")
+            print(f"  ❌ 推送失败: {e}")
     else:
-        print("  ⏭️ 飞书未配置，跳过推送")
+        print("  ⏭️ 通知渠道未配置，跳过推送")
 
     return 0 if failed == 0 else 1
 

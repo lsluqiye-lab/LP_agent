@@ -36,7 +36,32 @@ from agent.risk_manager import get_risk_manager
 from agent.review import ReviewAgent
 from data.trade_logger import get_trade_logger
 from data.memory import get_trading_memory
-from notification.feishu import FeishuNotifier
+from notification import NotifierBase, FeishuNotifier, DingTalkNotifier
+
+
+def create_notifier(config, logger: logging.Logger) -> NotifierBase | None:
+    """
+    根据配置创建通知器
+    
+    Args:
+        config: AppConfig 实例
+        logger: Logger 实例
+        
+    Returns:
+        通知器实例或 None
+    """
+    if config.notification_channel == "dingtalk" and config.dingtalk.enabled:
+        logger.info("使用钉钉通知渠道")
+        return DingTalkNotifier(
+            webhook_url=config.dingtalk.webhook_url,
+            sign_secret=config.dingtalk.sign_secret
+        )
+    elif config.feishu.enabled:
+        logger.info("使用飞书通知渠道")
+        return FeishuNotifier(webhook_url=config.feishu.webhook_url)
+    else:
+        logger.info("未启用通知渠道")
+        return None
 
 
 def is_trading_hours(eastern_time: datetime) -> bool:
@@ -296,7 +321,7 @@ def main():
 
     # 加载配置
     import os
-    config = AppConfig.from_env(os.getenv("LLM_PROVIDER", "gemini"))
+    config = AppConfig.from_env(os.getenv("LLM_PROVIDER", "deepseek"))
     config.longport.to_env()
     logger = setup_logger("strategic_agent", config.log)
     
@@ -320,19 +345,19 @@ def main():
 
     orchestrator = ExpertOrchestrator(llm=analyst_llm)
     trading_memory = get_trading_memory()
-    feishu_notifier = FeishuNotifier(webhook_url=config.feishu.webhook_url) if config.feishu.enabled else None
+    notifier = create_notifier(config, logger)
 
     agent = ReActAgent(
         llm=primary_llm,
         tool_registry=tool_registry,
         system_prompt=STRATEGIC_SYSTEM_PROMPT,
         max_iterations=10,
-        feishu_notifier=feishu_notifier,
+        notifier=notifier,
         trading_memory=trading_memory,
         logger=logger
     )
 
-    review_agent = ReviewAgent(llm=primary_llm, config=config.review, feishu_notifier=feishu_notifier, trading_memory=trading_memory, logger_instance=logger)
+    review_agent = ReviewAgent(llm=primary_llm, config=config.review, notifier=notifier, trading_memory=trading_memory, logger_instance=logger)
     trade_logger = get_trade_logger()
 
     # ── 主循环 ──
@@ -383,7 +408,7 @@ def main():
                     logger.info("非交易时段，休眠中...")
             else:
                 async def run_cycle():
-                    nonlocal feishu_notifier, morning_briefing_sent, daily_start_assets
+                    nonlocal notifier, morning_briefing_sent, daily_start_assets
                     # Phase 1: 收集
                     collected_data = phase1_collect_data(tool_registry, logger)
                     # Phase 2: 风控
@@ -393,8 +418,8 @@ def main():
                     # Phase 3: 专家 (Map)
                     briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
                     
-                    # 推送选股和专家分析到飞书 (开盘简报)
-                    if feishu_notifier and candidates and not morning_briefing_sent:
+                    # 推送选股和专家分析到通知渠道 (开盘简报)
+                    if notifier and candidates and not morning_briefing_sent:
                         risk_msg = f"🌡️ 【开盘宏观风控简报】\n评分: {risk_result['score']} | 等级: {risk_result['regime']}\n核心逻辑: {risk_result['constraints']['message']}\n"
                         
                         cand_details = []
@@ -403,7 +428,7 @@ def main():
                             cand_details.append(f"• {c['symbol']} ({reason})")
                         
                         selection_msg = "🔍 【今日初始选股清单】\n" + "\n".join(cand_details)
-                        feishu_notifier.send_text(f"{risk_msg}\n{selection_msg}")
+                        notifier.send_text(f"{risk_msg}\n{selection_msg}")
                         morning_briefing_sent = True
                     
                     # Phase 4: 决策 (Reduce)

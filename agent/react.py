@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from llm.base import BaseLLM, ChatMessage, Role, LLMResponse, ToolCall
 from tools.base import ToolRegistry
 from data.memory import TradingMemory, get_trading_memory
+from notification.base import NotifierBase
 
 # ═══════════════════════════════════════════
 # SYSTEM PROMPT v3.0 - The Strategic Brain
@@ -102,7 +103,7 @@ class ReActAgent:
         tool_registry: ToolRegistry,
         system_prompt: str = STRATEGIC_SYSTEM_PROMPT,
         max_iterations: int = 10,
-        feishu_notifier=None,
+        notifier: Optional[NotifierBase] = None,
         trading_memory: Optional[TradingMemory] = None,
         logger: Optional[logging.Logger] = None
     ):
@@ -110,7 +111,7 @@ class ReActAgent:
         self.tool_registry = tool_registry
         self.system_prompt = system_prompt
         self.max_iterations = max_iterations
-        self.feishu_notifier = feishu_notifier
+        self.notifier = notifier
         self.trading_memory = trading_memory or get_trading_memory()
         self.logger = logger or logging.getLogger(__name__)
 
@@ -161,7 +162,7 @@ class ReActAgent:
                     self.logger.info("Decision loop complete.")
                     final_content = response.content or "No action taken."
                     
-                    if self.feishu_notifier and executed_tool_details:
+                    if self.notifier and executed_tool_details:
                         # 构造增强版交易通知
                         trade_msgs = []
                         for d in executed_tool_details:
@@ -179,7 +180,7 @@ class ReActAgent:
                         
                         results_str = "\n".join(trade_msgs)
                         msg = f"⚡ 【实盘测试 | LP-Agent 交易报告】\n\nCIO 决策:\n{final_content}\n\n执行详情:\n{results_str}"
-                        self.feishu_notifier.send_text(msg)
+                        self.notifier.send_text(msg)
                         
                     return final_content
 

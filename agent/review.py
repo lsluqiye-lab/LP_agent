@@ -16,7 +16,7 @@ from llm.base import BaseLLM, ChatMessage, Role
 from data.trade_logger import get_trade_logger
 from data.memory import TradingMemory, get_trading_memory
 from config import WATCHLIST, ReviewConfig
-from notification.feishu import FeishuNotifier
+from notification.base import NotifierBase
 
 
 logger = logging.getLogger("ReviewAgent")
@@ -80,13 +80,13 @@ class ReviewAgent:
         self,
         llm: BaseLLM,
         config: Optional[ReviewConfig] = None,
-        feishu_notifier: Optional[FeishuNotifier] = None,
+        notifier: Optional[NotifierBase] = None,
         trading_memory: Optional[TradingMemory] = None,
         logger_instance: Optional[logging.Logger] = None,
     ):
         self.llm = llm
         self.config = config or ReviewConfig()
-        self.feishu_notifier = feishu_notifier
+        self.notifier = notifier
         self.trading_memory = trading_memory or get_trading_memory()
         self.log = logger_instance or logger
         self.trade_logger = get_trade_logger()
@@ -150,7 +150,7 @@ class ReviewAgent:
             self._update_memory(report, today_log)
 
             # 推送飞书
-            self._push_to_feishu(report)
+            self._push_notification(report)
 
             self._today_reviewed = True
             self.log.info("每日复盘完成")
@@ -267,9 +267,9 @@ class ReviewAgent:
         except Exception as e:
             self.log.error(f"交易记忆更新失败: {e}", exc_info=True)
 
-    def _push_to_feishu(self, report: str):
-        """推送复盘摘要到飞书"""
-        if not self.feishu_notifier:
+    def _push_notification(self, report: str):
+        """推送复盘摘要到通知渠道"""
+        if not self.notifier:
             return
 
         # 截取前2000字符作为摘要
@@ -280,7 +280,7 @@ class ReviewAgent:
         message = f"📊 【每日复盘报告】\n\n{summary}"
 
         try:
-            self.feishu_notifier.send_text(message)
-            self.log.info("复盘报告已推送飞书")
+            self.notifier.send_text(message)
+            self.log.info("复盘报告已推送通知渠道")
         except Exception as e:
-            self.log.error(f"飞书推送失败: {e}")
+            self.log.error(f"通知推送失败: {e}")

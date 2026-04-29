@@ -326,7 +326,7 @@ def main():
     logger = setup_logger("strategic_agent", config.log)
     
     logger.info("=" * 60)
-    logger.info("LP-Agent v3.0 (Strategic Multi-Agent) 启动")
+    logger.info("【正式】LP-Agent v3.0 (Strategic Multi-Agent) 启动")
     logger.info("=" * 60)
 
     try:

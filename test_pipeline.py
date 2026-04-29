@@ -406,7 +406,7 @@ def test_agent(config):
 # ───────────────────────────────────────────
 def main():
     print("\n" + "🔬" * 30)
-    print("   LP-Agent 全链路测试")
+    print("   【测试环境】LP-Agent 全链路测试")
     print(f"   {now_str()}")
     print("🔬" * 30)
 
@@ -459,7 +459,7 @@ def main():
 
             # 构建汇总消息
             summary_lines = [
-                f"🔬 LP-Agent 全链路测试报告",
+                f"🔬 【测试环境】LP-Agent 全链路测试报告",
                 f"⏰ {now_str()}",
                 f"📊 总计: {total}项 | ✅{passed} | ❌{failed} | ⏭️{skipped}",
                 "",

@@ -264,7 +264,7 @@ async def phase3_map_experts(
     macro_briefing = {
         "risk_level": risk_result["regime"].upper(),
         "score": risk_result["score"],
-        "summary": risk_result["constraints"]["message"],
+        "summary": risk_result.get("constraints", {}).get("message", "无明确约束信息"),
         "key_events": []
     }
 
@@ -337,7 +337,7 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
     
     # 推送选股和专家分析到飞书 (开盘简报)
     if feishu_notifier and candidates and not morning_briefing_sent:
-        risk_msg = f"**评分:** {risk_result['score']} | **等级:** {risk_result['regime']}\\n**核心逻辑:** {risk_result['constraints']['message']}"
+        risk_msg = f"**评分:** {risk_result.get('score', 0)} | **等级:** {risk_result.get('regime', 'UNKNOWN')}\\n**核心逻辑:** {risk_result.get('constraints', {}).get('message', '无明确约束信息')}"
         
         cand_list = []
         for c in candidates:
@@ -561,6 +561,10 @@ def main():
     # 记录当天是否执行过深度分析
     run_history = {"morning": False, "afternoon": False}
     scanner_ran = False
+    
+    # News Watchdog 相关状态
+    known_critical_events = ""
+    last_critical_alert_time = None
 
     while True:
         try:
@@ -646,37 +650,50 @@ def main():
             current_minute = current_time.minute
             if not should_run_strategic and current_minute % 15 == 0:
                 try:
-                    logger.info("[News Watchdog] 执行盘中突发新闻巡检...")
-                    news_client = tool_registry.get("search_macro_economics") # 或者用 get_search_client
-                    if news_client:
-                        # 借用 LLM 做快速情感判断
-                        news_res = news_client.execute(topic="US stock market breaking news crash emergency surprise")
-                        prompt = f"分析以下最新市场新闻，是否包含可能引发美股大盘暴跌/暴涨的核弹级突发事件（如战争爆发、美联储突发紧急行动、大型黑天鹅）？如果有，仅回复 'CRITICAL: [事件简述]'。如果没有，回复 'NORMAL'。\n\n新闻:\n{news_res[:2000]}"
-                        
-                        messages = [
-                            ChatMessage(role=Role.SYSTEM, content="You are a fast market news sentiment detector."),
-                            ChatMessage(role=Role.USER, content=prompt)
-                        ]
-                        alert_resp = analyst_llm.chat(messages).content.strip()
-                        
-                        if alert_resp.startswith("CRITICAL"):
-                            logger.error(f"🚨 [News Watchdog] 侦测到突发核弹级事件: {alert_resp}。强行唤醒 CIO 进行计划外避险决策！")
-                            # 强行拉起深度决策层
-                            loop = asyncio.get_event_loop()
-                            # 为了速度，直接跳过选股，强行对持仓进行避险评估
-                            collected_data = phase1_collect_data(tool_registry, logger)
-                            risk_result = {"score": 0.0, "regime": "PANIC", "reason": alert_resp, "constraints": {"allow_new_buy": False, "must_reduce": True, "message": alert_resp}}
-                            emergency_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
-                            emergency_candidates = [c for c in emergency_candidates if c["type"] == "POSITION"] # 只管手里的票
-                            if emergency_candidates:
-                                emergency_briefings = loop.run_until_complete(
-                                    phase3_map_experts(emergency_candidates, orchestrator, risk_result, logger)
-                                )
-                                loop.run_until_complete(
-                                    phase4_strategic_decision(agent, collected_data, emergency_briefings, 0.0, logger, interrupt_events=alert_resp)
-                                )
+                    # 检查是否处于冷却期 (2小时内触发过，则跳过)
+                    if last_critical_alert_time and (current_time - last_critical_alert_time).total_seconds() < 7200:
+                        logger.debug("[News Watchdog] 仍在避险冷却期内，跳过本次巡检。")
+                    else:
+                        logger.info("[News Watchdog] 执行盘中突发新闻巡检...")
+                        news_client = tool_registry.get("search_macro_economics") # 或者用 get_search_client
+                        if news_client:
+                            # 借用 LLM 做快速情感判断
+                            news_res = news_client.execute(topic="US stock market breaking news crash emergency surprise")
+
+                            prompt = "分析以下最新市场新闻，是否包含 **刚刚发生（如过去数小时内）**、且可能立即引发美股大盘暴跌的盘中核弹级突发事件（如突发紧急降息、刚刚爆发的新战争冲突等）？\n"
+                            if known_critical_events:
+                                prompt += f"注意：以下是我们【已经知晓且已处理】的事件：\n{known_critical_events}\n如果新闻只是报道这些事件的延续，请严格回复 'NORMAL'。\n"
+
+                            prompt += "只有遇到全新的、意料之外的盘中黑天鹅，才回复 'CRITICAL: [事件简述]'。如果没有此类全新突发事件，仅回复 'NORMAL'。\n\n新闻:\n" + news_res[:2000]
+
+                            messages = [
+                                ChatMessage(role=Role.SYSTEM, content="You are a fast market news sentiment detector."),
+                                ChatMessage(role=Role.USER, content=prompt)
+                            ]
+                            alert_resp = analyst_llm.chat(messages).content.strip()
+
+                            if alert_resp.startswith("CRITICAL"):
+                                logger.error(f"🚨 [News Watchdog] 侦测到突发核弹级事件: {alert_resp}。强行唤醒 CIO 进行计划外避险决策！")
+                                # 更新状态
+                                last_critical_alert_time = current_time
+                                known_critical_events += f"- {alert_resp}\n"
+
+                                # 强行拉起深度决策层
+                                loop = asyncio.get_event_loop()
+                                # 为了速度，直接跳过选股，强行对持仓进行避险评估
+                                collected_data = phase1_collect_data(tool_registry, logger)
+                                risk_result = {"score": 0.0, "regime": "PANIC", "reason": alert_resp, "constraints": {"allow_new_buy": False, "must_reduce": True, "message": alert_resp}}
+                                emergency_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
+                                emergency_candidates = [c for c in emergency_candidates if c["type"] == "POSITION"] # 只管手里的票
+                                if emergency_candidates:
+                                    emergency_briefings = loop.run_until_complete(
+                                        phase3_map_experts(emergency_candidates, orchestrator, risk_result, logger)
+                                    )
+                                    loop.run_until_complete(
+                                        phase4_strategic_decision(agent, collected_data, emergency_briefings, 0.0, logger, interrupt_events=alert_resp)
+                                    )
                 except Exception as e:
-                    logger.error(f"[News Watchdog] 巡检异常: {e}")
+                    logger.error(f"[News Watchdog] 巡检异常: {e}", exc_info=True)
 
             # Watchdog 循环频率：动态计算休眠时间，对齐到下一个整分钟，防止执行耗时导致时间漂移
             now = datetime.now()

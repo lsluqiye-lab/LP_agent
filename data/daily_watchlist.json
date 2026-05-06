@@ -1,23 +1,21 @@
 {
-    "date": "2026-04-21",
+    "date": "2026-05-05",
     "watchlist": [
-        "MRVL",
-        "STLD",
-        "INTC",
-        "TSLA",
-        "TSM",
-        "META",
-        "NUE",
-        "COP",
-        "MSFT",
-        "SPY",
-        "DOW",
-        "GE",
-        "AAPL",
-        "ANET",
         "NVDA",
-        "CRDO"
+        "TSM",
+        "MSFT",
+        "NFLX",
+        "AMZN",
+        "AVGO",
+        "MU",
+        "COP",
+        "VLO",
+        "CEG",
+        "RTX",
+        "IBKR",
+        "UNH",
+        "FIX"
     ],
-    "reason": "当前市场呈现双引擎驱动格局：一是AI基础设施的持续扩张，以NVDA（Vera Rubin架构预期）、AAPL（AI升级周期及高量化评分94.07）和TSM为核心，带动MRVL、CRDO等高动能半导体标的；二是周期性板块的强势轮动，Materials与Industrials板块受基建支出和制造业扩张推动，STLD与NUE等钢铁巨头出现技术性突破。TSLA与META凭借极高的量化评分和Stage 2趋势被选为动能增强器。此外，COP与INTC作为高确信度价值与反转标的，提供了良好的风险收益比对冲。",
-    "updated_at": "2026-04-21T10:11:18.674365-04:00"
+    "reason": "当前市场呈现双主线逻辑：一是AI基础设施建设进入大规模投入期，驱动量化评分极高且动能强劲的半导体与云巨头（NVDA, TSM, AVGO, AMZN）持续突破；二是地缘政治风险溢价与AI电力需求推动能源与基建板块（COP, VLO, CEG）走强。选股逻辑结合了Qlib模型的高分动能信号、IBD 50突破榜单以及华尔街大行的高确信度评级，重点布局处于Stage 2上升通道、具备极强EPS增长动力及防御地缘风险能力的行业领头羊。",
+    "updated_at": "2026-05-05T09:02:01.644969-04:00"
 }

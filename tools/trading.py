@@ -685,6 +685,37 @@ class SellStockTool(BaseTool):
             return json.dumps({"error": str(e), "success": False})
 
 
+
+class CancelOrderTool(BaseTool):
+    """撤销订单工具"""
+
+    name = "cancel_order"
+    description = "撤销尚未成交的挂单 (PENDING/WAITING 状态的订单)"
+    parameters = [
+        ToolParameter(
+            name="order_id",
+            type="string",
+            description="需要撤销的订单 ID"
+        ),
+        ToolParameter(
+            name="reason",
+            type="string",
+            description="撤单理由",
+            required=False,
+            default=""
+        )
+    ]
+
+    def execute(self, order_id: str, reason: str = "", **kwargs) -> str:
+        try:
+            config = get_longport_config()
+            trade = TradeContext(config)
+            trade.cancel_order(order_id)
+            logging.info(f"成功下达撤单指令: {order_id}, 理由: {reason}")
+            return json.dumps({"success": True, "order_id": order_id, "message": "撤单指令已发送成功"})
+        except Exception as e:
+            return json.dumps({"success": False, "error": str(e)})
+
 def create_trading_tools() -> list[BaseTool]:
     """
     创建所有交易工具实例
@@ -698,6 +729,7 @@ def create_trading_tools() -> list[BaseTool]:
         GetAccountBalanceTool(),
         GetTodayOrdersTool(),
         GetHistoryOrdersTool(),
+        CancelOrderTool(),
         GetQuoteTool(),
         BuyStockTool(),
         SellStockTool(),

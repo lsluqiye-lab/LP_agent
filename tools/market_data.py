@@ -1099,6 +1099,116 @@ class GetMarketOverviewTool(BaseTool):
 # 工具注册入口
 # ───────────────────────────────────────────
 
+
+class SearchHedgingOptionTool(BaseTool):
+    """寻找最佳对冲期权工具"""
+
+    name = "search_hedging_option"
+    description = "输入标的、期权方向(Call/Put)和目标到期天数，自动计算并寻找流动性最好的期权合约代码"
+    parameters = [
+        ToolParameter(
+            name="symbol",
+            type="string",
+            description="正股代码，如 AAPL"
+        ),
+        ToolParameter(
+            name="option_type",
+            type="string",
+            description="期权类型: Put (看跌,用于防守对冲) 或 Call (看涨)",
+            enum=["Put", "Call"]
+        ),
+        ToolParameter(
+            name="target_days",
+            type="integer",
+            description="期望期权到期的天数，例如防范财报可设为 7 到 14 天"
+        ),
+        ToolParameter(
+            name="strike_offset_pct",
+            type="number",
+            description="行权价偏离现价的百分比，如 -5.0 表示寻找低于现价 5% 的 Put"
+        )
+    ]
+
+    def execute(
+        self,
+        symbol: str,
+        option_type: str,
+        target_days: int,
+        strike_offset_pct: float,
+        **kwargs
+    ) -> str:
+        try:
+            from datetime import datetime, timedelta
+            
+            
+            ctx = get_quote_ctx()
+            full_symbol = modify_symbol(symbol)
+            
+            # 1. 获取现价
+            quotes = ctx.quote([full_symbol])
+            if not quotes:
+                return json.dumps({"error": f"无法获取 {symbol} 现价"})
+            current_price = float(quotes[0].last_done)
+            target_strike = current_price * (1 + strike_offset_pct / 100.0)
+            
+            # 2. 寻找最近的到期日
+            expiries = ctx.option_chain_expiry_date_list(full_symbol)
+            if not expiries:
+                return json.dumps({"error": f"{symbol} 不支持期权交易或无数据"})
+                
+            target_date = datetime.now().date() + timedelta(days=target_days)
+            best_expiry = min(expiries, key=lambda d: abs((d - target_date).days))
+            
+            # 3. 获取该到期日的期权链
+            chain_info = ctx.option_chain_info_by_date(full_symbol, best_expiry)
+            if not chain_info:
+                return json.dumps({"error": f"无法获取 {best_expiry} 的期权链"})
+                
+            # 4. 筛选期权并寻找最接近 target_strike 的
+            candidates = []
+            for strike_info in chain_info:
+                strike = float(strike_info.price)
+                target_sym = strike_info.put_symbol if option_type == "Put" else strike_info.call_symbol
+                if target_sym:
+                    candidates.append({
+                        "symbol": target_sym,
+                        "strike": strike,
+                        "expiry": str(best_expiry),
+                        "distance_to_target": abs(strike - target_strike)
+                    })
+                    
+            if not candidates:
+                return json.dumps({"error": "找不到符合条件的期权合约"})
+                
+            # 找到最接近目标行权价的合约
+            best_match = min(candidates, key=lambda x: x["distance_to_target"])
+            
+            # 5. 获取该期权的实时报价和流动性
+            try:
+                opt_quotes = ctx.option_quote([best_match["symbol"]])
+                if opt_quotes:
+                    oq = opt_quotes[0]
+                    best_match["last_price"] = str(oq.last_done)
+                    best_match["implied_volatility"] = str(oq.implied_volatility)
+                    best_match["open_interest"] = str(oq.open_interest)
+                    best_match["volume"] = str(oq.volume)
+                    best_match["bid"] = str(oq.bid[0].price) if oq.bid else "N/A"
+                    best_match["ask"] = str(oq.ask[0].price) if oq.ask else "N/A"
+            except Exception as e:
+                best_match["note"] = "无期权实时报价权限，返回理论最优合约代码，可直接用于买入"
+                
+            return json.dumps({
+                "underlying": symbol,
+                "underlying_price": current_price,
+                "target_strike_price": target_strike,
+                "recommended_option": best_match,
+                "strategy": f"买入 {best_match['symbol']} 进行 {option_type} 操作对冲",
+                "actionable_symbol_for_trade": best_match['symbol']
+            })
+            
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+
 def create_market_data_tools() -> list[BaseTool]:
     """创建所有行情数据工具"""
     return [
@@ -1108,4 +1218,5 @@ def create_market_data_tools() -> list[BaseTool]:
         GetCapitalFlowTool(),
         GetFundamentalsTool(),
         GetMarketOverviewTool(),
+        SearchHedgingOptionTool(),
     ]

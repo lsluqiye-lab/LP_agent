@@ -428,6 +428,68 @@ def calculate_rsi_from_candles(candles, period=14):
     rs = avg_gain / avg_loss
     return 100.0 - (100.0 / (1.0 + rs))
 
+
+# ==========================================
+# WebSocket 实时事件驱动流 (Millisecond Watchdog)
+# ==========================================
+import threading
+from longport.openapi import SubType, PushQuote
+from tools.market_data import get_quote_ctx, modify_symbol
+import config as app_config
+
+_ws_events = []
+_ws_lock = threading.Lock()
+_global_pos_map = {}  # 由主循环定期更新持仓成本
+
+def on_quote_push(symbol: str, event: PushQuote):
+    """WebSocket 毫秒级回调，侦测极端异动"""
+    try:
+        clean_symbol = symbol.split('.')[0] if '.' in symbol else symbol
+        current_price = float(event.last_done)
+        
+        # 读取持仓成本
+        cost_price = None
+        if clean_symbol in _global_pos_map:
+            cost_price = float(_global_pos_map[clean_symbol].get("cost_price", 0))
+            
+        # 1. 致命跌破熔断: 瞬间跌破成本 8% (防崩盘)
+        if cost_price and current_price < cost_price * 0.92:
+            with _ws_lock:
+                _ws_events.append({
+                    "symbol": clean_symbol,
+                    "type": "DEFENSIVE_DROP_WS",
+                    "reason": f"[WS毫秒级拦截] 最新价 ${current_price:.2f} 瞬间跌破持仓成本 ${cost_price:.2f} 的 8%，系统极速熔断报警！"
+                })
+        
+        # 2. 毫秒级动能突破: 突破日内最高点 (抢跑)
+        day_high = float(event.high)
+        if day_high > 0 and current_price >= day_high * 0.998:
+            with _ws_lock:
+                # 避免同一只股票疯狂发事件
+                if not any(e["symbol"] == clean_symbol and "BREAKOUT" in e["type"] for e in _ws_events):
+                    _ws_events.append({
+                        "symbol": clean_symbol,
+                        "type": "OFFENSIVE_BREAKOUT_WS",
+                        "reason": f"[WS毫秒级拦截] 标的瞬间打穿日内高点 ${day_high:.2f}，资金净抢筹！"
+                    })
+    except Exception:
+        pass
+
+def init_websocket_subscriptions(logger):
+    """初始化并挂载 WebSocket"""
+    try:
+        ctx = get_quote_ctx()
+        ctx.set_on_quote(on_quote_push)
+        
+        # 订阅当前 Watchlist 标的
+        full_symbols = [modify_symbol(s) for s in app_config.WATCHLIST]
+        if full_symbols:
+            ctx.subscribe(full_symbols, [SubType.Quote], is_first_push=True)
+            logger.info(f"⚡ [WebSocket] 已成功订阅 {len(full_symbols)} 只标的的毫秒级深度行情！")
+    except Exception as e:
+        logger.error(f"[WebSocket] 订阅失败: {e}")
+
+
 def watchdog_check(tool_registry, logger):
     """
     高频监控雷达 (Watchdog)：纯本地计算
@@ -439,11 +501,22 @@ def watchdog_check(tool_registry, logger):
         from tools.market_data import get_quote_ctx, modify_symbol
         from longport.openapi import Period, AdjustType
         
+        # 获取最新的持仓，并更新给 WebSocket 线程共享
         pos_resp = tool_registry.execute("get_positions")
         pos_data = json.loads(pos_resp)
         positions = pos_data.get("positions", [])
         
         pos_map = {p["symbol"]: p for p in positions if float(p.get("quantity", 0)) > 0}
+        
+        global _global_pos_map
+        _global_pos_map = pos_map
+        
+        # --- 读取并清空 WebSocket 瞬间捕获的事件 ---
+        with _ws_lock:
+            global _ws_events
+            if _ws_events:
+                events.extend(_ws_events)
+                _ws_events = []
         
         # 监控范围：当前持仓 + Watchlist
         monitor_symbols = set(list(pos_map.keys()) + app_config.WATCHLIST)
@@ -550,8 +623,23 @@ def main():
         logger=logger
     )
 
+
+    agent = ReActAgent(
+        llm=primary_llm,
+        tool_registry=tool_registry,
+        system_prompt=STRATEGIC_SYSTEM_PROMPT,
+        max_iterations=10,
+        feishu_notifier=feishu_notifier,
+        trading_memory=trading_memory,
+        logger=logger
+    )
+
     review_agent = ReviewAgent(llm=primary_llm, config=config.review, feishu_notifier=feishu_notifier, trading_memory=trading_memory, logger_instance=logger)
     trade_logger = get_trade_logger()
+
+    # 初始化 WebSocket 毫秒级监控
+    init_websocket_subscriptions(logger)
+
 
     # ── 主循环 ──
     eastern = pytz.timezone('US/Eastern')

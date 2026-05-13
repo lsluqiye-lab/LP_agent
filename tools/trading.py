@@ -345,8 +345,8 @@ class BuyStockTool(BaseTool):
         ToolParameter(
             name="order_type",
             type="string",
-            description="订单类型: MO(市价), LO(限价), LIT(触及限价, 用于突破买入), MIT(触及市价)",
-            enum=["MO", "LO", "LIT", "MIT"]
+            description="订单类型: MO(市价), LO(限价), LIT(触及限价), MIT(触及市价), TSM(追踪止损金额), TSMPCT(追踪止损比例)",
+            enum=["MO", "LO", "LIT", "MIT", "TSM", "TSMPCT"]
         ),
         ToolParameter(
             name="price",
@@ -354,10 +354,22 @@ class BuyStockTool(BaseTool):
             description="限价单(LO)或触及限价单(LIT)的限价",
             required=False
         ),
-        ToolParameter(
+                ToolParameter(
             name="trigger_price",
             type="number",
             description="触及单(LIT/MIT)的触发价格",
+            required=False
+        ),
+        ToolParameter(
+            name="trailing_percent",
+            type="number",
+            description="追踪止损比例 (TSMPCT)",
+            required=False
+        ),
+        ToolParameter(
+            name="trailing_amount",
+            type="number",
+            description="追踪止损金额 (TSM)",
             required=False
         ),
         ToolParameter(
@@ -376,6 +388,8 @@ class BuyStockTool(BaseTool):
         order_type: str,
         price: Optional[float] = None,
         trigger_price: Optional[float] = None,
+        trailing_percent: Optional[float] = None,
+        trailing_amount: Optional[float] = None,
         reason: str = "",
         **kwargs
     ) -> str:
@@ -445,6 +459,16 @@ class BuyStockTool(BaseTool):
                     return json.dumps({"error": "触及市价单(MIT)必须指定 trigger_price"})
                 order_params["order_type"] = OrderType.MIT
                 order_params["trigger_price"] = Decimal(str(trigger_price))
+            elif order_type == "TSMPCT":
+                if trailing_percent is None:
+                    return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"})
+                order_params["order_type"] = OrderType.TSMPCT
+                order_params["trailing_percent"] = Decimal(str(trailing_percent))
+            elif order_type == "TSM":
+                if trailing_amount is None:
+                    return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"})
+                order_params["order_type"] = OrderType.TSM
+                order_params["trailing_amount"] = Decimal(str(trailing_amount))
             else:
                 order_params["order_type"] = OrderType.MO
 
@@ -504,13 +528,31 @@ class SellStockTool(BaseTool):
         ToolParameter(
             name="order_type",
             type="string",
-            description="订单类型: MO(市价), LO(限价)",
-            enum=["MO", "LO"]
+            description="订单类型: MO(市价), LO(限价), LIT(触及限价), MIT(触及市价), TSM(追踪止损金额), TSMPCT(追踪止损比例)",
+            enum=["MO", "LO", "LIT", "MIT", "TSM", "TSMPCT"]
         ),
         ToolParameter(
             name="price",
             type="number",
-            description="限价单价格（仅限价单需要）",
+            description="限价单(LO)或触及限价单(LIT)的限价",
+            required=False
+        ),
+        ToolParameter(
+            name="trigger_price",
+            type="number",
+            description="触及单(LIT/MIT)的触发价格",
+            required=False
+        ),
+        ToolParameter(
+            name="trailing_percent",
+            type="number",
+            description="追踪止损比例 (TSMPCT)",
+            required=False
+        ),
+        ToolParameter(
+            name="trailing_amount",
+            type="number",
+            description="追踪止损金额 (TSM)",
             required=False
         ),
         ToolParameter(
@@ -528,6 +570,9 @@ class SellStockTool(BaseTool):
         quantity: int,
         order_type: str,
         price: Optional[float] = None,
+        trigger_price: Optional[float] = None,
+        trailing_percent: Optional[float] = None,
+        trailing_amount: Optional[float] = None,
         reason: str = "",
         **kwargs
     ) -> str:
@@ -580,6 +625,27 @@ class SellStockTool(BaseTool):
                     return json.dumps({"error": "限价单必须指定价格"})
                 order_params["order_type"] = OrderType.LO
                 order_params["submitted_price"] = Decimal(str(price))
+            elif order_type == "LIT":
+                if price is None or trigger_price is None:
+                    return json.dumps({"error": "触及限价单(LIT)必须指定 price 和 trigger_price"})
+                order_params["order_type"] = OrderType.LIT
+                order_params["submitted_price"] = Decimal(str(price))
+                order_params["trigger_price"] = Decimal(str(trigger_price))
+            elif order_type == "MIT":
+                if trigger_price is None:
+                    return json.dumps({"error": "触及市价单(MIT)必须指定 trigger_price"})
+                order_params["order_type"] = OrderType.MIT
+                order_params["trigger_price"] = Decimal(str(trigger_price))
+            elif order_type == "TSMPCT":
+                if trailing_percent is None:
+                    return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"})
+                order_params["order_type"] = OrderType.TSMPCT
+                order_params["trailing_percent"] = Decimal(str(trailing_percent))
+            elif order_type == "TSM":
+                if trailing_amount is None:
+                    return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"})
+                order_params["order_type"] = OrderType.TSM
+                order_params["trailing_amount"] = Decimal(str(trailing_amount))
             else:
                 order_params["order_type"] = OrderType.MO
 

@@ -19,6 +19,45 @@ from tools.base import BaseTool, ToolParameter
 from data.trade_logger import get_trade_logger
 
 
+
+def _calculate_dynamic_slippage(symbol, base_price, order_side, order_type):
+    """
+    计算动态滑点和容错率。避免整数关口交易拥挤，提高成交率。
+    """
+    from tools.market_data import get_quote_ctx, modify_symbol
+    try:
+        quote_ctx = get_quote_ctx()
+        quotes = quote_ctx.quote([modify_symbol(symbol)])
+        current_price = float(quotes[0].last_done) if quotes else float(base_price)
+    except:
+        current_price = float(base_price)
+    
+    if current_price > 500:
+        slippage_pct = 0.001
+    elif current_price > 50:
+        slippage_pct = 0.002
+    else:
+        slippage_pct = 0.003
+        
+    slippage_amt = current_price * slippage_pct
+    slippage_amt = max(min(slippage_amt, 1.0), 0.02)
+    limit_offset = max(min(slippage_amt * 3, 3.0), 0.1)
+    
+    adjusted_price = float(base_price)
+    if order_side == "Buy":
+        if order_type == "LO":
+            adjusted_price = float(base_price) + slippage_amt
+        elif order_type == "LIT":
+            adjusted_price = float(base_price) + slippage_amt * 1.5
+    else:
+        if order_type == "LO":
+            adjusted_price = float(base_price) - slippage_amt
+        elif order_type == "LIT":
+            adjusted_price = float(base_price) - slippage_amt * 1.5
+            
+    return round(adjusted_price, 2), round(limit_offset, 2)
+
+
 def get_longport_config() -> Config:
     """获取LongPort配置"""
     return Config.from_env()
@@ -446,13 +485,17 @@ class BuyStockTool(BaseTool):
             if order_type == "LO":
                 if price is None:
                     return json.dumps({"error": "限价单必须指定价格"})
+                adj_price, _ = _calculate_dynamic_slippage(symbol, price, "Buy", "LO")
+                logging.info(f"动态滑点调整 (Buy LO): {price} -> {adj_price}")
                 order_params["order_type"] = OrderType.LO
-                order_params["submitted_price"] = Decimal(str(price))
+                order_params["submitted_price"] = Decimal(str(adj_price))
             elif order_type == "LIT":
-                if price is None or trigger_price is None:
-                    return json.dumps({"error": "触及限价单(LIT)必须指定 price 和 trigger_price"})
+                if trigger_price is None:
+                    return json.dumps({"error": "触及限价单(LIT)必须指定 trigger_price"})
+                adj_price, _ = _calculate_dynamic_slippage(symbol, trigger_price, "Buy", "LIT")
+                logging.info(f"动态滑点调整 (Buy LIT): 触发价 {trigger_price} -> 限价 {adj_price}")
                 order_params["order_type"] = OrderType.LIT
-                order_params["submitted_price"] = Decimal(str(price))
+                order_params["submitted_price"] = Decimal(str(adj_price))
                 order_params["trigger_price"] = Decimal(str(trigger_price))
             elif order_type == "MIT":
                 if trigger_price is None:
@@ -464,13 +507,15 @@ class BuyStockTool(BaseTool):
                     return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"})
                 order_params["order_type"] = OrderType.TSLPPCT
                 order_params["trailing_percent"] = Decimal(str(trailing_percent))
-                order_params["limit_offset"] = Decimal("0.5")
+                _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
+                order_params["limit_offset"] = Decimal(str(dynamic_offset))
             elif order_type == "TSM":
                 if trailing_amount is None:
                     return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"})
                 order_params["order_type"] = OrderType.TSLPAMT
                 order_params["trailing_amount"] = Decimal(str(trailing_amount))
-                order_params["limit_offset"] = Decimal("0.5")
+                _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
+                order_params["limit_offset"] = Decimal(str(dynamic_offset))
             else:
                 order_params["order_type"] = OrderType.MO
 
@@ -625,13 +670,17 @@ class SellStockTool(BaseTool):
             if order_type == "LO":
                 if price is None:
                     return json.dumps({"error": "限价单必须指定价格"})
+                adj_price, _ = _calculate_dynamic_slippage(symbol, price, "Sell", "LO")
+                logging.info(f"动态滑点调整 (Sell LO): {price} -> {adj_price}")
                 order_params["order_type"] = OrderType.LO
-                order_params["submitted_price"] = Decimal(str(price))
+                order_params["submitted_price"] = Decimal(str(adj_price))
             elif order_type == "LIT":
-                if price is None or trigger_price is None:
-                    return json.dumps({"error": "触及限价单(LIT)必须指定 price 和 trigger_price"})
+                if trigger_price is None:
+                    return json.dumps({"error": "触及限价单(LIT)必须指定 trigger_price"})
+                adj_price, _ = _calculate_dynamic_slippage(symbol, trigger_price, "Sell", "LIT")
+                logging.info(f"动态滑点调整 (Sell LIT): 触发价 {trigger_price} -> 限价 {adj_price}")
                 order_params["order_type"] = OrderType.LIT
-                order_params["submitted_price"] = Decimal(str(price))
+                order_params["submitted_price"] = Decimal(str(adj_price))
                 order_params["trigger_price"] = Decimal(str(trigger_price))
             elif order_type == "MIT":
                 if trigger_price is None:
@@ -643,13 +692,15 @@ class SellStockTool(BaseTool):
                     return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"})
                 order_params["order_type"] = OrderType.TSLPPCT
                 order_params["trailing_percent"] = Decimal(str(trailing_percent))
-                order_params["limit_offset"] = Decimal("0.5")
+                _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
+                order_params["limit_offset"] = Decimal(str(dynamic_offset))
             elif order_type == "TSM":
                 if trailing_amount is None:
                     return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"})
                 order_params["order_type"] = OrderType.TSLPAMT
                 order_params["trailing_amount"] = Decimal(str(trailing_amount))
-                order_params["limit_offset"] = Decimal("0.5")
+                _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
+                order_params["limit_offset"] = Decimal(str(dynamic_offset))
             else:
                 order_params["order_type"] = OrderType.MO
 

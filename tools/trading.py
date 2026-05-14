@@ -462,13 +462,15 @@ class BuyStockTool(BaseTool):
             elif order_type == "TSMPCT":
                 if trailing_percent is None:
                     return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"})
-                order_params["order_type"] = OrderType.TSMPCT
+                order_params["order_type"] = OrderType.TSLPPCT
                 order_params["trailing_percent"] = Decimal(str(trailing_percent))
+                order_params["limit_offset"] = Decimal("0.5")
             elif order_type == "TSM":
                 if trailing_amount is None:
                     return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"})
-                order_params["order_type"] = OrderType.TSM
+                order_params["order_type"] = OrderType.TSLPAMT
                 order_params["trailing_amount"] = Decimal(str(trailing_amount))
+                order_params["limit_offset"] = Decimal("0.5")
             else:
                 order_params["order_type"] = OrderType.MO
 
@@ -639,13 +641,15 @@ class SellStockTool(BaseTool):
             elif order_type == "TSMPCT":
                 if trailing_percent is None:
                     return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"})
-                order_params["order_type"] = OrderType.TSMPCT
+                order_params["order_type"] = OrderType.TSLPPCT
                 order_params["trailing_percent"] = Decimal(str(trailing_percent))
+                order_params["limit_offset"] = Decimal("0.5")
             elif order_type == "TSM":
                 if trailing_amount is None:
                     return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"})
-                order_params["order_type"] = OrderType.TSM
+                order_params["order_type"] = OrderType.TSLPAMT
                 order_params["trailing_amount"] = Decimal(str(trailing_amount))
+                order_params["limit_offset"] = Decimal("0.5")
             else:
                 order_params["order_type"] = OrderType.MO
 

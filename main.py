@@ -405,6 +405,23 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
     result = await phase4_strategic_decision(agent, collected_data, briefings_json, risk_result["score"], logger, interrupt_events=event_str)
     logger.info(f"事件驱动决策结论:\n{result}")
 
+
+def _get_daily_atr(quote_ctx, full_symbol, period=14):
+    from tools.market_data import calc_atr
+    from longport.openapi import Period, AdjustType
+    try:
+        daily_candles = quote_ctx.history_candlesticks_by_offset(full_symbol, Period.Day, AdjustType.ForwardAdjust, True, period + 1)
+        if daily_candles and len(daily_candles) > period:
+            highs = [float(c.high) for c in daily_candles]
+            lows = [float(c.low) for c in daily_candles]
+            closes = [float(c.close) for c in daily_candles]
+            atr = calc_atr(highs, lows, closes, period)
+            return atr
+    except Exception as e:
+        import logging
+        logging.warning(f"获取 {full_symbol} ATR 失败: {e}")
+    return None
+
 def calculate_rsi_from_candles(candles, period=14):
     if len(candles) < period + 1:
         return 50.0
@@ -544,20 +561,43 @@ def watchdog_check(tool_registry, logger):
             # 1. 检查当前持仓
             if symbol in pos_map:
                 cost = float(pos_map[symbol]["cost_price"])
-                # 1.1 防守：跌破成本 8%
-                if current_price < cost * 0.92:
-                    events.append({
-                        "symbol": symbol,
-                        "type": "DEFENSIVE_DROP",
-                        "reason": f"最新价 ${current_price:.2f} 已跌破持仓成本 ${cost:.2f} 的 8%，需要紧急评估止损！"
-                    })
-                # 1.2 做T：暴涨锁润
-                elif current_price > cost * 1.15 and rsi_15 > 80:
-                    events.append({
-                        "symbol": symbol,
-                        "type": "SWING_EXHAUSTION",
-                        "reason": f"持仓盈利已超 15% 且 15分钟RSI({rsi_15:.1f})极度超买，动能可能衰竭，建议逢高卖出部分做T锁定利润。"
-                    })
+                
+                # 获取动态波动率 ATR (缓存或实时计算，此处简化为每次巡检获取，因请求频率低可接受)
+                atr = _get_daily_atr(quote_ctx, full_symbol, 14)
+                
+                if atr:
+                    # 动态阈值：防守 = 跌破成本 1.5 倍 ATR，锁润 = 盈利超 3 倍 ATR
+                    stop_loss_price = cost - 1.5 * atr
+                    take_profit_price = cost + 3.0 * atr
+                    
+                    # 1.1 动态防守：跌破波动率安全垫
+                    if current_price < stop_loss_price:
+                        events.append({
+                            "symbol": symbol,
+                            "type": "DEFENSIVE_DROP",
+                            "reason": f"最新价 ${current_price:.2f} 已跌破动态防守线 ${stop_loss_price:.2f} (持仓成本 - 1.5 * ATR)，趋势可能逆转，需要紧急评估止损！"
+                        })
+                    # 1.2 动态锁润：暴涨偏离合理波动区间
+                    elif current_price > take_profit_price and rsi_15 > 80:
+                        events.append({
+                            "symbol": symbol,
+                            "type": "SWING_EXHAUSTION",
+                            "reason": f"最新价 ${current_price:.2f} 已达到动态止盈线 ${take_profit_price:.2f} (持仓成本 + 3 * ATR)，且 15分钟RSI({rsi_15:.1f})极度超买，建议逢高卖出部分做T锁定利润。"
+                        })
+                else:
+                    # 兜底：如果获取不到 ATR，退回静态百分比
+                    if current_price < cost * 0.92:
+                        events.append({
+                            "symbol": symbol,
+                            "type": "DEFENSIVE_DROP",
+                            "reason": f"最新价 ${current_price:.2f} 已跌破持仓成本 ${cost:.2f} 的 8%，需要紧急评估止损！"
+                        })
+                    elif current_price > cost * 1.15 and rsi_15 > 80:
+                        events.append({
+                            "symbol": symbol,
+                            "type": "SWING_EXHAUSTION",
+                            "reason": f"持仓盈利已超 15% 且 15分钟RSI({rsi_15:.1f})极度超买，动能可能衰竭，建议逢高卖出部分做T锁定利润。"
+                        })
             
             # 2. 检查 Watchlist 和持仓的右侧突破
             # 当日涨幅突破或接近日内高点，且 RSI 强势

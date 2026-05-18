@@ -176,13 +176,15 @@ def phase2_risk_scoring(collected_data: dict, config: AppConfig, logger: logging
 # Phase 2.5: 提取候选
 # ═══════════════════════════════════════════
 
-def phase2_5_extract_candidates(collected_data: dict, risk_result: dict, logger: logging.Logger) -> list:
+def phase2_5_extract_candidates(collected_data: dict, risk_result: dict, logger: logging.Logger, portfolio_directives: Optional[dict] = None) -> list:
     """
     Phase 2.5: 提取需要专家分析的候选标的
     """
     logger.info("[Phase 2.5] 提取行动候选清单")
     candidates = []
     allow_buy = risk_result.get("constraints", {}).get("allow_new_buy", False)
+    
+    weed_out_list = portfolio_directives.get("weed_out_list", []) if portfolio_directives else []
 
     # 1. 持仓必选
     positions_raw = collected_data.get("get_positions", "{}")
@@ -212,15 +214,18 @@ def phase2_5_extract_candidates(collected_data: dict, risk_result: dict, logger:
             
         held_symbols = {c["symbol"] for c in candidates}
         
-        # 标记极弱的持仓 (跌破Stage2且近期大跌)
+        # 标记极弱的持仓 (跌破Stage2且近期大跌，或被组合管理器标记为 weed)
         for c in candidates:
             if c["type"] == "POSITION":
                 mom = symbol_momentum.get(c["symbol"])
                 if mom:
                     c["details"] = mom
-                if mom and not mom["stage2"] and mom["ret_20d"] < -5.0:
+                if c["symbol"] in weed_out_list:
                     c["type"] = "WEAK_POSITION"
-                    logger.warning(f"发现极弱持仓: {c['symbol']}, 准备提示 CIO 进行汰弱留强")
+                    logger.warning(f"发现极弱持仓(被PortfolioManager淘汰): {c['symbol']}, 准备提示 CIO 进行汰弱留强")
+                elif mom and not mom["stage2"] and mom["ret_20d"] < -5.0:
+                    c["type"] = "WEAK_POSITION"
+                    logger.warning(f"发现极弱持仓(技术面破位): {c['symbol']}, 准备提示 CIO 进行汰弱留强")
 
         # 若环境允许买入，提取极强信号
         if allow_buy:
@@ -295,6 +300,7 @@ async def phase4_strategic_decision(
     briefings_json: str,
     risk_score: float,
     logger: logging.Logger,
+    portfolio_directives: Optional[dict] = None,
     interrupt_events: Optional[str] = None
 ) -> str:
     """
@@ -304,6 +310,7 @@ async def phase4_strategic_decision(
     result = await agent.run(
         decision_briefings_json=briefings_json,
         risk_score=risk_score,
+        portfolio_directives=portfolio_directives,
         pre_executed_data=collected_data,
         interrupt_events=interrupt_events
     )
@@ -330,8 +337,23 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
     collected_data = phase1_collect_data(tool_registry, logger)
     # Phase 2: 风控
     risk_result = phase2_risk_scoring(collected_data, config, logger)
+    
+    # 🆕 Phase 2.1: 投资组合管理 (Portfolio Management)
+    portfolio_directives = {}
+    try:
+        from agent.portfolio_manager import PortfolioManager
+        pm = PortfolioManager()
+        pos_raw = collected_data.get("get_positions", "{}")
+        current_pos = json.loads(pos_raw).get("positions", []) if isinstance(pos_raw, str) else pos_raw.get("positions", [])
+        acct_raw = collected_data.get("get_account_balance", "{}")
+        acct_bal = json.loads(acct_raw) if isinstance(acct_raw, str) else acct_raw
+        portfolio_directives = pm.analyze_portfolio(current_pos, acct_bal, risk_result)
+        logger.info(f"[Phase 2.1] Portfolio Directives: {portfolio_directives}")
+    except Exception as e:
+        logger.error(f"Portfolio Manager 执行异常: {e}")
+        
     # Phase 2.5: 候选
-    candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
+    candidates = phase2_5_extract_candidates(collected_data, risk_result, logger, portfolio_directives)
     # Phase 3: 专家 (Map)
     briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
     
@@ -345,7 +367,7 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
             if c_type == "POSITION":
                 reason = "🛡️ 持仓巡检"
             elif c_type == "WEAK_POSITION":
-                reason = "⚠️ 极弱持仓"
+                reason = "⚠️ 极弱持仓 (需淘汰)"
             else:
                 reason = "💡 交易信号"
             
@@ -358,7 +380,11 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
             
             cand_list.append(f"**{c['symbol']}** ({reason})\\n  └ {stage_str}{ret_str}{flags_str}")
             
-        card_content = f"**🌡️ 宏观风控简报**\\n{risk_msg}\\n\\n**🔍 今日关注标的池**\\n" + "\\n".join(cand_list)
+        pm_msg = ""
+        if portfolio_directives.get("weed_out_list"):
+            pm_msg = f"\\n**🥀 建议淘汰弱势持仓:** {','.join(portfolio_directives['weed_out_list'])}"
+            
+        card_content = f"**🌡️ 宏观风控简报**\\n{risk_msg}{pm_msg}\\n\\n**🔍 今日关注标的池**\\n" + "\\n".join(cand_list)
         
         color = "red" if risk_result['regime'] == "LOCKDOWN" else ("orange" if risk_result['regime'] == "CAUTIOUS" else "green")
         
@@ -366,12 +392,12 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
             title="🌅 LP-Agent 早盘扫描与战略部署",
             content=card_content,
             color=color,
-            footer="Phase 1 & 2: Market Scan & Risk Control"
+            footer="Phase 1 & 2: Market Scan & Portfolio Mgmt"
         )
         morning_briefing_sent = True
     
     # Phase 4: 决策 (Reduce)
-    result = await phase4_strategic_decision(agent, collected_data, briefings_json, risk_result["score"], logger)
+    result = await phase4_strategic_decision(agent, collected_data, briefings_json, risk_result["score"], logger, portfolio_directives)
     logger.info(f"本轮决策结论:\n{result}")
     return morning_briefing_sent
 
@@ -396,13 +422,29 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
     collected_data = phase1_collect_data(tool_registry, logger)
     # 2. 依然进行宏观打分，避免逆势
     risk_result = phase2_risk_scoring(collected_data, config, logger)
+    
+    # 2.1 获取组合指令 (可选，应对事件)
+    portfolio_directives = {}
+    try:
+        from agent.portfolio_manager import PortfolioManager
+        pm = PortfolioManager()
+        pos_raw = collected_data.get("get_positions", "{}")
+        current_pos = json.loads(pos_raw).get("positions", []) if isinstance(pos_raw, str) else pos_raw.get("positions", [])
+        acct_raw = collected_data.get("get_account_balance", "{}")
+        acct_bal = json.loads(acct_raw) if isinstance(acct_raw, str) else acct_raw
+        portfolio_directives = pm.analyze_portfolio(current_pos, acct_bal, risk_result)
+    except Exception:
+        pass
+
     # 3. 让专家对涉及异动的股票出具报告
     logger.info(f"触发异动的标的: {[c['symbol'] for c in candidates]}，唤醒专家...")
     briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
     
     # 4. CIO决策，传入特殊的 interrupt_events 参数
     logger.info("呼叫 CIO 进行事件应对决策...")
-    result = await phase4_strategic_decision(agent, collected_data, briefings_json, risk_result["score"], logger, interrupt_events=event_str)
+    result = await phase4_strategic_decision(
+        agent, collected_data, briefings_json, risk_result["score"], logger, portfolio_directives=portfolio_directives, interrupt_events=event_str
+    )
     logger.info(f"事件驱动决策结论:\n{result}")
 
 

@@ -30,6 +30,7 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 
 ### STEP 1: 宏观边界确认
 - 检查 `宏观评分: {risk_score}`。(注意：评分为 0-100。**100 代表极其安全，0 代表极端风险！分数越低越危险**)。
+- **投资组合级指令 (Portfolio Directives)**: `{portfolio_directives}` (此处包含基于全局胜率计算出的自适应买入阈值、需要主动淘汰的弱势持仓名单等，你必须严格执行)。
 - **LOCKDOWN/CAUTIOUS (<50)**: 代表高风险环境。主基调是“减仓”和“止损收紧”。严禁新开仓位。
 - **仓位上限管理**: 区别对待“主动建仓”与“被动浮盈”。主动建仓时严守单只标的市值不超过10%的底线；若是强势股因自身上涨导致的仓位超标(浮盈)，**严禁直接卖出！** 此时应当使用追踪止损单保护利润。
 - **NORMAL/FAVORABLE (>=50)**: 代表健康/安全环境。允许进攻。确认 `position_multiplier` 对仓位的限制。
@@ -39,6 +40,8 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 - **RSI 硬约束**: 严禁在 **日线 RSI > 75** 且属于“回踩低吸 (LO)”逻辑时执行买入。超买区的回踩往往是派发的开始。只有在确认是**强力突破 (LIT)** 且有量能配合时，才允许在 RSI 高位少量参与。
 
 ### STEP 3: 确定性评估 (Confidence Scoring)
+- **优胜劣汰 (Weed & Flower)**: 如果当前分析的股票在 `portfolio_directives` 的 `weed_out_list` 中，说明它在组合中属于低效占用资金的“杂草”。你必须主动使用 **SELL / TIGHTEN_STOP** 将其淘汰（即使未跌破硬止损），以便腾出资金给更强的标的！
+- **胜率自适应买入门槛**: 当你准备买入（BUY）时，必须评估综合分数。如果分数低于 `portfolio_directives` 中动态计算出的 `adaptive_buy_threshold`，即使技术面好看，也**必须拒绝买入**，以减少现金损耗(Cash Drag)。
 - **趋势包容性验证**: 买入标的应具备上升趋势或底部反转动能。首选标准的 **Stage 2**（股价 > SMA50 > SMA200）；**特例允许**：若股价刚放量突破 SMA50 且有资金抢筹异动（Watchdog 报警），即使受制于 SMA200（处于 Stage 1 向 Stage 2 的过渡期），也**允许**右侧建仓买入，不要死板拒绝底部爆发行情。
 - **量价验证**: 观察 `volume_price_analysis`。缩量回调是加仓点，放量突破是买点。
 - **灵活加仓逻辑**: 只要当前持仓**未处于亏损状态 (profit_pct >= 0%)** 且技术面出现新的确定性买点（如二次突破或缩量回踩支撑），就**允许**进行金字塔式加仓，不必死守 "> 5%" 的死板门槛。
@@ -112,6 +115,7 @@ class ReActAgent:
         decision_briefings_json: str,
         risk_context: str = "Risk: NORMAL",
         risk_score: float = 50.0,
+        portfolio_directives: Optional[Dict] = None,
         pre_executed_data: Optional[Dict] = None,
         interrupt_events: Optional[str] = None
     ) -> str:
@@ -123,11 +127,13 @@ class ReActAgent:
 
         # 2. Render Prompt
         memory_context = self.trading_memory.get_memory_context() if self.trading_memory else "No prior history."
+        portfolio_str = json.dumps(portfolio_directives, ensure_ascii=False) if portfolio_directives else "无组合级额外限制。"
         
         system_prompt = self.system_prompt.replace("{tools_section}", self._build_tools_section(tools)) \
                                          .replace("{decision_briefings}", decision_briefings_json) \
                                          .replace("{memory_context}", memory_context) \
-                                         .replace("{risk_score}", str(risk_score))
+                                         .replace("{risk_score}", str(risk_score)) \
+                                         .replace("{portfolio_directives}", portfolio_str)
 
         # 3. Initialize Messages
         messages = [

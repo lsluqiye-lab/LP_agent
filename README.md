@@ -40,6 +40,7 @@ graph TD
             %% Phase 1-2.5
             subgraph Phase_Front ["风控与数据前置 (Phase 1-2.5)"]
                 MacroRisk[宏观风控局<br>计算全局系统安全分]
+                PortManager[投资组合管家<br>胜率阈值自适应与优胜劣汰]
                 AlphaScan[Alpha Scanner<br>动态发现热点金股]
             end
 
@@ -81,6 +82,8 @@ graph TD
     LongPort --> Phase_Experts
 
     AlphaScan -->|"输送 Top 15 标的池"| Phase_Experts
+    MacroRisk -->|"计算动态防守系数"| PortManager
+    PortManager -->|"下发全局买入阈值与杂草清理名单"| CIO
     MacroRisk -->|"若评分<50则一票否决<br>锁死买入权限"| CIO
     
     TechExpert & FundExpert & SentExpert & SectExpert -->|"汇聚多维度研报"| CIO
@@ -169,6 +172,11 @@ sequenceDiagram
 - **职责**：在所有的个股研报开始之前，它负责评估今天的**整体打分水平 (系统性风险)**。它是唯一有权在物理层面“拔网线”的模块。
 - **打分逻辑 (总分 100)**：综合评估大盘技术面 (25%)、市场温度 (25%)、资金流向 (15%)、RSI广度 (15%)、市场情绪 (10%) 和波动率 (10%)。
 - **约束力**：如果它给出的系统分数跌破 50 分 (LOCKDOWN / CAUTIOUS 模式)，无论后面的专家多么看好某只股票，执行层都会硬性锁死买入权限，强制 CIO 只能防守或斩仓。
+
+### 0.5 投资组合大管家 (PortfolioManager) - 全局资金与仓位调度
+- **职责**：连接宏观风控与微观交易的桥梁，负责整体账户的“优胜劣汰”与“自适应防御”。
+- **分析内容**：统计近 14 天平仓胜率，扫描当前持仓计算相对强度 (RS)，并评估板块集中度。
+- **约束力**：根据历史胜率动态上调/下放 CIO 的买入分数门槛 (防范现金闲置 Cash Drag 或陷入频繁止损的死循环)；对于跑输大盘的极弱持仓，直接打上杂草标签 (`weed_out_list`) 强制 CIO 在盘中主动斩仓替换。
 
 ### 1. 基本面专家 (FundamentalAnalyst)
 - **职责**：挖掘公司核心护城河、估值泡沫及业绩指引，严防“杀估值”。

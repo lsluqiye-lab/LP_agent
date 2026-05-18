@@ -12,7 +12,7 @@ import pytz
 import holidays
 from longport.openapi import (
     Config, QuoteContext, TradeContext,
-    OrderSide, OrderType, TimeInForceType
+    OrderSide, OrderType, TimeInForceType, OutsideRTH
 )
 
 from tools.base import BaseTool, ToolParameter
@@ -40,8 +40,9 @@ def _calculate_dynamic_slippage(symbol, base_price, order_side, order_type):
         slippage_pct = 0.003
         
     slippage_amt = current_price * slippage_pct
-    slippage_amt = max(min(slippage_amt, 1.0), 0.02)
-    limit_offset = max(min(slippage_amt * 3, 3.0), 0.1)
+    slippage_amt = max(slippage_amt, 0.02)
+    # 对于限价单和追踪止损单的容错偏移 (limit_offset)，为了防范剧烈波动时的击穿，给予更宽的容忍度
+    limit_offset = max(slippage_amt * 8, 0.2)
     
     adjusted_price = float(base_price)
     if order_side == "Buy":
@@ -56,6 +57,25 @@ def _calculate_dynamic_slippage(symbol, base_price, order_side, order_type):
             adjusted_price = float(base_price) - slippage_amt * 1.5
             
     return round(adjusted_price, 2), round(limit_offset, 2)
+
+
+def _has_duplicate_pending_order(trade_ctx, symbol, order_side):
+    """检查是否已有同向的未成交挂单，防止系统无限重复下发条件单"""
+    try:
+        orders = trade_ctx.today_orders()
+        clean_symbol = symbol.split('.')[0]
+        side_str = "Buy" if order_side == "Buy" else "Sell"
+        
+        for o in orders:
+            # 匹配标的和方向
+            if o.symbol.startswith(clean_symbol) and side_str in str(o.side):
+                status_str = str(o.status).lower()
+                # 检查挂单状态 (未报、待报、已报、部分成交等均属于挂单中)
+                if any(s in status_str for s in ["notreported", "new", "submitted", "pending", "partialfilled"]):
+                    return True
+    except Exception as e:
+        logging.warning(f"检查挂单状态时发生异常: {e}")
+    return False
 
 
 def get_longport_config() -> Config:
@@ -465,6 +485,12 @@ class BuyStockTool(BaseTool):
             trade = TradeContext(config)
 
             full_symbol = modify_symbol(symbol)
+            
+            # 安全拦截：防止相同方向的条件单重复下发 (仅拦截非市价单，MO市价单立即成交所以不强制拦截，但LIT/LO极易重复)
+            if order_type != "MO" and _has_duplicate_pending_order(trade, symbol, "Buy"):
+                error_msg = f"买入拦截: 当前 {symbol} 已有一个未成交的买入挂单，禁止重复下达买入条件单。如果需要更改价格，请先使用 cancel_order 撤单。"
+                logging.warning(error_msg)
+                return json.dumps({"error": error_msg, "success": False})
 
             # 动态决定订单有效期限 (Time in Force)
             # 市价单 (MO) 必须是当日有效 (Day)
@@ -479,6 +505,7 @@ class BuyStockTool(BaseTool):
                 "symbol": full_symbol,
                 "submitted_quantity": Decimal(str(quantity)),
                 "time_in_force": tif,
+                "outside_rth": OutsideRTH.AnyTime,
                 "remark": reason[:100] if reason else "AI Agent Buy Order"
             }
 
@@ -653,6 +680,12 @@ class SellStockTool(BaseTool):
             except Exception as e:
                 logging.warning(f"获取持仓进行卖出前校验时出错: {e}，将继续尝试下发订单。")
 
+            # 安全拦截：防止相同方向的条件单重复下发
+            if order_type != "MO" and _has_duplicate_pending_order(trade, symbol, "Sell"):
+                error_msg = f"卖出拦截: 当前 {symbol} 已有一个未成交的卖出挂单（如追踪止损/限价），禁止重复下达卖出条件单。如果需要更改价格，请先使用 cancel_order 撤单。"
+                logging.warning(error_msg)
+                return json.dumps({"error": error_msg, "success": False})
+
             # 动态决定订单有效期限 (Time in Force)
             if order_type == "MO":
                 tif = TimeInForceType.Day
@@ -664,6 +697,7 @@ class SellStockTool(BaseTool):
                 "symbol": full_symbol,
                 "submitted_quantity": Decimal(str(quantity)),
                 "time_in_force": tif,
+                "outside_rth": OutsideRTH.AnyTime,
                 "remark": reason[:100] if reason else "AI Agent Sell Order"
             }
 

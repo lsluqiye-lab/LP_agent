@@ -52,7 +52,8 @@ class TechnicalAnalyst:
 你是一名资深特许市场技术分析师 (CMT)。请对 {symbol} 的技术面进行深度解剖。
 
 ## 分析目标：
-1. **趋势阶段验证**: 严格按照 Mark Minervini 的趋势模板，确认是否处于 **Stage 2** (股价 > SMA50 > SMA200)。
+1. **趋势阶段诊断**: 评估当前所处的趋势周期 (Stage 1 筑底, Stage 2 上升, Stage 3 做头, Stage 4 下降)。
+   - **核心约束与松绑**：虽然系统偏好纯正的 Stage 2 (股价 > SMA50 > SMA200)，但**如果**当前处于 Stage 1 末期，股价已强力突破 SMA50，且量价结构(OBV/放量)显示明显的机构吸筹（底部反转/动能爆发），则**允许**将其视为高价值的“早期潜伏买点”，不必死板拘泥于必须站上 SMA200。
 2. **量价足迹 (Institutional Footprints)**: 
    - 观察上涨是否放量 (Accumulation)，回调是否缩量 (Dry-up)。
    - 识别是否有 **VCP (波动收缩形态)**。

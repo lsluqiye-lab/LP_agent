@@ -53,7 +53,7 @@ def is_trading_hours(eastern_time: datetime) -> bool:
     if eastern_time.weekday() >= 5:
         return False
     current_t = eastern_time.time()
-    if dt_time(9, 30) <= current_t <= dt_time(16, 0):
+    if dt_time(4, 0) <= current_t <= dt_time(20, 0):
         return True
     return False
 
@@ -458,6 +458,28 @@ _ws_events = []
 _ws_lock = threading.Lock()
 _global_pos_map = {}  # 由主循环定期更新持仓成本
 
+# Watchdog 冷却控制，避免同一标的同一事件反复触发 CIO
+_watchdog_cooldowns = {}
+_cooldown_lock = threading.Lock()
+WATCHDOG_COOLDOWN_SECONDS = 7200  # 冷却期 2 小时
+
+def _is_cooldown(symbol: str, event_type: str) -> bool:
+    """检查是否在冷却期内"""
+    import time
+    key = f"{symbol}_{event_type}"
+    with _cooldown_lock:
+        last_time = _watchdog_cooldowns.get(key, 0)
+        if time.time() - last_time < WATCHDOG_COOLDOWN_SECONDS:
+            return True
+        return False
+
+def _set_cooldown(symbol: str, event_type: str):
+    """设置冷却时间"""
+    import time
+    key = f"{symbol}_{event_type}"
+    with _cooldown_lock:
+        _watchdog_cooldowns[key] = time.time()
+
 def on_quote_push(symbol: str, event: PushQuote):
     """WebSocket 毫秒级回调，侦测极端异动"""
     try:
@@ -471,24 +493,27 @@ def on_quote_push(symbol: str, event: PushQuote):
             
         # 1. 致命跌破熔断: 瞬间跌破成本 8% (防崩盘)
         if cost_price and current_price < cost_price * 0.92:
-            with _ws_lock:
-                _ws_events.append({
-                    "symbol": clean_symbol,
-                    "type": "DEFENSIVE_DROP_WS",
-                    "reason": f"[WS毫秒级拦截] 最新价 ${current_price:.2f} 瞬间跌破持仓成本 ${cost_price:.2f} 的 8%，系统极速熔断报警！"
-                })
+            if not _is_cooldown(clean_symbol, "DEFENSIVE_DROP_WS"):
+                with _ws_lock:
+                    if not any(e["symbol"] == clean_symbol and "DEFENSIVE_DROP" in e["type"] for e in _ws_events):
+                        _ws_events.append({
+                            "symbol": clean_symbol,
+                            "type": "DEFENSIVE_DROP_WS",
+                            "reason": f"[WS毫秒级拦截] 最新价 ${current_price:.2f} 瞬间跌破持仓成本 ${cost_price:.2f} 的 8%，系统极速熔断报警！"
+                        })
         
         # 2. 毫秒级动能突破: 突破日内最高点 (抢跑)
         day_high = float(event.high)
         if day_high > 0 and current_price >= day_high * 0.998:
-            with _ws_lock:
-                # 避免同一只股票疯狂发事件
-                if not any(e["symbol"] == clean_symbol and "BREAKOUT" in e["type"] for e in _ws_events):
-                    _ws_events.append({
-                        "symbol": clean_symbol,
-                        "type": "OFFENSIVE_BREAKOUT_WS",
-                        "reason": f"[WS毫秒级拦截] 标的瞬间打穿日内高点 ${day_high:.2f}，资金净抢筹！"
-                    })
+            if not _is_cooldown(clean_symbol, "OFFENSIVE_BREAKOUT_WS"):
+                with _ws_lock:
+                    # 避免同一只股票疯狂发事件
+                    if not any(e["symbol"] == clean_symbol and "BREAKOUT" in e["type"] for e in _ws_events):
+                        _ws_events.append({
+                            "symbol": clean_symbol,
+                            "type": "OFFENSIVE_BREAKOUT_WS",
+                            "reason": f"[WS毫秒级拦截] 标的瞬间打穿日内高点 ${day_high:.2f}，资金净抢筹！"
+                        })
     except Exception:
         pass
 
@@ -501,7 +526,7 @@ def init_websocket_subscriptions(logger):
         # 订阅当前 Watchlist 标的
         full_symbols = [modify_symbol(s) for s in app_config.WATCHLIST]
         if full_symbols:
-            ctx.subscribe(full_symbols, [SubType.Quote], is_first_push=True)
+            ctx.subscribe(full_symbols, [SubType.Quote])
             logger.info(f"⚡ [WebSocket] 已成功订阅 {len(full_symbols)} 只标的的毫秒级深度行情！")
     except Exception as e:
         logger.error(f"[WebSocket] 订阅失败: {e}")
@@ -566,8 +591,8 @@ def watchdog_check(tool_registry, logger):
                 atr = _get_daily_atr(quote_ctx, full_symbol, 14)
                 
                 if atr:
-                    # 动态阈值：防守 = 跌破成本 1.5 倍 ATR，锁润 = 盈利超 3 倍 ATR
-                    stop_loss_price = cost - 1.5 * atr
+                    # 动态阈值：宽容防守 = 跌破成本 2.0 倍 ATR (防洗盘)，锁润 = 盈利超 3 倍 ATR
+                    stop_loss_price = cost - 2.0 * atr
                     take_profit_price = cost + 3.0 * atr
                     
                     # 1.1 动态防守：跌破波动率安全垫
@@ -575,7 +600,7 @@ def watchdog_check(tool_registry, logger):
                         events.append({
                             "symbol": symbol,
                             "type": "DEFENSIVE_DROP",
-                            "reason": f"最新价 ${current_price:.2f} 已跌破动态防守线 ${stop_loss_price:.2f} (持仓成本 - 1.5 * ATR)，趋势可能逆转，需要紧急评估止损！"
+                            "reason": f"最新价 ${current_price:.2f} 已跌破动态防守线 ${stop_loss_price:.2f} (持仓成本 - 2.0 * ATR)，趋势可能严重逆转，需要紧急评估止损！"
                         })
                     # 1.2 动态锁润：暴涨偏离合理波动区间
                     elif current_price > take_profit_price and rsi_15 > 80:
@@ -590,7 +615,7 @@ def watchdog_check(tool_registry, logger):
                         events.append({
                             "symbol": symbol,
                             "type": "DEFENSIVE_DROP",
-                            "reason": f"最新价 ${current_price:.2f} 已跌破持仓成本 ${cost:.2f} 的 8%，需要紧急评估止损！"
+                            "reason": f"最新价 ${current_price:.2f} 已跌破持仓成本 ${cost:.2f} 的 8%，需要紧急评估止损 ！"
                         })
                     elif current_price > cost * 1.15 and rsi_15 > 80:
                         events.append({
@@ -608,6 +633,14 @@ def watchdog_check(tool_registry, logger):
                         "type": "OFFENSIVE_BREAKOUT",
                         "reason": f"股价(${current_price:.2f})接近或突破日内高点(${day_high:.2f})，15分钟RSI({rsi_15:.1f})强势，存在右侧动能爆发可能！"
                     })
+                    
+        # 过滤并设置冷却期
+        filtered_events = []
+        for e in events:
+            if not _is_cooldown(e["symbol"], e["type"]):
+                filtered_events.append(e)
+                _set_cooldown(e["symbol"], e["type"])
+        events = filtered_events
                     
     except Exception as e:
         logger.error(f"[Watchdog] 雷达扫描异常: {e}", exc_info=True)

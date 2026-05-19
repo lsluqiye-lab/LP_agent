@@ -53,7 +53,8 @@ def is_trading_hours(eastern_time: datetime) -> bool:
     if eastern_time.weekday() >= 5:
         return False
     current_t = eastern_time.time()
-    if dt_time(4, 0) <= current_t <= dt_time(20, 0):
+    # 限制为正常交易时段 (9:30 - 16:00 ET)，避免盘前盘后的低流动性假突破疯狂唤醒 CIO
+    if dt_time(9, 30) <= current_t <= dt_time(16, 0):
         return True
     return False
 
@@ -409,9 +410,12 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
     
     candidates = []
     event_msgs = []
+    seen_symbols = set()
     for e in events:
-        # 将事件直接强行变成候选股
-        candidates.append({"symbol": e["symbol"], "type": "EVENT_TRIGGER", "weight": 100})
+        if e["symbol"] not in seen_symbols:
+            # 将事件直接强行变成候选股
+            candidates.append({"symbol": e["symbol"], "type": "EVENT_TRIGGER", "weight": 100})
+            seen_symbols.add(e["symbol"])
         event_msgs.append(f"- [{e['symbol']}] {e['type']}: {e['reason']}")
         
     event_str = "\n".join(event_msgs)
@@ -805,6 +809,11 @@ def main():
                 scanner_ran = True
 
             if not is_trading_hours(current_time):
+                # 清空盘前的无效 WebSocket 异动
+                with _ws_lock:
+                    global _ws_events
+                    _ws_events = []
+                    
                 if review_agent.should_run():
                     phase5_daily_review(review_agent, logger)
                 else:

@@ -93,13 +93,30 @@ class PortfolioManager:
         """
         对当前持仓进行相对强度 (RS) 排序，找出表现最差的 20% (哪怕没有触及止损)，
         标记为资金低效占用 (Weed)。
+        为了避免误判新买入的仓位（新仓初始浮盈往往接近 0%），最近 5 天内有买入记录的股票将被排除，不列为杂草。
         """
         weeds = []
         try:
-            # 解析持仓浮盈
+            # 1. 搜集最近5天买过的股票代码，作为保护名单（5天可完美跨越周末）
+            recently_bought = set()
+            try:
+                recent_logs = self.trade_logger.get_recent_logs(days=5)
+                for daily in recent_logs:
+                    for t in daily.get("trades", []):
+                        if t.get("side") in ["Buy", "OrderSide.Buy"]:
+                            recently_bought.add(t.get("symbol"))
+                if recently_bought:
+                    logger.info(f"[Portfolio Manager] 最近5天买入保护名单 (不标记为杂草): {list(recently_bought)}")
+            except Exception as e:
+                logger.error(f"[Portfolio Manager] 获取最近买入记录失败: {e}")
+
+            # 2. 解析持仓浮盈，排除保护名单中的股票
             parsed_positions = []
             for p in positions:
                 sym = p.get("symbol")
+                if sym in recently_bought:
+                    logger.info(f"[Portfolio Manager] 持仓 {sym} 处于买入保护期内，跳过相对强度(杂草)判定")
+                    continue
                 pct_str = p.get("profit_pct", "0%")
                 try:
                     pct_val = float(pct_str.replace("%", ""))
@@ -110,7 +127,7 @@ class PortfolioManager:
             # 按浮盈排序 (由低到高)
             sorted_pos = sorted(parsed_positions, key=lambda x: x["profit"])
             
-            # 如果持仓数 >= 4，挑出最差的 1-2 个且表现不如大盘的 (例如浮盈 < 2%)
+            # 3. 如果剩余可评估持仓数 >= 4，挑出最差的进行淘汰
             if len(sorted_pos) >= 4:
                 bottom_count = max(1, len(sorted_pos) // 4)  # 找出最后的 20%-25%
                 for i in range(bottom_count):

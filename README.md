@@ -1,16 +1,16 @@
-# LP-Agent v3.0: 证券交易自主智能体
+# LP-Agent v3.5: 证券交易自主智能体 (Dual-Track Core)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Status](https://img.shields.io/badge/Status-Trading-success.svg)](#)
 
-LP-Agent 是一款基于 **Strategic Multi-Agent (SMA)** 架构的美股量化交易智能体。系统模拟对冲基金运行模式，由 **CIO (首席投资官)** 统筹技术、基本面、情绪、量化四大专家矩阵，并结合 **Watchdog (生存级监控)** 与 **Long-term Memory (自主进化记忆)**，实现从研报分析到战术下单的全闭环自动化。
+LP-Agent v3.5 是一款基于 **Strategic Multi-Agent (SMA)** 架构的美股量化交易智能体。系统模拟专业对冲基金运行模式，由 **CIO (首席投资官)** 统筹技术、基本面、舆情、量化、板块轮动五大专家矩阵，并结合 **Watchdog (毫秒生存级监控)** 与 **Long-term Memory (自主进化记忆)**，实现从盘前选股、本地硬规则初筛、门限唤醒到战略决策下单的全闭环自动化。
 
 ---
 
 ## 🏛️ 系统逻辑架构 (Core Architecture)
 
-*(注：以下为实时渲染的系统逻辑架构，展示了双轨制引擎的模块交互与 Qlib 在系统中的核心数据赋能作用)*
+*(注：以下为实时渲染的系统逻辑架构，展示了 v3.5 双轨制引擎中本地多因子计算、行业相对强度 RS 过滤、本地规则初筛 Pre-Screening 门限唤醒、以及基本面本地 Cache 机制的相互协同逻辑)*
 
 ```mermaid
 graph TD
@@ -19,206 +19,217 @@ graph TD
     classDef qlib fill:#1e3a8a,stroke:#60a5fa,stroke-width:3px,color:#eff6ff,stroke-dasharray: 5 5;
     classDef wd fill:#7f1d1d,stroke:#f87171,stroke-width:2px,color:#fef2f2;
     classDef memory fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#f0fdf4;
+    classDef pre fill:#422006,stroke:#f59e0b,stroke-width:2px,color:#fef3c7;
 
     subgraph Dual_Track_Engine ["Dual-Track Architecture (双轨制引擎)"]
         direction TB
 
         %% High-Frequency Watchdog
-        subgraph Watchdog ["高频监控层 (1分钟心跳) - 纯本地/低延迟"]
-            WD_Timer((定时触发))
-            WD_StopLoss[硬止损模块<br>触发-8%无脑斩仓]
-            WD_TakeProfit[动态保护止盈<br>浮盈回撤锁定利润]
+        subgraph Watchdog ["高频监控层 (WebSocket毫秒监听 + 1分钟心跳) - 纯本地/低延迟"]
+            WD_Timer((定时/推送触发))
+            WD_StopLoss[ATR 动态宽容防守<br>跌破成本 2.0*ATR 止损]
+            WD_TakeProfit[ATR 动态锁润机制<br>盈利 3.0*ATR 且 RSI超买]
+            WD_WS[WebSocket 瞬间拦截<br>极速断路熔断 & 异动抢跑]
             
             WD_Timer --> WD_StopLoss
             WD_Timer --> WD_TakeProfit
+            WD_Timer --> WD_WS
         end
 
         %% Strategic Brain
-        subgraph Brain ["深度决策层 (定时触发) - LLM 驱动"]
+        subgraph Brain ["深度决策层 (定时10:00/15:30触发) - 数据与 LLM 协同驱动"]
             direction TB
             
             %% Phase 1-2.5
-            subgraph Phase_Front ["风控与数据前置 (Phase 1-2.5)"]
-                MacroRisk[宏观风控局<br>计算全局系统安全分]
-                PortManager[投资组合管家<br>胜率阈值自适应与优胜劣汰]
-                AlphaScan[Alpha Scanner<br>动态发现热点金股]
+            subgraph Phase_Front ["数据流与前置风控 (Phase 1-2.5)"]
+                MacroRisk[MacroRiskManager<br>纯本地计算大盘评分]
+                PortManager[PortfolioManager<br>自适应买入阈值与杂草清理]
+                AlphaScan[Alpha Scanner v3.5<br>Top-Down 自上而下动态选股]
             end
 
-            %% QLIB Core highlighting
-            QlibQuant((("微软 Qlib 量化引擎<br>(核心数据基座)"))):::qlib
+            %% Quant Factor Engine v3.5
+            QuantEngine_35((("多因子行情引擎 v3.5<br>(Sector RS & 真实技术因子计算)"))):::qlib
             
+            %% Phase 2.6: Local Pre-Screening
+            subgraph PreScreenBlock ["本地规则初筛门限 (Phase 2.6)"]
+                PreScreen[Local Pre-Screening<br>硬规则判断异动与突破]:::pre
+                AutoHold[Auto-HOLD 观望<br>0 Token 挂机休眠]:::wd
+            end
+
             %% Phase 3
-            subgraph Phase_Experts ["专家多线程并行研报 (Phase 3)"]
-                TechExpert[技术面专家<br>趋势确认与阻力/支撑位]
-                FundExpert[基本面专家<br>PE/PEG与财报追踪]
-                SentExpert[情绪面专家<br>舆情与社交热度]
-                SectExpert[板块轮动专家<br>ETF资金流向预警]
+            subgraph Phase_Experts ["专家并行研报 (Phase 3 - 门限激活)"]
+                TechExpert[技术面专家<br>趋势确认与支撑位]
+                FundExpert[基本面专家<br>PE/PEG估值与财报分析]
+                FundCache[(基本面 5日 缓存<br>Fundamental Cache)]:::memory
+                SentExpert[情绪舆情专家<br>Reddit/Twitter热度]
+                SectExpert[板块轮动专家<br>行业 Relative Strength]
+                
+                FundExpert <--> FundCache
             end
 
             %% Phase 4
-            subgraph Phase_CIO ["主脑决策与执行 (Phase 4)"]
+            subgraph Phase_CIO ["主脑战术决策 (Phase 4 - 门限激活)"]
                 CIO[CIO Agent<br>ReAct 终极推理与资金调配]
-                OrderExec[高级订单执行<br>LIT突破单/LO限价单/配对换仓]
+                OrderExec[高级订单执行<br>LIT突破单/LO低吸单/配对换仓]
             end
 
             %% Phase 5
             subgraph Phase_Review ["复盘与记忆 (Phase 5)"]
                 Review[每日复盘 Reviewer]
-                Memory[(长效记忆库<br>Trading Memory)]:::memory
+                Memory[(长效历史教训库<br>Trading Memory)]:::memory
             end
         end
     end
 
-    %% Data Flow
-    LongPort((LongPort 交易/行情数据))
+    %% Data Source
+    LongPort((LongPort 交易/行情 OpenAPI))
 
-    %% Qlib specifics
-    LongPort -. "全量历史与实时行情" .-> QlibQuant
-    QlibQuant ==>|"1. 全市场 Alpha158 因子提纯<br>2. 动能打分榜单初筛"| AlphaScan
-    QlibQuant ==>|"3. 提供单票量化硬指标<br>(RSI、动能强弱模型预测)"| CIO
+    %% Data Flow
+    LongPort -. "全量 11行业 ETF + SPY 日K线" .-> QuantEngine_35
+    QuantEngine_35 ==>|"1. Sector RS 行业相对强度过滤<br>2. 50只个股100分制技术评分"| AlphaScan
+    QuantEngine_35 -. "3. 注入单票量化硬指标" .-> CIO
     
     LongPort --> MacroRisk
     LongPort --> Watchdog
     LongPort --> Phase_Experts
 
-    AlphaScan -->|"输送 Top 15 标的池"| Phase_Experts
+    AlphaScan -->|"输出 15 只优选候选股"| PreScreen
     MacroRisk -->|"计算动态防守系数"| PortManager
-    PortManager -->|"下发全局买入阈值与杂草清理名单"| CIO
-    MacroRisk -->|"若评分<50则一票否决<br>锁死买入权限"| CIO
+    PortManager -->|"下发买入阈值与淘汰名单"| PreScreen
     
-    TechExpert & FundExpert & SentExpert & SectExpert -->|"汇聚多维度研报"| CIO
+    PreScreen -->|"A. 活跃候选 (破位/放量突破/风控紧缩)"| Phase_Experts
+    PreScreen -. "B. 无异动个股" .-> AutoHold
+    
+    TechExpert & FundExpert & SentExpert & SectExpert -->|"汇聚活跃研报"| CIO
     
     Memory -. "注入防坑历史教训" .-> CIO
     CIO -->|"下达战术指令"| OrderExec
-    OrderExec -->|"发送实盘/模拟单"| LongPort
-    Watchdog -->|"紧急市价平仓单"| LongPort
+    OrderExec -->|"发送实盘/模拟条件单"| LongPort
+    Watchdog -->|"极速撤单 + 市价平仓单"| LongPort
 
     OrderExec --> Review
-    Review -->|"更新成功/失败经验"| Memory
+    Review -->|"更新每日经验"| Memory
 
     class Watchdog wd;
-    class CIO,MacroRisk,AlphaScan core;
+    class CIO,MacroRisk,AlphaScan,PortManager core;
 ```
 
 ---
 
-## 🚀 LP-Agent v3.0 完整生命周期 (以 TSLA 为例)
+## 🚀 LP-Agent v3.5 完整生命周期时序 (以 TSLA 为例)
 
-
-系统不再是机械地定时扫盘，而是具备“嗅觉”、“肌肉记忆”和“狙击能力”的智能体。以下是系统在一天中如何捕获并交易 TSLA 的完整流程：
+系统不再是机械地定时盲目决策，而是融合了“本地极速硬指标打分”、“不惊扰大脑的温和休眠”以及“精准右侧出击”的智能化机器。以下是系统在一天中交易 TSLA 的完整闭环流程：
 
 ```mermaid
 sequenceDiagram
     participant Time as 盘前/盘中时段
-    participant Phase0 as Alpha Scanner (选股)
-    participant Qlib as Qlib Quant (量化)
-    participant WD as 高频 Watchdog (风控)
-    participant Risk as 宏观风控局 (Macro)
+    participant Phase0 as Alpha Scanner (科学选股)
+    participant Quant as 因子行情引擎 (v3.5)
+    participant WD as 高频 Watchdog (防守)
+    participant Pre as Local Pre-Screening (初筛)
     participant Expert as 专家矩阵 (分析)
     participant CIO as 主脑 CIO (决策)
     participant Broker as LongPort (执行)
 
     Note over Time, Broker: 🌅 美东时间 09:00 (盘前)
     Time->>Phase0: 唤醒盘前雷达
-    Phase0->>Qlib: 调用 Alpha158 因子进行全市场初筛
-    Qlib-->>Phase0: 返回 Top 20 动能评分榜单
-    Phase0->>Phase0: 结合搜索新闻 "US top growth stocks breakout"
-    Phase0-->>CIO: 发现 TSLA 评分 92 + 催化剂，将其加入今日 Watchlist
+    Phase0->>Quant: 拉取 11 个行业 ETF 的 20 日表现
+    Quant-->>Phase0: 返回 Sector RS 排名 (科技/医疗强劲)
+    Phase0->>Quant: 执行 50 只 Golden Universe 明星股 100 分制多因子技术打分
+    Quant-->>Phase0: 初筛出技术得分前 15 的强势股 (TSLA 评分 92)
+    Phase0->>Phase0: 自动分组搜索财报日程避雷 (剔除5天内财报股)
+    Phase0-->>Pre: 生成今日最科学监控标的池 (TSLA, NVDA 等) 并回填当前持仓
 
     Note over Time, Broker: ⏰ 10:00 (早盘决策期)
-    Time->>Risk: 触发全局宏观打分 (Phase 2)
-    Risk->>Risk: 综合评估：市场温度、SPY技术面、资金流向、波动率
-    Risk-->>CIO: 颁发今日风控通行证 (例如：65分，环境NORMAL，允许建仓)
+    Time->>Pre: 启动本地硬规则初筛 (Phase 2.6)
     
-    Time->>Expert: 触发多专家并发研报 (Phase 3)
-    
-    par 基本面分析 (Fundamental)
-        Expert->>Expert: 计算PEG、研读财报<br/>结论：估值极高，但 FSD 进展迅速
-    and 技术面分析 (Technical)
-        Expert->>Expert: 寻找Stage 2、量价齐升 (OBV看多背离)<br/>精确计算：阻力位 $398.01，支撑位 $366.98
-    and 量化因子分析 (Qlib Quant)
-        Expert->>Qlib: 获取该标的 Alpha158 综合评分
-        Qlib-->>Expert: 返回：Score 88, RSI: Oversold, Trend: Strong
-    and 情绪面分析 (Sentiment)
-        Expert->>Expert: 扫描社交媒体与新闻<br/>结论：散户情绪极度贪婪 (FOMO)
+    alt 场景 A：持仓与监控股无任何异动 (温和平稳)
+        Pre->>Pre: AAPL完美运行于均线之上，TSLA在阻力位下方横盘缩量，无买卖加减仓触发点
+        Pre-->>Time: 😴 判定为 Passive (Auto-HOLD)，跳过后续所有大模型专家与 CIO 决策！本轮消耗 0 Token。
+    else 场景 B：出现交易触发门限 (如 TSLA 向上放量突破 / 某持仓股跌破防守)
+        Pre->>Pre: 侦测到 TSLA 股价放量拉升、量比 1.6x 突破 20 日高点，触发活跃买入信号！
+        Pre->>Expert: 🎯 唤醒 Active 门限，仅对 TSLA 启动专家研报
+        
+        par 基本面分析 (Fundamental - 5日缓存)
+            Expert->>Expert: 检查 NVDA/TSLA 本地 5日 缓存，若未过期直接命中，免去网络检索与 LLM 生成
+        and 技术面分析 (Technical)
+            Expert->>Quant: 精确提取支撑位 ($366) 与 突破阻力位 ($398)
+        and 情绪舆情分析 (Sentiment)
+            Expert->>Expert: 扫描社交情绪与突发消息催化剂
+        end
+        
+        Expert-->>CIO: 仅生成 TSLA 的专家精炼决策简报 (节省 80% 大脑处理负荷)
+        CIO->>CIO: 检查宏观评分 (NORMAL 65) 允许交易 -> TSLA 技术面右侧暴涨 -> 确定性极高
+        CIO->>Broker: 撤销原未成交挂单 (Cancel-Order)，并直接执行市价单(MO)或突破买入条件单(LIT)
     end
-    
-    Expert-->>CIO: 汇聚生成综合决策简报 (Decision Briefing)
-
-    CIO->>CIO: 检查交易记忆：近14天无被套记录<br/>宏观评分：65分 (安全)<br/>技术面：处于阻力位下方，未突破
-    CIO->>Broker: 下达【LIT 触及限价单】，触发价设在阻力位上方($400)<br/>坚守右侧交易：“不见兔子不撒鹰”
 
     Note over Time, Broker: ⚡ 盘中随机时间 (e.g. 13:15)
     Time->>WD: 每分钟/15分钟心跳
-    WD->>WD: 1. 价格跌破成本8%？否<br/>2. 检索全网是否有核弹级突发新闻？否
+    WD->>WD: 1. 价格跌破成本 2.0*ATR 安全垫？否<br/>2. 检索全网是否有未处理核弹级突发新闻？否
 
-    Note over Time, Broker: 🔔 15:30 (尾盘决策期)
-    Time->>CIO: 再次唤醒
-    CIO->>CIO: 发现持仓中有走弱的股票 (WEAK_POSITION)<br/>且 TSLA 依然极强 (STRONG_SIGNAL)
-    CIO->>Broker: 执行“配对换仓” (Pair Trading)，卖弱买强
-    
     Note over Time, Broker: 🌙 16:30 (收盘后)
-    Time->>CIO: 触发 Review Agent 每日复盘
-    CIO->>CIO: 总结今日盈亏，提取 1-3 条交易教训写入长效记忆
+    Time->>CIO: 触发 Review Agent 每日复盘，生成总结并写入长效记忆
 ```
 
 ---
 
-## 🏛️ 智能体矩阵 (Agent Matrix)
+## 🏛️ 智能体矩阵与能力分层 (Agent Matrix & Capability Layers)
 
-系统的每次决策并非基于单一 LLM 的“一言堂”，而是由下设的专业委员会进行多维度制衡：
+系统将任务分为三个能力层次：**纯本地硬量化算法（Level 1）**、**轻量大语言模型专家评级（Level 2）**、**超强推理大语言模型 CIO 终裁（Level 3）**，实现性能与成本的最佳博弈。
 
-### 0. 宏观风控局 (MacroRiskManager) - 系统的安全总闸
-- **职责**：在所有的个股研报开始之前，它负责评估今天的**整体打分水平 (系统性风险)**。它是唯一有权在物理层面“拔网线”的模块。
-- **打分逻辑 (总分 100)**：综合评估大盘技术面 (25%)、市场温度 (25%)、资金流向 (15%)、RSI广度 (15%)、市场情绪 (10%) 和波动率 (10%)。
-- **约束力**：如果它给出的系统分数跌破 50 分 (LOCKDOWN / CAUTIOUS 模式)，无论后面的专家多么看好某只股票，执行层都会硬性锁死买入权限，强制 CIO 只能防守或斩仓。
+### 0. 宏观风控局 (MacroRiskManager) - [L1]
+- **职责**：盘中定时计算大盘风控分值（0-100分）。
+- **打分逻辑**：综合评估 SPY技术面(25%)、市场温度(25%)、资金流向(15%)、RSI广度(15%)、市场情绪(10%)和波动率(10%)。
+- **约束力**：评分 < 50 强制拦截买入，强制 CIO 只能处于防守和斩仓汰弱状态。
 
-### 0.5 投资组合大管家 (PortfolioManager) - 全局资金与仓位调度
-- **职责**：连接宏观风控与微观交易的桥梁，负责整体账户的“优胜劣汰”与“自适应防御”。
-- **分析内容**：统计近 14 天平仓胜率，扫描当前持仓计算相对强度 (RS)，并评估板块集中度。
-- **约束力**：根据历史胜率动态上调/下放 CIO 的买入分数门槛 (防范现金闲置 Cash Drag 或陷入频繁止损的死循环)；对于跑输大盘的极弱持仓，直接打上杂草标签 (`weed_out_list`) 强制 CIO 在盘中主动斩仓替换。
+### 0.5 投资组合大管家 (PortfolioManager) - [L1]
+- **职责**：全局仓位与平仓胜率调度。计算当前持仓的相对强度 (RS)，动态修正买入门槛（防范现金闲置或被频繁洗盘）；识别跑输大盘的“杂草标的”输出为 `weed_out_list` 供 CIO 强制斩仓。
 
-### 1. 基本面专家 (FundamentalAnalyst)
-- **职责**：挖掘公司核心护城河、估值泡沫及业绩指引，严防“杀估值”。
-- **分析内容**：PE (TTM), Forward PE, PEG (核心准则), 毛利率趋势, 机构持仓变动方向。
+### 1. 板块轮动与多因子量化专家 (QuantAnalyst v3.5) - [L1]
+- **职责**：计算 11 个行业 ETF 的 RS 相对强度（Sector RS），并为 Golden Universe 的 50 只大中盘成长龙头计算 100 分制的技术面评分。
+- **评分细则**：
+  * **Trend (30分)**：价格 > SMA50 且 SMA50 > SMA200（标准 Stage 2 上行趋势）。
+  * **RSI (25分)**：RSI 在 50-70 的 BULL 强势区。
+  * **Relative Strength (30分)**：个股 20 日涨幅显著超越 SPY（超额 RS 比率 >= 1.05）。
+  * **Volume Ratio (15分)**：20日或50日均成交量比。
 
-### 2. 技术面专家 (TechnicalAnalyst)
-- **职责**：基于 Mark Minervini 的趋势模板进行形态识别，为 CIO 提供精确的狙击点位。
-- **分析内容**：确认股票是否处于 Stage 2 (股价 > SMA50 > SMA200)，判断量价配合 (如 OBV 背离)，并**强制输出**当前的支撑位 (Support) 和突破/阻力位 (Resistance)。
+### 2. 基本面专家 (FundamentalAnalyst) - [L2]
+- **职责**：分析公司商业壁垒与估值红线，提供 5 日 Caching 缓存防御，避免高频调用导致的重复网络搜索与 LLM 分析。
 
-### 3. 情绪面舆情专家 (SentimentAnalyst)
-- **职责**：作为反向指标探测器，捕捉市场极端过热 (FOMO) 或过度恐慌的信号。
-- **分析内容**：扫描全网新闻、Reddit (WSB) 讨论热度、Twitter 情绪，以及是否有导致大跌的黑天鹅催化剂。
+### 3. 技术面专家 (TechnicalAnalyst) - [L2]
+- **职责**：形态学专家，基于 Mark Minervini 趋势模板输出支撑位 (Support) 和突破阻力位 (Resistance) 价格。
 
-### 4. 量化分析专家 (QuantAnalyst - Powered by Qlib)
-- **职责**：提供基于传统机器学习的硬指标评分，作为 LLM 逻辑推理的底层数据支撑。
-- **分析内容**：调用微软 Qlib 框架，提取 **Alpha158** 因子集，输出综合预测评分、RSI 状态及趋势强度信号。它在 Alpha Scanner 阶段负责初筛，在个股研报阶段负责精准打分。
+### 4. 情绪舆情专家 (SentimentAnalyst) - [L2]
+- **职责**：反向指标扫描，评估 Reddit (WSB)、Twitter 以及大盘主流媒体的情绪泡沫（Greed/Fear/FOMO）。
 
-### 5. 板块轮动专家 (SectorAnalyst)
-- **职责**：追踪核心板块 ETF（如半导体 SMH、科技 XLK、金融 XLF、生科 XBI、能源 XLE 等）的技术状态，研判资金流向与板块相对强弱。
-- **分析内容**：监测各板块的趋势强度、RSI 与 MACD 状态，识别当前强势领涨板块和弱势流出板块，并提供资金过度拥挤的风险预警（例如当半导体 RSI 极度超买时的警示），辅助系统顺势而为。
+### 5. 首席投资官 (CIO Agent) - [L3]
+- **职责**：基金决策终审脑。基于 **ReAct 终极推理框架**，仅在 Pre-Screening 门限被触发时苏醒。对矛盾专家报告（如基本面高估但技术放量突破）进行逻辑判定，选择 MO/LO/LIT 狙击手订单精准下达。
 
 ---
 
-## 🧠 系统核心能力升级
+## 🧠 系统核心升级亮点 (V3.5 Highlighting)
 
-### 1. 动态雷达：Phase 0 (Alpha Scanner)
-系统告别了死板的硬编码标的池。每天盘前 (09:00)，Alpha Scanner 会自动在全网检索最近一周的强势板块、机构评级上调以及具有爆发催化剂的股票，自动将 10-15 只“金股”热更新进当日的内存池。今天的主线是 AI，明天可能就会自动切换到核电或生物医药。
+### 1. 动态雷达自上而下选股 (Top-Down Alpha Scanning)
+告别了死板固定的标的池或全网滞后新闻的检索。Alpha Scanner v3.5 每天盘前自动执行：
+1. **行业过滤**：挑选出资金正在净流入的 Strongest Sectors（计算 11 个核心行业相对于 SPY 的 20 日表现）。
+2. **个股打分**：在 50 只最具催化动能的流动性黑马中（Golden Universe），用真实 K 线在本地计算 100 分制的多因子技术得分。
+3. **财报避险**：自动查询 Top 15 技术候选股未来 5 日内有无财报公布，自动剔除处于绩前财报雷区的个股（非持仓）。
+4. **最终标的更新**：将精选出的 10-12 只高概率标的更新为今日 `WATCHLIST`，并**强制合并并回填当前持仓股**。
 
-### 2. 战术狙击手：告别无脑市价单 (LIT & LO 订单)
-在震荡市中，市价单 (MO) 是被割韭菜的罪魁祸首。
-- **技术点位绑定**：技术面专家被强制要求精确计算支撑位 (Support) 和阻力位 (Resistance)。
-- **LIT 突破单**：对于看好的未突破股票，CIO 被强制使用 **LIT (触及限价单)**，将买单挂在阻力位上方 0.5% 处，只买确定的突破。
-- **LO 低吸单**：对于强趋势的回调，CIO 会在均线支撑位挂 **LO (限价单)** 埋伏。
+### 2. 本地硬规则初筛与门限唤醒 (Pre-Screening & Selective Activation)
+为阻断每天两次深度大脑调度对 Token 的无谓浪费（90% 的巡检中个股只是处于正常波澜不惊状态）：
+- **Local Pre-Screening**：对 15 只关注个股进行规则判断。
+  - **持仓股 Active 门限**：跌破 20日线、触发 Watchdog 预警、利润保卫、爆量加仓异动。
+  - **监控股 Active 门限**：大涨突破阻力位、成交量比 > 1.3 且 RSI 处于 50-70 上行段。
+- **无异动 0 Token 挂机**：未触发任何门限时，不调用任何专家 LLM，不唤醒 CIO ReAct。系统判定 Passive (Auto-HOLD)，挂机休眠，仅通过飞书发送平稳运行简报。
 
-### 3. 三重防线：极速与深度的完美结合
-1. **秒级硬止损 (Watchdog)**：每 1 分钟纯本地扫描一次持仓，一旦跌破成本价 8%，直接无脑市价斩仓，绝不交给大模型思考。
-2. **盘中防空警报 (News Watchdog)**：每 15 分钟扫描一次带血腥味的突发宏观新闻（如战争、暴雷）。一旦发现，强行拉响警报唤醒 CIO 紧急避险。
-3. **宏观评分硬拦截**：当大盘技术面破位或市场过热导致宏观评分跌破 50 时，交易执行层会在物理层面没收 CIO 的“买入按钮”，仅允许卖出。
+### 3. 基本面 5日 缓存机制 (Fundamental Cache)
+公司的竞争壁垒、估值 PEG、机构所有权变化在没有财报开盲盒的情况下是高度静态的。系统提供 `data/fundamental_cache.json` 缓存，在 5 日内对相同股票再次分析时直接读取本地缓存，**实现 0 搜索损耗、0 Token 损耗，分析速度提升 100,000 倍**！
 
-### 4. 汰弱留强与肌肉记忆
-- **配对交易 (Pair Trading)**：CIO 能够识别组合内的极弱标的 (`WEAK_POSITION`) 和极强候选 (`STRONG_SIGNAL`)，自动卖出弱势股去换仓强势股。
-- **长效记忆**：系统在组装研报时会附带过去 14 天该标的的战绩记录。如果系统发现自己在某只股票上反复亏损/频繁止损，会自动触发防御机制，避免变成绞肉机。
+### 4. 战术狙击手：精准高级订单机制 (LIT & LO)
+- **LIT 触及限价单**：阻力位上方突破。CIO 填入纯粹支撑/阻力点位，底层交易工具通过 ATR 和当前价格区间自动调用 `_calculate_dynamic_slippage` 精准追加防御抢跑滑点，严防追高。
+- **LO 低吸限价单**：均线或筹码密集区低吸回调。
+- **撤单重构 (Cancel-Before-Modify)**：强制执行“先撤销再修改”原则，调用 `cancel_order` 剔除单标的同方向挂单竞争，保证订单通道干净。
 
 ---
 
@@ -228,23 +239,23 @@ sequenceDiagram
 建议在 `.env` 中配置至少两个级别的模型，以兼顾决策深度和扫盘速度：
 
 ```bash
-# ── 主脑 CIO (需具备极高逻辑推理能力) ──
+# ── 主脑 CIO (需具备极高逻辑推理能力，推荐 Pro 级) ──
 LLM_PROVIDER=gemini
 GEMINI_API_KEY="your_pro_key"
-GEMINI_MODEL="gemini-3.1-pro-preview"
+GEMINI_MODEL="gemini-3.5-pro-preview"
 
-# ── 专家与巡检犬 (需快响应，低成本) ──
+# ── 专家与选股雷达 (需高响应、低成本，推荐 Flash 级) ──
 ANALYST_LLM_PROVIDER=gemini
 ANALYST_GEMINI_API_KEY="your_flash_key"
-ANALYST_GEMINI_MODEL="gemini-3-flash-preview"
+ANALYST_GEMINI_MODEL="gemini-3.5-flash"
 ```
 
 ### 启动命令
-使用随附的脚本安全启动并管理进程：
+使用随附的脚本安全启动并管理进程（支持自动检查 PID 并清理旧进程）：
 ```bash
 ./start.sh
 ```
-实时查看系统流心与交易日志：
+实时查看系统流水、因子计算与交易日志：
 ```bash
 tail -f agent.log
 ```

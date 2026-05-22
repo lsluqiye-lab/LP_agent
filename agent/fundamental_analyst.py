@@ -1,17 +1,23 @@
 """
-FundamentalAnalyst Agent
+FundamentalAnalyst Agent with 5-Day Cache
 """
 import asyncio
 import json
+import os
+from datetime import datetime, timedelta
 from typing import List
 from agent.schemas import FundamentalBriefing, Valuation, OwnershipTrend
 from llm.base import BaseLLM, ChatMessage, Role
 from tools.search import get_search_client
 
+CACHE_FILE = "data/fundamental_cache.json"
+CACHE_EXPIRY_DAYS = 5
+
 class FundamentalAnalyst:
     """
     The FundamentalAnalyst agent is responsible for analyzing the fundamental aspects of a stock.
     It uses GeminiSearchClient to gather information and a BaseLLM to synthesize it.
+    It features a 5-day local caching mechanism to prevent unnecessary LLM and search calls.
     """
 
     def __init__(self, llm: BaseLLM):
@@ -23,13 +29,26 @@ class FundamentalAnalyst:
 
     async def analyze(self, symbol: str) -> FundamentalBriefing:
         """
-        Analyzes the fundamentals of a given stock symbol.
+        Analyzes the fundamentals of a given stock symbol, utilizing 5-day cache if available.
         """
         print(f"[{self.__class__.__name__}] Starting fundamental analysis for {symbol}...")
 
-        # Step 1: Gather information
-        # We use a single, comprehensive search query to get the best out of Gemini Search
-        # or multiple queries if needed. Here we combine them for efficiency.
+        # Step 0: Check Local 5-Day Cache
+        cache_data = self._load_cache()
+        if symbol in cache_data:
+            entry = cache_data[symbol]
+            cached_time_str = entry.get("timestamp")
+            if cached_time_str:
+                try:
+                    cached_time = datetime.fromisoformat(cached_time_str)
+                    if datetime.now() - cached_time < timedelta(days=CACHE_EXPIRY_DAYS):
+                        print(f"[{self.__class__.__name__}] ✅ Found active cache (created at {cached_time_str}) for {symbol}. Returning cached briefing to save tokens.")
+                        return entry["data"]
+                except Exception as e:
+                    print(f"[{self.__class__.__name__}] Error reading cache timestamp for {symbol}: {e}")
+
+        # Step 1: Gather information (Cache expired or missing)
+        print(f"[{self.__class__.__name__}] Cache miss/expired. Performing search and LLM synthesis...")
         queries = [
             f"{symbol} valuation metrics (PE, PS, PEG) and peer comparison",
             f"{symbol} latest earnings report summary and future guidance",
@@ -38,9 +57,6 @@ class FundamentalAnalyst:
         ]
         
         print(f"[{self.__class__.__name__}] Gathering information via Gemini Search...")
-        
-        # As a paid user, we can leverage parallel execution without worrying about strict 15 RPM free tier limits.
-        # This will significantly speed up the research phase.
         tasks = [asyncio.to_thread(self.search_client.search, q) for q in queries]
         results = await asyncio.gather(*tasks)
         
@@ -67,6 +83,9 @@ class FundamentalAnalyst:
         # Step 4: Parse and structure the output
         print(f"[{self.__class__.__name__}] Parsing LLM response...")
         briefing = self._parse_llm_response(response.content)
+        
+        # Step 5: Save to Cache
+        self._save_cache(symbol, briefing)
         
         print(f"[{self.__class__.__name__}] Fundamental analysis for {symbol} complete.")
         return briefing
@@ -123,3 +142,29 @@ Format as a single JSON object:
         except Exception as e:
             print(f"Error parsing JSON: {e}\nRaw Response: {response_text}")
             raise
+
+    def _load_cache(self) -> dict:
+        """Loads cache from local JSON file."""
+        if not os.path.exists(CACHE_FILE):
+            return {}
+        try:
+            with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading fundamental cache file: {e}")
+            return {}
+
+    def _save_cache(self, symbol: str, data: dict):
+        """Saves analysis data into local cache JSON file."""
+        cache = self._load_cache()
+        cache[symbol] = {
+            "timestamp": datetime.now().isoformat(),
+            "data": data
+        }
+        try:
+            os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
+            with open(CACHE_FILE, "w", encoding="utf-8") as f:
+                json.dump(cache, f, indent=4, ensure_ascii=False)
+            print(f"[{self.__class__.__name__}] Cached fundamental analysis for {symbol} to {CACHE_FILE}")
+        except Exception as e:
+            print(f"Error saving fundamental cache file: {e}")

@@ -332,6 +332,99 @@ def phase5_daily_review(review_agent: ReviewAgent, logger: logging.Logger):
     return report
 
 
+def pre_screen_candidates(candidates: list, risk_result: dict, portfolio_directives: dict, collected_data: dict, logger: logging.Logger) -> tuple[list, list]:
+    """
+    对行动候选股（candidates）进行本地硬规则预筛选 (Local Pre-Screening)
+    返回：(active_candidates, passive_candidates)
+    active_candidates: 触发活跃交易信号、需要启动大模型专家分析与 CIO 决策的个股列表
+    passive_candidates: 状态平稳、无需任何交易动作的股票代码列表 (Auto-HOLD)
+    """
+    logger.info("[Pre-Screening] 开始本地硬规则门限初筛...")
+    
+    active_candidates = []
+    passive_candidates = []
+    
+    allow_buy = risk_result.get("constraints", {}).get("allow_new_buy", False)
+    macro_score = risk_result.get("score", 50.0)
+    weed_out_list = portfolio_directives.get("weed_out_list", []) if portfolio_directives else []
+
+    # 1. 提取当前持仓及浮盈率
+    pos_raw = collected_data.get("get_positions", "{}")
+    try:
+        pos_data = json.loads(pos_raw) if isinstance(pos_raw, str) else pos_raw
+        positions = pos_data.get("positions", [])
+    except Exception:
+        positions = []
+        
+    pos_profit_map = {}
+    for p in positions:
+        sym = p.get("symbol")
+        try:
+            cost = float(p.get("cost_price", 0))
+            qty = float(p.get("quantity", 0))
+            cur_price = float(p.get("market_value", 0)) / qty if qty > 0 else cost
+            profit_pct = (cur_price / cost - 1) * 100 if cost > 0 else 0.0
+            pos_profit_map[sym] = profit_pct
+        except Exception:
+            pos_profit_map[sym] = 0.0
+
+    # 2. 逐一判定门限
+    for c in candidates:
+        sym = c["symbol"]
+        c_type = c["type"]
+        details = c.get("details", {}) or {}
+        
+        # 提取技术状态
+        price = details.get("price") or 0.0
+        ret_20d = details.get("ret_20d") or 0.0
+        flags = details.get("flags") or []
+        vol_ratio = details.get("volume_ratio") or 1.0
+        
+        is_active = False
+        active_reason = ""
+        
+        # ── A. 持仓股票诊断门限 ──
+        if c_type in ["POSITION", "WEAK_POSITION"]:
+            # 门限 A1: 被 PortfolioManager 标记为需要淘汰的弱势杂草 (Weed out)
+            if sym in weed_out_list or c_type == "WEAK_POSITION":
+                is_active = True
+                active_reason = "被标记为需要淘汰的弱势持仓，需 CIO 进行优胜劣汰决策。"
+                
+            # 门限 A2: 宏观风控大跌 (Score < 50)，强制收紧持仓防守
+            elif macro_score < 50:
+                is_active = True
+                active_reason = f"宏观风控评分({macro_score})大跌进入防御，必须强制收紧防守线。"
+                
+            # 门限 A3: 浮盈不高（浮盈 < 2.0% 且近期大幅回撤 ret_20d < -4.0%），利润保护触发
+            else:
+                profit_pct = pos_profit_map.get(sym, 0.0)
+                if profit_pct < 2.0 and ret_20d < -4.0:
+                    is_active = True
+                    active_reason = f"持仓浮盈过低({profit_pct:.2f}%)，且20日走势回落严重({ret_20d}%)，需锁定微薄利润防洗盘。"
+                
+                # 门限 A4: 盈利加仓（浮盈 >= 0.0%，且今日爆量拉升 vol_ratio > 1.3）
+                elif profit_pct >= 0.0 and (vol_ratio >= 1.3 or "HIGH_VOL" in flags):
+                    is_active = True
+                    active_reason = f"底仓浮盈({profit_pct:.2f}%)，且个股今日放量异动(量比 {vol_ratio}x)，存在金字塔加仓机会。"
+
+        # ── B. 监控池股票买入诊断门限 ──
+        elif c_type == "STRONG_SIGNAL" and allow_buy:
+            # 门限 B1: 出现明确右侧向上突破（量比 > 1.3 或 needs_attention / MACD 黄金交叉等）
+            if details.get("needs_attention") or vol_ratio >= 1.3 or "HIGH_VOL" in flags:
+                is_active = True
+                active_reason = f"监控股出现放量突破信号 (量比 {vol_ratio}x, 20日涨幅 {ret_20d}%)，触发右侧潜在买点。"
+
+        if is_active:
+            c["active_reason"] = active_reason
+            active_candidates.append(c)
+            logger.warning(f"🎯 [Pre-Screening] 标的 {sym} 触发活跃决策门限: {active_reason}")
+        else:
+            passive_candidates.append(sym)
+            logger.info(f"💤 [Pre-Screening] 标的 {sym} 状态极其平稳 (Auto-HOLD)，保持观望。")
+
+    logger.info(f"[Pre-Screening] 过滤结果: 活跃决策个股 {len(active_candidates)} 只, 观望个股 {len(passive_candidates)} 只")
+    return active_candidates, passive_candidates
+
 
 async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent, feishu_notifier, morning_briefing_sent, trade_logger):
     # Phase 1: 收集
@@ -355,22 +448,35 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
         
     # Phase 2.5: 候选
     candidates = phase2_5_extract_candidates(collected_data, risk_result, logger, portfolio_directives)
-    # Phase 3: 专家 (Map)
-    briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
+    
+    # 🆕 Phase 2.6: 本地硬规则预筛选 (Local Pre-Screening)
+    active_candidates, passive_candidates = pre_screen_candidates(candidates, risk_result, portfolio_directives, collected_data, logger)
+    
+    # 门限唤醒控制：若无任何活跃候选股，则整个流程自动判定无交易动作并跳过
+    if not active_candidates:
+        logger.warning("😴 [Pre-Screening] 本轮没有触发任何主动交易（买入/卖出/加仓/止损收紧）门限！资产组合整体极其平稳。")
+        logger.info("[Pre-Screening] 系统决定保持观望，自动跳过大模型专家研报及 CIO ReAct 决策，本次巡检消耗 0 Token。")
+        
+        if feishu_notifier:
+            today_str = datetime.now(pytz.timezone("US/Eastern")).strftime("%H:%M")
+            feishu_notifier.send_text(
+                f"🌅 【LP-Agent 正常巡检 | {today_str} ET】\n"
+                f"当前持仓与监控池标的表现极其稳健，未触发任何买入、卖出、加仓或止损警报门限。\n"
+                f"🤖 主脑(CIO)自动保持观望状态，本次巡检耗费 **0 Token**！"
+            )
+        return morning_briefing_sent
+
+    # Phase 3: 专家 (Map) - 仅对活跃候选股进行专家分析，极大节约 Token！
+    briefings_json = await phase3_map_experts(active_candidates, orchestrator, risk_result, logger)
     
     # 推送选股和专家分析到飞书 (开盘简报)
-    if feishu_notifier and candidates and not morning_briefing_sent:
+    if feishu_notifier and active_candidates and not morning_briefing_sent:
         risk_msg = f"**评分:** {risk_result.get('score', 0)} | **等级:** {risk_result.get('regime', 'UNKNOWN')}\\n**核心逻辑:** {risk_result.get('constraints', {}).get('message', '无明确约束信息')}"
         
         cand_list = []
-        for c in candidates:
+        for c in active_candidates:
             c_type = c.get("type", "")
-            if c_type == "POSITION":
-                reason = "🛡️ 持仓巡检"
-            elif c_type == "WEAK_POSITION":
-                reason = "⚠️ 极弱持仓 (需淘汰)"
-            else:
-                reason = "💡 交易信号"
+            reason = f"🎯 活跃决策: {c.get('active_reason', '')}"
             
             details = c.get("details", {})
             stage_str = "✅ Stage2" if details.get("stage2") else "❌ 非Stage2"
@@ -379,25 +485,25 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
             ret = details.get('ret_20d')
             ret_str = f" | 20日涨幅: {ret}%" if ret is not None else ""
             
-            cand_list.append(f"**{c['symbol']}** ({reason})\\n  └ {stage_str}{ret_str}{flags_str}")
+            cand_list.append(f"**{c['symbol']}**\\n  └ {reason}\\n  └ {stage_str}{ret_str}{flags_str}")
             
         pm_msg = ""
         if portfolio_directives.get("weed_out_list"):
             pm_msg = f"\\n**🥀 建议淘汰弱势持仓:** {','.join(portfolio_directives['weed_out_list'])}"
             
-        card_content = f"**🌡️ 宏观风控简报**\\n{risk_msg}{pm_msg}\\n\\n**🔍 今日关注标的池**\\n" + "\\n".join(cand_list)
+        card_content = f"**🌡️ 宏观风控简报**\\n{risk_msg}{pm_msg}\\n\\n**🔍 今日关注活跃标的池**\\n" + "\\n".join(cand_list)
         
         color = "red" if risk_result['regime'] == "LOCKDOWN" else ("orange" if risk_result['regime'] == "CAUTIOUS" else "green")
         
         feishu_notifier.send_card(
-            title="🌅 LP-Agent 早盘扫描与战略部署",
+            title="🌅 LP-Agent 早盘扫描与活跃部署",
             content=card_content,
             color=color,
-            footer="Phase 1 & 2: Market Scan & Portfolio Mgmt"
+            footer="Phase 1, 2 & 2.6: Market Scan & Pre-Screening"
         )
         morning_briefing_sent = True
     
-    # Phase 4: 决策 (Reduce)
+    # Phase 4: 决策 (Reduce) - 仅把活跃的专家研报和相关的组合指令发给 CIO 决策
     result = await phase4_strategic_decision(agent, collected_data, briefings_json, risk_result["score"], logger, portfolio_directives)
     logger.info(f"本轮决策结论:\n{result}")
     return morning_briefing_sent

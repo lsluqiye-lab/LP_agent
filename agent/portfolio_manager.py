@@ -25,12 +25,41 @@ class PortfolioManager:
         """
         logger.info("[Portfolio Manager] 开始投资组合级别审查...")
         
+        # 提取宏观风控评分与状态
+        score = float(macro_risk.get("score", 50.0))
+        regime = macro_risk.get("regime", "normal")
+        
+        # 连续性线性插值，杜绝死板硬编码数字，做到“千股千面、状态自适应”
+        # 1. 单股持仓上限：从 score=0 时的 5.0% 线性过渡到 score=100 时的 15.0%
+        max_stock_limit = round(5.0 + (score / 100.0) * 10.0, 2)
+        
+        # 2. 板块持仓上限：从 score=0 时的 15.0% 线性过渡到 score=100 时的 45.0%
+        max_sector_limit = round(15.0 + (score / 100.0) * 30.0, 2)
+        
+        # 3. 建议的 ATR 追踪止损乘数：从 score=0 时的 1.5x 线性过渡到 score=100 时的 3.5x
+        # 熊市 (score < 50) 紧防守 (1.5x ~ 2.5x ATR)，牛市 (score >= 70) 宽容度大 (2.9x ~ 3.5x ATR) 让利润奔跑
+        recommended_atr_multiplier = round(1.5 + (score / 100.0) * 2.0, 2)
+        
+        # 4. 保本平价单（Break-even Stop）策略：在震荡市或熊市 (score < 60) 中强制启动
+        # 当个股浮盈达到 1.0 * ATR_pct (一般个股约 2.5% ~ 3.5%) 时，系统必须提拉止损线至成本线，保本锁死风险。
+        is_breakeven_enforced = score < 60.0
+        
         directives = {
             "adaptive_buy_threshold": 50, # 默认买入风控阈值
+            "portfolio_health": "Neutral",
+            "macro_risk_score": score,
+            "macro_regime": regime,
+            "dynamic_limits": {
+                "max_single_stock_exposure_pct": max_stock_limit,
+                "max_single_sector_exposure_pct": max_sector_limit,
+                "recommended_atr_trailing_multiplier": recommended_atr_multiplier,
+                "is_breakeven_enforced_under_low_score": is_breakeven_enforced,
+                "breakeven_trigger_atr_multiplier": 1.0,
+                "description": f"当前处于 {regime.upper()} 状态 (score={score})。根据此状态，系统已启用自适应风控红线：单股持仓上限 {max_stock_limit}%，板块持仓上限 {max_sector_limit}%，追踪止损推荐使用 {recommended_atr_multiplier}x ATR (即 trailing_percent = {recommended_atr_multiplier} * 标的 ATR_pct)。保本平价单强制开启状态: {is_breakeven_enforced}。"
+            },
             "sector_limits": {},          # 板块限制 (例如: {"Tech": "已达上限，禁止新建仓"})
             "weed_out_list": [],          # 建议主动淘汰的弱势持仓
             "recently_weeded_out": [],    # 最近被淘汰的弱势持仓保护禁买名单
-            "portfolio_health": "Neutral"
         }
         
         # 1. 计算胜率自适应阈值 (Adaptive Thresholds)
@@ -62,7 +91,7 @@ class PortfolioManager:
         # 这里为了简化，我们先利用宏观风控和历史胜率来限制，由于持仓数据里目前没有直接写明 Sector，
         # 我们可以在这里记录一个逻辑上的占位符，由 CIO 结合 Sector Briefing 一起判断。
         directives["sector_limits"] = {
-            "instruction": "如果拟买入标的所属板块已经占总仓位的 30% 以上，触发相关性降级惩罚，拒绝买入。"
+            "instruction": f"如果拟买入标的所属板块已经占总仓位的 {max_sector_limit}% 以上，触发相关性降级惩罚，拒绝买入。"
         }
         
         # 3. 优胜劣汰 (Weed & Flower) - 计算相对强度

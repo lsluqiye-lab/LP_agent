@@ -1,5 +1,5 @@
 """
-LP-Agent v3.0 主入口 (Strategic Multi-Agent)
+LP-Agent v3.5 主入口 (Strategic Multi-Agent)
 AI自动交易智能体 - 专家协作架构
 
 执行流程:
@@ -812,7 +812,7 @@ def main():
     logger = setup_logger("strategic_agent", config.log)
     
     logger.info("=" * 60)
-    logger.info("LP-Agent v3.0 (Watchdog + Strategic Brain) 启动")
+    logger.info("LP-Agent v3.5 (Watchdog + Strategic Brain) 启动")
     logger.info("=" * 60)
 
     try:
@@ -1025,7 +1025,7 @@ def main():
             logger.error(f"主循环出错: {e}", exc_info=True)
             time.sleep(60)
 
-    logger.info("LP-Agent v3.0 已退出")
+    logger.info("LP-Agent v3.5 已退出")
 
 if __name__ == "__main__":
     main()

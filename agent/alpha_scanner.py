@@ -9,6 +9,7 @@ from llm.base import BaseLLM, ChatMessage, Role
 from tools.search import get_search_client
 from config import DEFAULT_WATCHLIST
 from agent.quant_analyst import QuantAnalyst, SECTOR_ETFS
+from data.trade_logger import get_trade_logger
 
 logger = logging.getLogger("AlphaScanner")
 
@@ -52,6 +53,8 @@ class AlphaScanner:
         self.llm = llm
         self.search_client = get_search_client()
         self.quant_analyst = QuantAnalyst()
+        self.trade_logger = get_trade_logger()
+        self.last_metadata = {}
 
     def run(self) -> tuple[list, str]:
         logger.info("[Phase 0] 启动 Alpha Scanner v3.5 进行科学选股...")

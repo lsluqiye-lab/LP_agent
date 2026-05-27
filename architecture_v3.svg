@@ -103,5 +103,5 @@
   <circle cx="100" cy="480" r="6" fill="#9333ea" />
 
   <!-- 5. 商业水印 -->
-  <text x="980" y="980" fill="#94a3b8" font-family="Arial Black" font-size="28" text-anchor="end" opacity="0.3">LP-AGENT v3.0 | Institutional Grade</text>
+  <text x="980" y="980" fill="#94a3b8" font-family="Arial Black" font-size="28" text-anchor="end" opacity="0.3">LP-AGENT v3.5 | Institutional Grade</text>
 </svg>

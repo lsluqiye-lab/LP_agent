@@ -29,12 +29,31 @@ class PortfolioManager:
             "adaptive_buy_threshold": 50, # 默认买入风控阈值
             "sector_limits": {},          # 板块限制 (例如: {"Tech": "已达上限，禁止新建仓"})
             "weed_out_list": [],          # 建议主动淘汰的弱势持仓
+            "recently_weeded_out": [],    # 最近被淘汰的弱势持仓保护禁买名单
             "portfolio_health": "Neutral"
         }
         
         # 1. 计算胜率自适应阈值 (Adaptive Thresholds)
         directives["adaptive_buy_threshold"] = self._calculate_adaptive_threshold(macro_risk)
         
+        # 2. 计算最近被淘汰的弱势持仓保护名单 (例如3天内)，防止因事件唤醒CIO将其再次买回
+        recently_weeded = []
+        try:
+            recent_logs = self.trade_logger.get_recent_logs(days=3)
+            for daily in recent_logs:
+                for t in daily.get("trades", []):
+                    reason = str(t.get("reason", "")).lower()
+                    side = str(t.get("side", "")).lower()
+                    if "sell" in side and ("weed" in reason or "淘汰" in reason or "杂草" in reason):
+                        sym = t.get("symbol")
+                        if sym and sym not in recently_weeded:
+                            recently_weeded.append(sym)
+            if recently_weeded:
+                logger.info(f"[Portfolio Manager] 最近3天被淘汰的弱势杂草保护禁买名单: {recently_weeded}")
+        except Exception as e:
+            logger.error(f"[Portfolio Manager] 提取最近淘汰杂草记录失败: {e}")
+        directives["recently_weeded_out"] = recently_weeded
+
         if not current_positions:
             logger.info("[Portfolio Manager] 当前空仓，无需计算相对强度。")
             return directives

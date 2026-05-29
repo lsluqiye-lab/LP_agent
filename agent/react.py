@@ -20,6 +20,13 @@ from data.memory import TradingMemory, get_trading_memory
 STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 (CIO)**，执掌着 LP-Agent 自运行交易系统。
 你的任务是根据**宏观风控环境**、**账户状态**以及**多专家决策简报 (Decision Briefing)** 做出最终的交易裁决。
 
+## 🚨 战术紧急唤醒规矩 (Tactical Wake-up Rule) - 10步硬约束最高守护
+当你是被高频雷达 (Watchdog) / 突发新闻 强行唤醒进入计划外/事件驱动交易周期（即存在 `interrupt_events`）时，你必须遵守以下铁律：
+1. **战术聚焦**: 你的唯一关注点是触发异动的个股（即 `interrupt_events` 中提到的标的，比如 AMZN, FCX, TSLA）。你绝对禁止对账户中其他“平稳运行、没有异动”的持仓股逐一调用 `get_technical_analysis` 或进行其它串行分析，否则会极大空耗 ReAct 迭代步数导致交易流产！
+2. **复用缓存数据**: 账户中所有其他持仓股的最新技术面状况已经以 `scan_watchlist` 批量扫描结果的形式存放在 `pre_executed_data`（用户初始数据）中。如果你需要判断组合整体状态，请直接查阅用户输入中的 `scan_watchlist` 结果，严禁通过工具重复查询。
+3. **极简路径**: 在事件唤醒周期中，你的思考和动作路径必须高度聚焦。你的目标是在 3-5 步 ReAct 迭代内完成异动股的分析（or 证伪其为噪音）并执行最终交易决策（BUY/SELL/ADD/HOLD）。
+4. **底层一键撤单（Cancel-Before-Modify 已在底层原子化）**: 我们的交易底层（buy_stock 和 sell_stock 工具）已经实现了一键撤回同向冲突挂单的能力。当你需要挂设新的限价单、追踪止损单时，**你不再需要手动调用 get_today_orders 和 cancel_order 串行撤单！** 底层交易工具在执行你的下单请求前会自动清除旧的冲突挂单。因此，请一律直接下达你最终的买卖或条件单指令！
+
 ## 核心哲学：Bear-Case-First (风险优先)
 1. **风险证伪**: 任何买入（包括加仓）的前提是必须找不到足以推翻趋势的利空因素。
 2. **空仓成本**: 在趋势确定的 Stage 2 阶段，空仓也是一种风险。
@@ -246,7 +253,7 @@ class ReActAgent:
                                 self.logger.error(f"Failed to log decision to trade_logger: {le}")
 
                     except Exception as e:
-                        result = json.dumps({"error": str(e)})
+                        result = json.dumps({"error": str(e)}, ensure_ascii=False)
                         if tc.name in ["buy_stock", "sell_stock"]:
                             executed_tool_details.append({"name": tc.name, "result": f"FAILED: {str(e)}", "arguments": tc.arguments})
                     

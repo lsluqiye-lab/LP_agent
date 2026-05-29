@@ -126,9 +126,18 @@ class AlphaScanner:
                 except Exception as e:
                     logger.error(f"Group search failed for {sub_group}: {e}")
 
+        # 获取最新风控评分，用于方案 A 的动态放宽 RSI/估值选股限制
+        latest_risk = self.trade_logger.get_latest_risk_score()
+        risk_score = latest_risk["score"] if latest_risk else 75.0
+        risk_regime = latest_risk["regime"] if latest_risk else "favorable"
+
         # 6. 构造 LLM 催化剂避雷与优中选优 Prompt
         system_prompt = f"""你是一个顶级对冲基金的 Alpha 选股分析师。
 你的任务是根据提供的技术候选个股列表、各股真实量化评分，并结合最近的财报日程和催化剂新闻，精选出 10-12 只高概率的美股标的组成今日监控标的池。
+
+【今日宏观风控环境】：
+- 宏观风控评分: {risk_score}/100
+- 风险象限状态: {risk_regime.upper()}
 
 【必选持仓股】（这些是你当前持有的股票，**必须**强制入选最终的监控池以确保监控）：
 {json.dumps(holdings)}
@@ -142,7 +151,10 @@ class AlphaScanner:
 【选股与排除硬约束】：
 1. 财报雷区避让：如果任何非持仓股在**未来5个交易日内**将发布财报，请必须将其**排除**（财报前属于开盲盒，风控不准买入）。
 2. 持仓包含约束：你输出的 watchlist 中**必须**强制包含全部的持仓股（即上面的持仓股：{holdings}）。
-3. 选出真正具有近期重大上涨催化剂（如研报调级、技术面突破、重要大合同、行业风口）的 10-12 只标的。
+3. 动态超买与估值松绑法则（方案 A）：
+   - 当【今日宏观风控环境】处于 **FAVORABLE** (分值 > 75) 极佳牛市多头状态时，市场风险偏好处于高位，说明市场以动能主升为主。对于虽然技术面有超买（如 RSI 在 70-80 区间）或估值很高（Very Overvalued，如 ARM 等半导体/AI龙头），但技术多因子评分极高且有近期明确爆发催化剂的动能股，**绝对允许并且应当将其纳入今日标的池**，以便高频监控和捕获强势上涨主段！不要因为估值恐高或指标超买而一刀切将动能龙头剔除。
+   - 当处于 **CAUTIOUS** 或 **LOCKDOWN** 状态时，必须严守防守硬约束，坚决把任何估值极度高估或指标处于超买高位的个股排除出去，以防大盘回调时在高位接盘。
+4. 选出真正具有近期重大上涨催化剂（如研报调级、技术面突破、重要大合同、行业风口）的 10-12 只标的。
 
 输出格式要求：
 请仅返回纯 JSON 格式，不要包含任何 markdown 标记或解释。格式必须为：

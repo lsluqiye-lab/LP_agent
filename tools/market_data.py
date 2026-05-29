@@ -1147,14 +1147,14 @@ class SearchHedgingOptionTool(BaseTool):
             # 1. 获取现价
             quotes = ctx.quote([full_symbol])
             if not quotes:
-                return json.dumps({"error": f"无法获取 {symbol} 现价"})
+                return json.dumps({"error": f"无法获取 {symbol} 现价"}, ensure_ascii=False)
             current_price = float(quotes[0].last_done)
             target_strike = current_price * (1 + strike_offset_pct / 100.0)
             
             # 2. 寻找最近的到期日
             expiries = ctx.option_chain_expiry_date_list(full_symbol)
             if not expiries:
-                return json.dumps({"error": f"{symbol} 不支持期权交易或无数据"})
+                return json.dumps({"error": f"{symbol} 不支持期权交易或无数据"}, ensure_ascii=False)
                 
             target_date = datetime.now().date() + timedelta(days=target_days)
             best_expiry = min(expiries, key=lambda d: abs((d - target_date).days))
@@ -1162,7 +1162,7 @@ class SearchHedgingOptionTool(BaseTool):
             # 3. 获取该到期日的期权链
             chain_info = ctx.option_chain_info_by_date(full_symbol, best_expiry)
             if not chain_info:
-                return json.dumps({"error": f"无法获取 {best_expiry} 的期权链"})
+                return json.dumps({"error": f"无法获取 {best_expiry} 的期权链"}, ensure_ascii=False)
                 
             # 4. 筛选期权并寻找最接近 target_strike 的
             candidates = []
@@ -1178,7 +1178,7 @@ class SearchHedgingOptionTool(BaseTool):
                     })
                     
             if not candidates:
-                return json.dumps({"error": "找不到符合条件的期权合约"})
+                return json.dumps({"error": "找不到符合条件的期权合约"}, ensure_ascii=False)
                 
             # 找到最接近目标行权价的合约
             best_match = min(candidates, key=lambda x: x["distance_to_target"])
@@ -1204,10 +1204,10 @@ class SearchHedgingOptionTool(BaseTool):
                 "recommended_option": best_match,
                 "strategy": f"买入 {best_match['symbol']} 进行 {option_type} 操作对冲",
                 "actionable_symbol_for_trade": best_match['symbol']
-            })
+            }, ensure_ascii=False)
             
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 def create_market_data_tools() -> list[BaseTool]:
     """创建所有行情数据工具"""

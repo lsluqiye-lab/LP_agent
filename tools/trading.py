@@ -78,6 +78,34 @@ def _has_duplicate_pending_order(trade_ctx, symbol, order_side):
     return False
 
 
+def _cancel_duplicate_pending_orders(trade_ctx, symbol, order_side) -> int:
+    """
+    自动检索并撤销同向的所有未成交挂单，防止新单下达时产生冲突，返回成功撤销的订单数量。
+    """
+    cancelled_count = 0
+    try:
+        orders = trade_ctx.today_orders()
+        clean_symbol = symbol.split('.')[0]
+        side_str = "Buy" if order_side == "Buy" else "Sell"
+
+        for o in orders:
+            # 匹配标的和方向
+            if o.symbol.startswith(clean_symbol) and side_str in str(o.side):
+                status_str = str(o.status).lower()
+                # 检查挂单状态 (未报、待报、已报、部分成交等均属于挂单中)
+                if any(s in status_str for s in ["notreported", "new", "submitted", "pending", "partialfilled"]):
+                    logging.info(f"🚨 [Cancel-Before-Modify] 发现同向冲突未成交订单 {o.order_id}，正在自动秒级下达撤单指令...")
+                    trade_ctx.cancel_order(o.order_id)
+                    cancelled_count += 1
+        if cancelled_count > 0:
+            import time
+            logging.info(f"⏳ [Cancel-Before-Modify] 已成功发送 {cancelled_count} 个冲突订单的撤单指令，短暂休眠 0.5s 等对冲额度释放...")
+            time.sleep(0.5)
+    except Exception as e:
+        logging.warning(f"[Cancel-Before-Modify] 自动撤销同向挂单时发生异常: {e}")
+    return cancelled_count
+
+
 def get_longport_config() -> Config:
     """获取LongPort配置"""
     return Config.from_env()
@@ -165,7 +193,7 @@ class GetMarketStatusTool(BaseTool):
             })
 
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
 class GetPositionsTool(BaseTool):
@@ -224,7 +252,7 @@ class GetPositionsTool(BaseTool):
             })
 
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
 class GetAccountBalanceTool(BaseTool):
@@ -253,7 +281,7 @@ class GetAccountBalanceTool(BaseTool):
             return json.dumps(result)
 
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
 class GetTodayOrdersTool(BaseTool):
@@ -291,7 +319,7 @@ class GetTodayOrdersTool(BaseTool):
             })
 
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
 class GetHistoryOrdersTool(BaseTool):
@@ -341,7 +369,7 @@ class GetHistoryOrdersTool(BaseTool):
             })
 
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
 class GetQuoteTool(BaseTool):
@@ -382,7 +410,7 @@ class GetQuoteTool(BaseTool):
                 return json.dumps({"error": f"无法获取{symbol}的报价"})
 
         except Exception as e:
-            return json.dumps({"error": str(e)})
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
 class BuyStockTool(BaseTool):
@@ -460,7 +488,7 @@ class BuyStockTool(BaseTool):
             if clean_symbol not in WATCHLIST:
                 error_msg = f"拦截: {symbol} 不在允许交易的标的池(WATCHLIST)中。当前仅允许交易: {WATCHLIST}"
                 logging.warning(error_msg)
-                return json.dumps({"error": error_msg, "success": False})
+                return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
 
             # 2. 风控评分硬拦截
             trade_logger = get_trade_logger()
@@ -473,24 +501,22 @@ class BuyStockTool(BaseTool):
             if risk_score > 0 and risk_score < 50:
                 error_msg = f"风控拦截: 当前宏观评分 {risk_score} < 50 (CAUTIOUS/LOCKDOWN)，处于高风险模式，系统已硬性锁定买入权限，仅允许平仓/卖出。"
                 logging.warning(error_msg)
-                return json.dumps({"error": error_msg, "success": False})
+                return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
 
             # 按照风控规则，极度超买禁止使用左侧限价单(LO)
             if order_type == "LO" and (sentiment > 80 or rsi_breadth > 75):
                 error_msg = f"风控拦截: 当前大盘极度超买 (Sentiment={sentiment:.1f}, RSI={rsi_breadth:.1f})，禁止使用左侧 LO 限价单在支撑位接飞刀！请改用右侧突破/确认单 (LIT)。"
                 logging.warning(error_msg)
-                return json.dumps({"error": error_msg, "success": False})
+                return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
 
             config = get_longport_config()
             trade = TradeContext(config)
 
             full_symbol = modify_symbol(symbol)
             
-            # 安全拦截：防止相同方向的条件单重复下发 (仅拦截非市价单，MO市价单立即成交所以不强制拦截，但LIT/LO极易重复)
-            if order_type != "MO" and _has_duplicate_pending_order(trade, symbol, "Buy"):
-                error_msg = f"买入拦截: 当前 {symbol} 已有一个未成交的买入挂单，禁止重复下达买入条件单。如果需要更改价格，请先使用 cancel_order 撤单。"
-                logging.warning(error_msg)
-                return json.dumps({"error": error_msg, "success": False})
+            # 自动撤销旧挂单防止冲突 (Cancel-Before-Modify)
+            if order_type != "MO":
+                _cancel_duplicate_pending_orders(trade, symbol, "Buy")
 
             # 动态决定订单有效期限 (Time in Force)
             # 市价单 (MO) 必须是当日有效 (Day)
@@ -511,14 +537,14 @@ class BuyStockTool(BaseTool):
 
             if order_type == "LO":
                 if price is None:
-                    return json.dumps({"error": "限价单必须指定价格"})
+                    return json.dumps({"error": "限价单必须指定价格"}, ensure_ascii=False)
                 adj_price, _ = _calculate_dynamic_slippage(symbol, price, "Buy", "LO")
                 logging.info(f"动态滑点调整 (Buy LO): {price} -> {adj_price}")
                 order_params["order_type"] = OrderType.LO
                 order_params["submitted_price"] = Decimal(str(adj_price))
             elif order_type == "LIT":
                 if trigger_price is None:
-                    return json.dumps({"error": "触及限价单(LIT)必须指定 trigger_price"})
+                    return json.dumps({"error": "触及限价单(LIT)必须指定 trigger_price"}, ensure_ascii=False)
                 adj_price, _ = _calculate_dynamic_slippage(symbol, trigger_price, "Buy", "LIT")
                 logging.info(f"动态滑点调整 (Buy LIT): 触发价 {trigger_price} -> 限价 {adj_price}")
                 order_params["order_type"] = OrderType.LIT
@@ -526,19 +552,19 @@ class BuyStockTool(BaseTool):
                 order_params["trigger_price"] = Decimal(str(trigger_price))
             elif order_type == "MIT":
                 if trigger_price is None:
-                    return json.dumps({"error": "触及市价单(MIT)必须指定 trigger_price"})
+                    return json.dumps({"error": "触及市价单(MIT)必须指定 trigger_price"}, ensure_ascii=False)
                 order_params["order_type"] = OrderType.MIT
                 order_params["trigger_price"] = Decimal(str(trigger_price))
             elif order_type == "TSMPCT":
                 if trailing_percent is None:
-                    return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"})
+                    return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"}, ensure_ascii=False)
                 order_params["order_type"] = OrderType.TSLPPCT
                 order_params["trailing_percent"] = Decimal(str(trailing_percent))
                 _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
                 order_params["limit_offset"] = Decimal(str(dynamic_offset))
             elif order_type == "TSM":
                 if trailing_amount is None:
-                    return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"})
+                    return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"}, ensure_ascii=False)
                 order_params["order_type"] = OrderType.TSLPAMT
                 order_params["trailing_amount"] = Decimal(str(trailing_amount))
                 _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
@@ -580,7 +606,7 @@ class BuyStockTool(BaseTool):
             }, ensure_ascii=False)
 
         except Exception as e:
-            return json.dumps({"error": str(e), "success": False})
+            return json.dumps({"error": str(e), "success": False}, ensure_ascii=False)
 
 
 class SellStockTool(BaseTool):
@@ -671,7 +697,7 @@ class SellStockTool(BaseTool):
                 if my_qty == Decimal('0'):
                     error_msg = f"卖出拦截: 当前未持有 {symbol}，无法执行卖出操作（防止做空）。"
                     logging.warning(error_msg)
-                    return json.dumps({"error": error_msg, "success": False})
+                    return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
                 
                 # 限制最大卖出量为当前持仓量
                 if Decimal(str(quantity)) > my_qty:
@@ -680,11 +706,9 @@ class SellStockTool(BaseTool):
             except Exception as e:
                 logging.warning(f"获取持仓进行卖出前校验时出错: {e}，将继续尝试下发订单。")
 
-            # 安全拦截：防止相同方向的条件单重复下发
-            if order_type != "MO" and _has_duplicate_pending_order(trade, symbol, "Sell"):
-                error_msg = f"卖出拦截: 当前 {symbol} 已有一个未成交的卖出挂单（如追踪止损/限价），禁止重复下达卖出条件单。如果需要更改价格，请先使用 cancel_order 撤单。"
-                logging.warning(error_msg)
-                return json.dumps({"error": error_msg, "success": False})
+            # 自动撤销旧挂单防止冲突 (Cancel-Before-Modify)
+            if order_type != "MO":
+                _cancel_duplicate_pending_orders(trade, symbol, "Sell")
 
             # 动态决定订单有效期限 (Time in Force)
             if order_type == "MO":
@@ -703,14 +727,14 @@ class SellStockTool(BaseTool):
 
             if order_type == "LO":
                 if price is None:
-                    return json.dumps({"error": "限价单必须指定价格"})
+                    return json.dumps({"error": "限价单必须指定价格"}, ensure_ascii=False)
                 adj_price, _ = _calculate_dynamic_slippage(symbol, price, "Sell", "LO")
                 logging.info(f"动态滑点调整 (Sell LO): {price} -> {adj_price}")
                 order_params["order_type"] = OrderType.LO
                 order_params["submitted_price"] = Decimal(str(adj_price))
             elif order_type == "LIT":
                 if trigger_price is None:
-                    return json.dumps({"error": "触及限价单(LIT)必须指定 trigger_price"})
+                    return json.dumps({"error": "触及限价单(LIT)必须指定 trigger_price"}, ensure_ascii=False)
                 adj_price, _ = _calculate_dynamic_slippage(symbol, trigger_price, "Sell", "LIT")
                 logging.info(f"动态滑点调整 (Sell LIT): 触发价 {trigger_price} -> 限价 {adj_price}")
                 order_params["order_type"] = OrderType.LIT
@@ -718,19 +742,19 @@ class SellStockTool(BaseTool):
                 order_params["trigger_price"] = Decimal(str(trigger_price))
             elif order_type == "MIT":
                 if trigger_price is None:
-                    return json.dumps({"error": "触及市价单(MIT)必须指定 trigger_price"})
+                    return json.dumps({"error": "触及市价单(MIT)必须指定 trigger_price"}, ensure_ascii=False)
                 order_params["order_type"] = OrderType.MIT
                 order_params["trigger_price"] = Decimal(str(trigger_price))
             elif order_type == "TSMPCT":
                 if trailing_percent is None:
-                    return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"})
+                    return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"}, ensure_ascii=False)
                 order_params["order_type"] = OrderType.TSLPPCT
                 order_params["trailing_percent"] = Decimal(str(trailing_percent))
                 _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
                 order_params["limit_offset"] = Decimal(str(dynamic_offset))
             elif order_type == "TSM":
                 if trailing_amount is None:
-                    return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"})
+                    return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"}, ensure_ascii=False)
                 order_params["order_type"] = OrderType.TSLPAMT
                 order_params["trailing_amount"] = Decimal(str(trailing_amount))
                 _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
@@ -771,7 +795,7 @@ class SellStockTool(BaseTool):
             }, ensure_ascii=False)
 
         except Exception as e:
-            return json.dumps({"error": str(e), "success": False})
+            return json.dumps({"error": str(e), "success": False}, ensure_ascii=False)
 
 
 
@@ -801,9 +825,9 @@ class CancelOrderTool(BaseTool):
             trade = TradeContext(config)
             trade.cancel_order(order_id)
             logging.info(f"成功下达撤单指令: {order_id}, 理由: {reason}")
-            return json.dumps({"success": True, "order_id": order_id, "message": "撤单指令已发送成功"})
+            return json.dumps({"success": True, "order_id": order_id, "message": "撤单指令已发送成功"}, ensure_ascii=False)
         except Exception as e:
-            return json.dumps({"success": False, "error": str(e)})
+            return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 
 def create_trading_tools() -> list[BaseTool]:
     """

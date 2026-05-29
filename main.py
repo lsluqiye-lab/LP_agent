@@ -609,6 +609,7 @@ import config as app_config
 _ws_events = []
 _ws_lock = threading.Lock()
 _global_pos_map = {}  # 由主循环定期更新持仓成本
+_last_monitored_symbols = set()  # 记录上一次订阅的标的，用于增量订阅同步
 
 # Watchdog 冷却控制，避免同一标的同一事件反复触发 CIO
 _watchdog_cooldowns = {}
@@ -636,6 +637,11 @@ def on_quote_push(symbol: str, event: PushQuote):
     """WebSocket 毫秒级回调，侦测极端异动"""
     try:
         clean_symbol = symbol.split('.')[0] if '.' in symbol else symbol
+        
+        # 🚨 核心风控白名单过滤：如果推送的个股既不在今日自选标的池，也不是持仓，直接忽略（防止历史订阅残留/脏事件触发）
+        if clean_symbol not in app_config.WATCHLIST and clean_symbol not in _global_pos_map:
+            return
+
         current_price = float(event.last_done)
         
         # 读取持仓成本
@@ -680,8 +686,63 @@ def init_websocket_subscriptions(logger):
         if full_symbols:
             ctx.subscribe(full_symbols, [SubType.Quote])
             logger.info(f"⚡ [WebSocket] 已成功订阅 {len(full_symbols)} 只标的的毫秒级深度行情！")
+            
+            # 初始化记录
+            global _last_monitored_symbols
+            _last_monitored_symbols = set(app_config.WATCHLIST)
     except Exception as e:
         logger.error(f"[WebSocket] 订阅失败: {e}")
+
+
+def update_websocket_subscriptions(logger, new_watchlist=None):
+    """
+    动态更新 WebSocket 订阅，保持订阅范围为: [当前持仓 + 当前自选股(Watchlist)]
+    自动退订不再需要的个股，订阅新增的个股。
+    """
+    try:
+        from longport.openapi import SubType
+        import config as app_config
+        
+        ctx = get_quote_ctx()
+        
+        # 确定当前的自选股
+        watchlist = new_watchlist if new_watchlist is not None else app_config.WATCHLIST
+        
+        # 确定当前的持仓
+        global _global_pos_map
+        pos_symbols = list(_global_pos_map.keys()) if _global_pos_map else []
+        
+        # 转换为规范的带 .US 后缀的代码
+        target_symbols = set()
+        for sym in (pos_symbols + watchlist):
+            if sym:
+                target_symbols.add(modify_symbol(sym))
+                
+        # 获取当前的所有活跃订阅
+        current_subs = ctx.subscriptions()
+        current_subscribed_symbols = set()
+        for sub in current_subs:
+            # 仅处理 SubType.Quote 类型的订阅
+            if any(str(st) == "SubType.Quote" or "Quote" in str(st) for st in sub.sub_types):
+                current_subscribed_symbols.add(sub.symbol)
+                
+        # 需要退订的: 当前订阅中存在，但不在目标集合中的
+        to_unsubscribe = list(current_subscribed_symbols - target_symbols)
+        # 需要新增订阅的: 目标集合中存在，但当前未订阅的
+        to_subscribe = list(target_symbols - current_subscribed_symbols)
+        
+        if to_unsubscribe:
+            ctx.unsubscribe(to_unsubscribe, [SubType.Quote])
+            logger.info(f"⚡ [WebSocket] 自动退订无用标的: {to_unsubscribe}")
+            
+        if to_subscribe:
+            ctx.subscribe(to_subscribe, [SubType.Quote])
+            logger.info(f"⚡ [WebSocket] 自动追加新标的订阅: {to_subscribe}")
+            
+        logger.info(f"⚡ [WebSocket] 订阅同步完毕，当前共订阅 {len(target_symbols)} 只活跃标的行情。")
+        
+    except Exception as e:
+        logger.error(f"[WebSocket] 动态更新订阅失败: {e}")
 
 
 def watchdog_check(tool_registry, logger):
@@ -714,6 +775,13 @@ def watchdog_check(tool_registry, logger):
         
         # 监控范围：当前持仓 + Watchlist
         monitor_symbols = set(list(pos_map.keys()) + app_config.WATCHLIST)
+        
+        # 🚨 动态增量更新订阅：如果当前持仓或自选股发生变动，自动同步 WebSocket 订阅
+        global _last_monitored_symbols
+        if monitor_symbols != _last_monitored_symbols:
+            logger.info(f"🔄 WebSocket 侦测到监控范围变动！旧范围: {list(_last_monitored_symbols)} -> 新范围: {list(monitor_symbols)}")
+            _last_monitored_symbols = monitor_symbols
+            update_websocket_subscriptions(logger)
         
         if not monitor_symbols:
             return events

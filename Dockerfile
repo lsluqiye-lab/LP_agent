@@ -1,44 +1,56 @@
-FROM ubuntu:20.04
+FROM python:3.11-slim-bookworm
 
-# 设置环境变量避免交互式提示
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Asia/Shanghai \
-    LANG=zh_CN.UTF-8 \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MPLCONFIGDIR=/tmp/matplotlib
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        bash \
+        ca-certificates \
+        fonts-noto-cjk \
+        locales \
+        proxychains4 \
+        procps \
+        sudo \
+        tzdata && \
+    sed -i 's/^# *\(zh_CN.UTF-8 UTF-8\)/\1/' /etc/locale.gen && \
+    locale-gen && \
+    update-locale LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV LANG=zh_CN.UTF-8 \
     LANGUAGE=zh_CN:zh \
     LC_ALL=zh_CN.UTF-8
 
-# 合并所有RUN命令以减少层数，并清理缓存
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    locales \
-    tzdata \
-    && locale-gen zh_CN.UTF-8 && \
-    update-locale LANG=zh_CN.UTF-8 && \
-    python3 -m pip install --no-cache-dir --upgrade pip && \
-    pip3 install --no-cache-dir \
-    longport \
-    dashscope \
-    holidays \
-    pytz && \
-    apt-get purge -y --auto-remove && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache
+WORKDIR /app
 
-# 创建非root用户
-RUN useradd -ms /bin/bash develop && \
-    echo "develop:develop" | chpasswd && \
-    adduser develop sudo && \
-    mkdir -p /home/develop/workspace && \
-    chown -R develop:develop /home/develop
+COPY requirements.txt .
+RUN python -m pip install --no-cache-dir --upgrade pip && \
+    python -m pip install --no-cache-dir -r requirements.txt && \
+    python -m pip install --no-cache-dir \
+        mplfinance \
+        numpy \
+        pandas
 
-# 切换用户和工作目录
-USER develop
-WORKDIR /home/develop/workspace
+COPY config.py logger.py main.py ./
+COPY agent ./agent
+COPY data ./data
+COPY llm ./llm
+COPY notification ./notification
+COPY tools ./tools
 
-# 复制应用文件
-COPY --chown=develop:develop LP-Agent.py .
+RUN mkdir -p data/logs data/plots logs /tmp/matplotlib && \
+    useradd --create-home --shell /bin/bash appuser && \
+    usermod -aG sudo appuser && \
+    echo "appuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/appuser && \
+    chmod 0440 /etc/sudoers.d/appuser && \
+    chown -R appuser:appuser /app /tmp/matplotlib
 
-# 设置默认命令
-CMD ["python3", "LP-Agent.py"]
+USER appuser
+
+CMD ["python3", "main.py"]

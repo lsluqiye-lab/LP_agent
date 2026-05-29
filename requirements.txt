@@ -6,3 +6,4 @@ openai
 google-genai
 matplotlib
 requests
+mplfinance

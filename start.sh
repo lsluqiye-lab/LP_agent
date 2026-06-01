@@ -4,13 +4,20 @@
 
 APP_NAME="main.py"
 LOG_FILE="agent.log"
+PYTHON_BIN="/root/gemini/gemini_venv/bin/python"
+
+# 优雅降级：如果虚拟环境不存在，使用系统默认 python
+if [ ! -f "$PYTHON_BIN" ]; then
+    PYTHON_BIN="python"
+fi
 
 echo "============================================================"
 echo "  LP-Agent v4.0 启动程序"
+echo "  使用 Python: $PYTHON_BIN"
 echo "============================================================"
 
 # 1. 检查并清理已有的旧进程
-PID=$(ps -ef | grep "python -u $APP_NAME" | grep -v grep | awk '{print $2}')
+PID=$(ps -ef | grep "$APP_NAME" | grep -v grep | awk '{print $2}')
 if [ -n "$PID" ]; then
     echo "发现正在运行的旧进程 (PID: $PID)，正在关闭..."
     kill -9 $PID
@@ -25,11 +32,11 @@ fi
 
 # 3. 启动程序
 echo "正在启动 $APP_NAME..."
-nohup python -u $APP_NAME >> $LOG_FILE 2>&1 &
+nohup $PYTHON_BIN -u $APP_NAME >> $LOG_FILE 2>&1 &
 
 # 4. 确认启动状态
 sleep 2
-NEW_PID=$(ps -ef | grep "python -u $APP_NAME" | grep -v grep | awk '{print $2}')
+NEW_PID=$(ps -ef | grep "$APP_NAME" | grep -v grep | awk '{print $2}')
 if [ -n "$NEW_PID" ]; then
     echo "✅ 启动成功! (PID: $NEW_PID)"
     echo "日志正在输出到: $LOG_FILE"

@@ -17,6 +17,7 @@ from longport.openapi import (
 
 from tools.base import BaseTool, ToolParameter
 from data.trade_logger import get_trade_logger
+from tools.engines import get_trading_engine
 
 
 
@@ -230,46 +231,42 @@ class GetPositionsTool(BaseTool):
 
     def execute(self, **kwargs) -> str:
         try:
-            config = get_longport_config()
-            trade = TradeContext(config)
-            quote = QuoteContext(config)
-
-            position_resp = trade.stock_positions()
+            from tools.market_data import get_quote_ctx, modify_symbol
+            engine = get_trading_engine()
+            positions_data = engine.get_positions()
+            
             positions = []
-            symbols = []
-
-            # 收集所有股票代码
-            for channel in position_resp.channels:
-                for stock in channel.positions:
-                    if stock.currency == 'USD':
-                        symbols.append(stock.symbol)
-
-            # 批量获取报价
+            symbols = [modify_symbol(pos["symbol"]) for pos in positions_data]
+            
+            # 批量获取现价
             quotes_map = {}
             if symbols:
-                quote_res = quote.quote(symbols)
-                for q in quote_res:
-                    quotes_map[q.symbol] = q.last_done
+                try:
+                    quote_ctx = get_quote_ctx()
+                    quote_res = quote_ctx.quote(symbols)
+                    for q in quote_res:
+                        quotes_map[q.symbol] = q.last_done
+                except Exception as e:
+                    logging.warning(f"GetPositionsTool 批量获取现价失败: {e}")
 
-            for channel in position_resp.channels:
-                for stock in channel.positions:
-                    if stock.currency == 'USD':
-                        last_done = quotes_map.get(stock.symbol)
-                        cost_price = float(stock.cost_price)
-                        
-                        profit_pct = 0.0
-                        if last_done and cost_price > 0:
-                            profit_pct = (float(last_done) - cost_price) / cost_price * 100
+            for pos in positions_data:
+                sym = pos["symbol"]
+                last_done = quotes_map.get(modify_symbol(sym))
+                cost_price = pos["cost_price"]
+                
+                profit_pct = 0.0
+                if last_done and cost_price > 0:
+                    profit_pct = (float(last_done) - cost_price) / cost_price * 100
 
-                        positions.append({
-                            "symbol": cut_symbol(stock.symbol),
-                            "quantity": str(stock.available_quantity),
-                            "cost_price": str(stock.cost_price),
-                            "last_done": str(last_done) if last_done else "N/A",
-                            "profit_pct": f"{profit_pct:.2f}%",
-                            "currency": stock.currency,
-                            "market_value": str(stock.market_value) if hasattr(stock, 'market_value') else "N/A"
-                        })
+                positions.append({
+                    "symbol": cut_symbol(sym),
+                    "quantity": str(pos["quantity"]),
+                    "cost_price": str(cost_price),
+                    "last_done": str(last_done) if last_done else "N/A",
+                    "profit_pct": f"{profit_pct:.2f}%",
+                    "currency": "USD",
+                    "market_value": str(pos["market_value"])
+                })
 
             return json.dumps({
                 "positions": positions,
@@ -289,20 +286,14 @@ class GetAccountBalanceTool(BaseTool):
 
     def execute(self, **kwargs) -> str:
         try:
-            config = get_longport_config()
-            trade = TradeContext(config)
+            engine = get_trading_engine()
+            bal = engine.get_account_balance()
 
-            balances = trade.account_balance('USD')
-
-            result = {}
-            for b in balances:
-                result = {
-                    "net_assets": str(b.net_assets),
-                    "total_cash": str(b.total_cash),
-                    "currency": "USD"
-                }
-                break
-
+            result = {
+                "net_assets": str(bal["net_assets"]),
+                "total_cash": str(bal["cash"]),
+                "currency": "USD"
+            }
             return json.dumps(result)
 
         except Exception as e:
@@ -318,25 +309,27 @@ class GetTodayOrdersTool(BaseTool):
 
     def execute(self, **kwargs) -> str:
         try:
-            config = get_longport_config()
-            trade = TradeContext(config)
-            eastern = pytz.timezone('US/Eastern')
-
-            orders = trade.today_orders()
+            engine = get_trading_engine()
+            orders = engine.get_today_orders()
             order_list = []
 
+            eastern = pytz.timezone('US/Eastern')
             for o in orders:
-                if o.currency == 'USD':
-                    order_list.append({
-                        "symbol": cut_symbol(o.symbol),
-                        "side": str(o.side),
-                        "status": _format_order_status_for_llm(o.status),
-                        "quantity": str(o.quantity),
-                        "executed_quantity": str(o.executed_quantity),
-                        "price": str(o.price) if o.price else "市价",
-                        "executed_price": str(o.executed_price) if o.executed_price else "N/A",
-                        "submitted_at": str(o.submitted_at.astimezone(eastern))
-                    })
+                raw_order = o["raw_order"]
+                submitted_at_str = "N/A"
+                if hasattr(raw_order, 'submitted_at') and raw_order.submitted_at:
+                    submitted_at_str = str(raw_order.submitted_at.astimezone(eastern))
+                
+                order_list.append({
+                    "symbol": cut_symbol(o["symbol"]),
+                    "side": o["side"],
+                    "status": o["llm_status"],
+                    "quantity": str(o["quantity"]),
+                    "executed_quantity": str(getattr(raw_order, 'executed_quantity', '0')),
+                    "price": str(o["price"]) if o["price"] else "市价",
+                    "executed_price": str(getattr(raw_order, 'executed_price', 'N/A')) if getattr(raw_order, 'executed_price', None) else "N/A",
+                    "submitted_at": submitted_at_str
+                })
 
             return json.dumps({
                 "orders": order_list,
@@ -364,28 +357,27 @@ class GetHistoryOrdersTool(BaseTool):
 
     def execute(self, days: int = 7, **kwargs) -> str:
         try:
-            config = get_longport_config()
-            trade = TradeContext(config)
-            eastern = pytz.timezone('US/Eastern')
-
-            orders = trade.history_orders(
-                start_at=datetime.now() - timedelta(days=days),
-                end_at=datetime.now() + timedelta(days=1)
-            )
-
+            engine = get_trading_engine()
+            orders = engine.get_history_orders(days)
             order_list = []
+
+            eastern = pytz.timezone('US/Eastern')
             for o in orders:
-                if o.currency == 'USD':
-                    order_list.append({
-                        "symbol": cut_symbol(o.symbol),
-                        "side": str(o.side),
-                        "status": _format_order_status_for_llm(o.status),
-                        "quantity": str(o.quantity),
-                        "executed_quantity": str(o.executed_quantity),
-                        "price": str(o.price) if o.price else "市价",
-                        "executed_price": str(o.executed_price) if o.executed_price else "N/A",
-                        "submitted_at": str(o.submitted_at.astimezone(eastern))
-                    })
+                raw_order = o["raw_order"]
+                submitted_at_str = "N/A"
+                if hasattr(raw_order, 'submitted_at') and raw_order.submitted_at:
+                    submitted_at_str = str(raw_order.submitted_at.astimezone(eastern))
+                
+                order_list.append({
+                    "symbol": cut_symbol(o["symbol"]),
+                    "side": o["side"],
+                    "status": o["llm_status"],
+                    "quantity": str(o["quantity"]),
+                    "executed_quantity": str(getattr(raw_order, 'executed_quantity', '0')),
+                    "price": str(o["price"]) if o["price"] else "市价",
+                    "executed_price": str(getattr(raw_order, 'executed_price', 'N/A')) if getattr(raw_order, 'executed_price', None) else "N/A",
+                    "submitted_at": submitted_at_str
+                })
 
             return json.dumps({
                 "orders": order_list[:20],  # 限制返回数量
@@ -439,20 +431,20 @@ class GetQuoteTool(BaseTool):
 
 
 class BuyStockTool(BaseTool):
-    """买入股票工具"""
+    """买入股票或期权工具"""
 
     name = "buy_stock"
-    description = "买入股票，支持市价单(MO)、限价单(LO)、触及限价单(LIT)和触及市价单(MIT)"
+    description = "买入股票或期权合约。支持市价单(MO)、限价单(LO)、触及限价单(LIT)和触及市价单(MIT)。自动判定代码格式，对于期权合约自动转换乘数及自适应专属大滑点。"
     parameters = [
         ToolParameter(
             name="symbol",
             type="string",
-            description="股票代码，如AAPL、TSLA等"
+            description="股票代码或期权合约代码（如 AAPL.US 或 AAPL260619C00200000.US）"
         ),
         ToolParameter(
             name="quantity",
             type="integer",
-            description="买入数量（股数）"
+            description="买入股数。如果是期权合约，输入你想保护的正股股数即可，系统会自动转换（除以 100）并向下换算为期权张数，向上取整最少买入 1 张。"
         ),
         ToolParameter(
             name="order_type",
@@ -507,10 +499,11 @@ class BuyStockTool(BaseTool):
     ) -> str:
         try:
             from config import WATCHLIST
+            from tools.engines.base import BaseTradingEngine
             
-            # 1. 标的池硬拦截
+            # 1. 标的池硬拦截 (仅在非期权合约时才进行标的池硬性拦截)
             clean_symbol = symbol.split('.')[0] if '.' in symbol else symbol
-            if clean_symbol not in WATCHLIST:
+            if clean_symbol not in WATCHLIST and not BaseTradingEngine.is_option_symbol(symbol):
                 error_msg = f"拦截: {symbol} 不在允许交易的标的池(WATCHLIST)中。当前仅允许交易: {WATCHLIST}"
                 logging.warning(error_msg)
                 return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
@@ -534,93 +527,40 @@ class BuyStockTool(BaseTool):
                 logging.warning(error_msg)
                 return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
 
-            config = get_longport_config()
-            trade = TradeContext(config)
-
-            full_symbol = modify_symbol(symbol)
+            engine = get_trading_engine()
             
-            # 自动撤销旧挂单防止冲突 (Cancel-Before-Modify)
-            if order_type != "MO":
-                _cancel_duplicate_pending_orders(trade, symbol, "Buy")
-
-            # 动态决定订单有效期限 (Time in Force)
-            # 市价单 (MO) 必须是当日有效 (Day)
-            # 限价/条件单 (LO, LIT, 等) 使用撤销前有效 (GTC)，适合中长线趋势交易挂单
-            if order_type == "MO":
-                tif = TimeInForceType.Day
-            else:
-                tif = TimeInForceType.GoodTilCanceled
-                
-            order_params = {
-                "side": OrderSide.Buy,
-                "symbol": full_symbol,
-                "submitted_quantity": Decimal(str(quantity)),
-                "time_in_force": tif,
-                "outside_rth": OutsideRTH.AnyTime,
-                "remark": reason[:100] if reason else "AI Agent Buy Order"
-            }
-
-            if order_type == "LO":
-                if price is None:
-                    return json.dumps({"error": "限价单必须指定价格"}, ensure_ascii=False)
-                adj_price, _ = _calculate_dynamic_slippage(symbol, price, "Buy", "LO")
-                logging.info(f"动态滑点调整 (Buy LO): {price} -> {adj_price}")
-                order_params["order_type"] = OrderType.LO
-                order_params["submitted_price"] = Decimal(str(adj_price))
-            elif order_type == "LIT":
-                if trigger_price is None:
-                    return json.dumps({"error": "触及限价单(LIT)必须指定 trigger_price"}, ensure_ascii=False)
-                adj_price, _ = _calculate_dynamic_slippage(symbol, trigger_price, "Buy", "LIT")
-                logging.info(f"动态滑点调整 (Buy LIT): 触发价 {trigger_price} -> 限价 {adj_price}")
-                order_params["order_type"] = OrderType.LIT
-                order_params["submitted_price"] = Decimal(str(adj_price))
-                order_params["trigger_price"] = Decimal(str(trigger_price))
-            elif order_type == "MIT":
-                if trigger_price is None:
-                    return json.dumps({"error": "触及市价单(MIT)必须指定 trigger_price"}, ensure_ascii=False)
-                order_params["order_type"] = OrderType.MIT
-                order_params["trigger_price"] = Decimal(str(trigger_price))
-            elif order_type == "TSMPCT":
-                if trailing_percent is None:
-                    return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"}, ensure_ascii=False)
-                order_params["order_type"] = OrderType.TSLPPCT
-                order_params["trailing_percent"] = Decimal(str(trailing_percent))
-                _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
-                order_params["limit_offset"] = Decimal(str(dynamic_offset))
-            elif order_type == "TSM":
-                if trailing_amount is None:
-                    return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"}, ensure_ascii=False)
-                order_params["order_type"] = OrderType.TSLPAMT
-                order_params["trailing_amount"] = Decimal(str(trailing_amount))
-                _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
-                order_params["limit_offset"] = Decimal(str(dynamic_offset))
-            else:
-                order_params["order_type"] = OrderType.MO
-
-            resp = trade.submit_order(**order_params)
+            # 直接调用统一的 submit_order
+            resp = engine.submit_order(
+                symbol=symbol,
+                side="Buy",
+                order_type=order_type,
+                quantity=quantity,
+                price=price,
+                trigger_price=trigger_price,
+                trailing_percent=trailing_percent,
+                trailing_amount=trailing_amount,
+                reason=reason
+            )
 
             # 记录交易日志
-            trade_logger = get_trade_logger()
-            latest_risk = trade_logger.get_latest_risk_score()
-            risk_score = latest_risk["score"] if latest_risk else 0
             trade_logger.log_trade(
-                symbol=cut_symbol(full_symbol),
+                symbol=cut_symbol(symbol),
                 side="Buy",
                 quantity=quantity,
                 price=price,
                 order_type=order_type,
-                order_id=resp.order_id,
+                order_id=resp["order_id"],
                 reason=reason,
                 risk_score=risk_score,
             )
 
             status_msg = "已成交 (FILLING/MO)" if order_type == "MO" else "已挂单 (PENDING/WAITING)"
-            execution_hint = "该订单为限价/触及单，仅在价格满足条件时成交。请在后续循环中通过 get_today_orders 确认其实际状态。"
+            execution_hint = "该订单已提交。请在后续循环中通过 get_today_orders 确认其实际状态。"
 
             return json.dumps({
                 "success": True,
-                "order_id": resp.order_id,
-                "symbol": cut_symbol(full_symbol),
+                "order_id": resp["order_id"],
+                "symbol": cut_symbol(symbol),
                 "side": "Buy",
                 "quantity": quantity,
                 "order_type": order_type,
@@ -635,20 +575,20 @@ class BuyStockTool(BaseTool):
 
 
 class SellStockTool(BaseTool):
-    """卖出股票工具"""
+    """卖出股票或期权工具"""
 
     name = "sell_stock"
-    description = "卖出股票，支持市价单(MO)和限价单(LO)"
+    description = "卖出股票或期权合约（平仓）。支持市价单(MO)、限价单(LO)、触及限价单(LIT)、触及市价单(MIT)、追踪止损单等。自动判定代码格式并自适应股张数量换算。"
     parameters = [
         ToolParameter(
             name="symbol",
             type="string",
-            description="股票代码，如AAPL、TSLA等"
+            description="股票代码或期权合约代码（如 AAPL.US 或 AAPL260619C00200000.US）"
         ),
         ToolParameter(
             name="quantity",
             type="integer",
-            description="卖出数量（股数）"
+            description="卖出数量。若是期权合约，输入等效的正股股数即可，系统会自动转换（除以 100）换算为期权张数进行平仓。"
         ),
         ToolParameter(
             name="order_type",
@@ -702,28 +642,25 @@ class SellStockTool(BaseTool):
         **kwargs
     ) -> str:
         try:
-            config = get_longport_config()
-            trade = TradeContext(config)
+            engine = get_trading_engine()
 
             full_symbol = modify_symbol(symbol)
             clean_symbol = symbol.split('.')[0] if '.' in symbol else symbol
 
             # 安全校验：获取真实持仓，防止因状态未同步导致重复卖出或意外做空
             try:
-                positions_resp = trade.stock_positions()
+                positions_data = engine.get_positions()
                 my_qty = Decimal('0')
-                if hasattr(positions_resp, 'channels'):
-                    for channel in positions_resp.channels:
-                        for pos in channel.positions:
-                            pos_sym = getattr(pos, 'symbol', '')
-                            if clean_symbol in pos_sym or full_symbol in pos_sym:
-                                my_qty += getattr(pos, 'quantity', Decimal('0'))
-                
+                for pos in positions_data:
+                    pos_sym = pos["symbol"]
+                    if clean_symbol in pos_sym or full_symbol in pos_sym:
+                        my_qty += Decimal(str(pos["quantity"]))
+
                 if my_qty == Decimal('0'):
                     error_msg = f"卖出拦截: 当前未持有 {symbol}，无法执行卖出操作（防止做空）。"
                     logging.warning(error_msg)
                     return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
-                
+
                 # 限制最大卖出量为当前持仓量
                 if Decimal(str(quantity)) > my_qty:
                     logging.warning(f"卖出数量 {quantity} 超过实际持仓 {my_qty}，自动修正为 {my_qty}")
@@ -731,50 +668,8 @@ class SellStockTool(BaseTool):
             except Exception as e:
                 logging.warning(f"获取持仓进行卖出前校验时出错: {e}，将继续尝试下发订单。")
 
-            # 自动撤销旧挂单防止冲突 (Cancel-Before-Modify)
-            if order_type != "MO":
-                _cancel_duplicate_pending_orders(trade, symbol, "Sell")
-
-            # 动态决定订单有效期限 (Time in Force)
-            if order_type == "MO":
-                tif = TimeInForceType.Day
-            else:
-                tif = TimeInForceType.GoodTilCanceled
-
-            order_params = {
-                "side": OrderSide.Sell,
-                "symbol": full_symbol,
-                "submitted_quantity": Decimal(str(quantity)),
-                "time_in_force": tif,
-                "outside_rth": OutsideRTH.AnyTime,
-                "remark": reason[:100] if reason else "AI Agent Sell Order"
-            }
-
-            if order_type == "LO":
-                if price is None:
-                    return json.dumps({"error": "限价单必须指定价格"}, ensure_ascii=False)
-                adj_price, _ = _calculate_dynamic_slippage(symbol, price, "Sell", "LO")
-                logging.info(f"动态滑点调整 (Sell LO): {price} -> {adj_price}")
-                order_params["order_type"] = OrderType.LO
-                order_params["submitted_price"] = Decimal(str(adj_price))
-            elif order_type == "LIT":
-                if trigger_price is None:
-                    return json.dumps({"error": "触及限价单(LIT)必须指定 trigger_price"}, ensure_ascii=False)
-                adj_price, _ = _calculate_dynamic_slippage(symbol, trigger_price, "Sell", "LIT")
-                logging.info(f"动态滑点调整 (Sell LIT): 触发价 {trigger_price} -> 限价 {adj_price}")
-                order_params["order_type"] = OrderType.LIT
-                order_params["submitted_price"] = Decimal(str(adj_price))
-                order_params["trigger_price"] = Decimal(str(trigger_price))
-            elif order_type == "MIT":
-                if trigger_price is None:
-                    return json.dumps({"error": "触及市价单(MIT)必须指定 trigger_price"}, ensure_ascii=False)
-                order_params["order_type"] = OrderType.MIT
-                order_params["trigger_price"] = Decimal(str(trigger_price))
-            elif order_type == "TSMPCT":
-                if trailing_percent is None:
-                    return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"}, ensure_ascii=False)
-                
-                # ── 新增: Trailing Stop Sanity Check ──
+            # Trailing Stop Sanity Check (追踪止损比例微调限制)
+            if order_type == "TSMPCT" and trailing_percent is not None:
                 orig_trailing_percent = trailing_percent
                 if trailing_percent > 12.0:
                     trailing_percent = 12.0
@@ -782,22 +677,19 @@ class SellStockTool(BaseTool):
                 elif trailing_percent < 3.0:
                     trailing_percent = 3.0
                     logging.warning(f"⚠️ [Sanity Check] 检测到追踪止损百分比过窄 ({orig_trailing_percent}%)，自动放大到 3.0%，以防频繁被无谓的日内震荡噪声洗盘扫出。")
-                
-                order_params["order_type"] = OrderType.TSLPPCT
-                order_params["trailing_percent"] = Decimal(str(trailing_percent))
-                _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
-                order_params["limit_offset"] = Decimal(str(dynamic_offset))
-            elif order_type == "TSM":
-                if trailing_amount is None:
-                    return json.dumps({"error": "追踪止损金额单(TSM)必须指定 trailing_amount"}, ensure_ascii=False)
-                order_params["order_type"] = OrderType.TSLPAMT
-                order_params["trailing_amount"] = Decimal(str(trailing_amount))
-                _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
-                order_params["limit_offset"] = Decimal(str(dynamic_offset))
-            else:
-                order_params["order_type"] = OrderType.MO
 
-            resp = trade.submit_order(**order_params)
+            # 直接调用适配器的 submit_order
+            resp = engine.submit_order(
+                symbol=symbol,
+                side="Sell",
+                order_type=order_type,
+                quantity=quantity,
+                price=price,
+                trigger_price=trigger_price,
+                trailing_percent=trailing_percent,
+                trailing_amount=trailing_amount,
+                reason=reason
+            )
 
             # 记录交易日志
             trade_logger = get_trade_logger()
@@ -809,17 +701,17 @@ class SellStockTool(BaseTool):
                 quantity=quantity,
                 price=price,
                 order_type=order_type,
-                order_id=resp.order_id,
+                order_id=resp["order_id"],
                 reason=reason,
                 risk_score=risk_score,
             )
 
             status_msg = "已成交 (FILLING/MO)" if order_type == "MO" else "已挂单 (PENDING/WAITING)"
-            execution_hint = "该订单已提交。若是限价单或追踪止损单，需满足价格条件方可成交。"
+            execution_hint = "该订单已提交。请在后续循环中通过 get_today_orders 确认其实际状态。"
 
             return json.dumps({
                 "success": True,
-                "order_id": resp.order_id,
+                "order_id": resp["order_id"],
                 "symbol": cut_symbol(full_symbol),
                 "side": "Sell",
                 "quantity": quantity,
@@ -831,7 +723,6 @@ class SellStockTool(BaseTool):
 
         except Exception as e:
             return json.dumps({"error": str(e), "success": False}, ensure_ascii=False)
-
 
 
 class CancelOrderTool(BaseTool):
@@ -856,11 +747,13 @@ class CancelOrderTool(BaseTool):
 
     def execute(self, order_id: str, reason: str = "", **kwargs) -> str:
         try:
-            config = get_longport_config()
-            trade = TradeContext(config)
-            trade.cancel_order(order_id)
-            logging.info(f"成功下达撤单指令: {order_id}, 理由: {reason}")
-            return json.dumps({"success": True, "order_id": order_id, "message": "撤单指令已发送成功"}, ensure_ascii=False)
+            engine = get_trading_engine()
+            success = engine.cancel_order(order_id)
+            if success:
+                logging.info(f"成功下达撤单指令: {order_id}, 理由: {reason}")
+                return json.dumps({"success": True, "order_id": order_id, "message": "撤单指令已发送成功"}, ensure_ascii=False)
+            else:
+                return json.dumps({"success": False, "error": "撤单失败，请检查订单状态"}, ensure_ascii=False)
         except Exception as e:
             return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
 

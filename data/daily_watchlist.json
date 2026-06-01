@@ -1,19 +1,19 @@
 {
-    "date": "2026-05-28",
+    "date": "2026-05-31",
     "watchlist": [
-        "TSM",
-        "TSLA",
-        "QCOM",
         "LLY",
-        "FCX",
-        "CAT",
+        "QCOM",
         "ASML",
+        "FCX",
         "AAPL",
-        "NVDA",
-        "ARM",
         "HOOD",
-        "NOW"
+        "GE",
+        "GS",
+        "ARM",
+        "NVDA",
+        "TSM",
+        "TSLA"
     ],
-    "reason": "在今日宏观风控环境评分 78.3/100 且处于 FAVORABLE 象限下，市场风险偏好高，动能交易占优，因此启动‘方案 A’松绑超买与估值限制，积极吸纳具有强爆发催化剂的科技与金融动能龙头。监控池强制保留了 8 只必选持仓股（FCX、QCOM、ASML、LLY、AAPL、TSM、TSLA、CAT）。在非持仓候选股中，经排查未来 5 个交易日内均无财报窗口（避开雷区），最终精选并引入 4 只高分标的：1) ARM (85分)：向自研CPU销售转型，技术面极强；2) HOOD (85分)：推出‘Agentic Trading’颠覆性创新，且受益于 PDT 规则取消预期；3) NOW (85分)：发布‘ServiceNow Otto’开启 Agentic AI 商业化元年；4) NVDA (80分)：Blackwell/Rubin 需求极度强劲，确立 AI 绝对统治力。最终形成 12 只兼顾持仓监控与高贝塔进攻的科学标的池。",
-    "updated_at": "2026-05-28T23:19:23.152908-04:00"
+    "reason": "在宏观风控评分 75.0 的 FAVORABLE 环境下，策略全面拥抱高动能与强催化标的。持仓股中 LLY 和 QCOM 凭借医保覆盖利好及 ByteDance 巨额 AI 订单获得 95 分最高评级。根据财报规避原则，剔除 3 日后发布财报的 AVGO 以防波动风险。新纳入 GE 受益于 10 亿美元 MRO 投资及国防合同，GS 展现了强劲的技术面突破。重点监控 HOOD 在 6 月 4 日 PDT 规则变更及 Agentic Trading 驱动下的交易活跃度爆发，以及半导体板块（NVDA, TSM, ARM）在 Blackwell 量产与 3nm 涨价预期下的持续估值扩张。",
+    "updated_at": "2026-05-31T09:02:09.065680-04:00"
 }

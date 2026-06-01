@@ -118,6 +118,31 @@ def cut_symbol(symbol: str) -> str:
     return symbol
 
 
+def _format_order_status_for_llm(status) -> str:
+    """
+    将 LongPort OpenAPI 晦涩的订单状态映射或附加清晰的英文和状态说明，
+    方便 LLM 准确理解挂单是否处于 PENDING / FILLED / CANCELED 状态。
+    """
+    status_str = str(status)
+    if "VarietiesNotReported" in status_str:
+        return f"{status_str} (PENDING_CONDITIONAL)"  # 待触发条件单，仍有效挂单中
+    elif "NotReported" in status_str:
+        return f"{status_str} (PENDING_SUBMITTED)"    # 待报单，仍有效挂单中
+    elif "New" in status_str:
+        return f"{status_str} (NEW)"
+    elif "Filled" in status_str and "Partial" not in status_str:
+        return f"{status_str} (FILLED)"
+    elif "Canceled" in status_str:
+        return f"{status_str} (CANCELED)"
+    elif "Rejected" in status_str:
+        return f"{status_str} (REJECTED)"
+    elif "Expired" in status_str:
+        return f"{status_str} (EXPIRED)"
+    elif "PendingCancel" in status_str:
+        return f"{status_str} (PENDING_CANCEL)"
+    return status_str
+
+
 def modify_symbol(symbol: str) -> str:
     """添加股票代码后缀"""
     if len(symbol) >= 3 and symbol[-3:] == '.US':
@@ -305,7 +330,7 @@ class GetTodayOrdersTool(BaseTool):
                     order_list.append({
                         "symbol": cut_symbol(o.symbol),
                         "side": str(o.side),
-                        "status": str(o.status),
+                        "status": _format_order_status_for_llm(o.status),
                         "quantity": str(o.quantity),
                         "executed_quantity": str(o.executed_quantity),
                         "price": str(o.price) if o.price else "市价",
@@ -354,7 +379,7 @@ class GetHistoryOrdersTool(BaseTool):
                     order_list.append({
                         "symbol": cut_symbol(o.symbol),
                         "side": str(o.side),
-                        "status": str(o.status),
+                        "status": _format_order_status_for_llm(o.status),
                         "quantity": str(o.quantity),
                         "executed_quantity": str(o.executed_quantity),
                         "price": str(o.price) if o.price else "市价",
@@ -748,6 +773,16 @@ class SellStockTool(BaseTool):
             elif order_type == "TSMPCT":
                 if trailing_percent is None:
                     return json.dumps({"error": "追踪止损百分比单(TSMPCT)必须指定 trailing_percent"}, ensure_ascii=False)
+                
+                # ── 新增: Trailing Stop Sanity Check ──
+                orig_trailing_percent = trailing_percent
+                if trailing_percent > 12.0:
+                    trailing_percent = 12.0
+                    logging.warning(f"⚠️ [Sanity Check] 检测到追踪止损百分比过宽 ({orig_trailing_percent}%)，自动缩限为 12.0%，以防严重吞食利润和亏损本金。")
+                elif trailing_percent < 3.0:
+                    trailing_percent = 3.0
+                    logging.warning(f"⚠️ [Sanity Check] 检测到追踪止损百分比过窄 ({orig_trailing_percent}%)，自动放大到 3.0%，以防频繁被无谓的日内震荡噪声洗盘扫出。")
+                
                 order_params["order_type"] = OrderType.TSLPPCT
                 order_params["trailing_percent"] = Decimal(str(trailing_percent))
                 _, dynamic_offset = _calculate_dynamic_slippage(symbol, 100, "Buy", "TSM")
@@ -847,3 +882,140 @@ def create_trading_tools() -> list[BaseTool]:
         BuyStockTool(),
         SellStockTool(),
     ]
+
+
+def auto_align_trailing_stops() -> str:
+    """
+    自动对齐/重整当前持仓与长桥挂设的追踪比例止损单（防漏挂、数量错配）。
+    检查当前所有持仓。如果某只股票在券商端已挂设了追踪百分比止损单，但挂单的股数不等于最新实际持仓股数，
+    则自动撤销该标的旧止损单，并以最新的全额持仓股数、维持先前的追踪比例重新挂设。
+    """
+    try:
+        from longport.openapi import TradeContext, OrderType, OrderSide
+        import logging
+        from decimal import Decimal
+        
+        logging.info("⚙️ [Alignment] 启动追踪止损数量自动重整/对齐校验...")
+        config = get_longport_config()
+        trade = TradeContext(config)
+        
+        # 1. 获取最新持仓
+        positions_resp = trade.stock_positions()
+        pos_map = {}
+        if hasattr(positions_resp, 'channels'):
+            for channel in positions_resp.channels:
+                for pos in channel.positions:
+                    qty = getattr(pos, 'quantity', Decimal('0'))
+                    if qty > Decimal('0'):
+                        pos_map[cut_symbol(pos.symbol)] = int(qty)
+        
+        if not pos_map:
+            logging.info("⚙️ [Alignment] 当前无持仓，无需对齐。")
+            return "No positions found."
+            
+        # 2. 获取所有的今日订单 (即挂单)
+        orders = trade.today_orders()
+        
+        # 3. 找出所有活跃的（PENDING_CONDITIONAL 等）追踪比例止损单
+        pending_stops = {}
+        for o in orders:
+            status_str = str(o.status).lower()
+            is_pending = any(s in status_str for s in ["notreported", "new", "submitted", "pending", "partialfilled", "varietiesnotreported"])
+            is_sell = o.side == OrderSide.Sell
+            is_tslppct = o.order_type == OrderType.TSLPPCT
+            
+            if is_pending and is_sell and is_tslppct:
+                sym = cut_symbol(o.symbol)
+                pending_stops[sym] = {
+                    "order_id": o.order_id,
+                    "quantity": int(o.quantity),
+                    "trailing_percent": float(o.trailing_percent) if o.trailing_percent else 8.0,
+                    "limit_offset": o.limit_offset
+                }
+        
+        if not pending_stops:
+            logging.info("⚙️ [Alignment] 当前没有生效中的追踪百分比止损单挂设，无需自动对齐数量。")
+            return "No pending TSLPPCT stops found."
+            
+        # 4. 比对持仓和止损单的数量
+        realigned_count = 0
+        for sym, stop in pending_stops.items():
+            if sym in pos_map:
+                actual_qty = pos_map[sym]
+                stop_qty = stop["quantity"]
+                
+                if actual_qty != stop_qty:
+                    logging.warning(
+                        f"🚨 [Alignment] 侦测到持仓数量与止损挂单数量不一致! "
+                        f"标时: {sym}, 实际持仓: {actual_qty}股, 止损挂单: {stop_qty}股。"
+                    )
+                    
+                    # 1) 撤销该旧单
+                    try:
+                        logging.info(f"⏳ [Alignment] 正在撤销旧的错配止损单: {stop['order_id']}...")
+                        trade.cancel_order(stop["order_id"])
+                        import time
+                        time.sleep(0.5)  # 短暂休眠等额度释放
+                    except Exception as ex:
+                        logging.error(f"❌ [Alignment] 撤销旧止损单失败: {ex}")
+                        continue
+                        
+                    # 2) 重新以最新全额持仓股数挂设
+                    try:
+                        from tools.trading import modify_symbol, _calculate_dynamic_slippage
+                        from longport.openapi import TimeInForceType, OutsideRTH
+                        
+                        full_symbol = modify_symbol(sym)
+                        trailing_pct = stop["trailing_percent"]
+                        
+                        # 基于标的计算最新的动态 limit_offset
+                        _, dynamic_offset = _calculate_dynamic_slippage(sym, 100, "Buy", "TSM")
+                        
+                        order_params = {
+                            "side": OrderSide.Sell,
+                            "symbol": full_symbol,
+                            "submitted_quantity": Decimal(str(actual_qty)),
+                            "time_in_force": TimeInForceType.GoodTilCanceled,
+                            "outside_rth": OutsideRTH.AnyTime,
+                            "order_type": OrderType.TSLPPCT,
+                            "trailing_percent": Decimal(str(trailing_pct)),
+                            "limit_offset": Decimal(str(dynamic_offset)),
+                            "remark": f"[Auto-Alignment] 自动对齐全额持仓止损 ({trailing_pct}%)"
+                        }
+                        
+                        new_resp = trade.submit_order(**order_params)
+                        logging.info(
+                            f"✅ [Alignment] {sym} 追踪止损重整提交成功！"
+                            f"股数: {actual_qty}股, 止损比例: {trailing_pct}%, 新订单ID: {new_resp.order_id}"
+                        )
+                        
+                        # 记录到交易日志
+                        try:
+                            from data.trade_logger import get_trade_logger
+                            trade_logger = get_trade_logger()
+                            latest_risk = trade_logger.get_latest_risk_score()
+                            risk_score = latest_risk["score"] if latest_risk else 0
+                            trade_logger.log_trade(
+                                symbol=sym,
+                                side="Sell",
+                                quantity=actual_qty,
+                                price=None,
+                                order_type="TSMPCT",
+                                order_id=new_resp.order_id,
+                                reason=f"【自动对齐】原止损股数错配，重新全额挂设 {actual_qty}股 追踪止损 ({trailing_pct}%)。",
+                                risk_score=risk_score
+                            )
+                        except Exception as log_ex:
+                            logging.warning(f"[Alignment] 记录对齐交易日志时出错: {log_ex}")
+                            
+                        realigned_count += 1
+                    except Exception as sub_ex:
+                        logging.error(f"❌ [Alignment] 重新下达止损挂单失败: {sub_ex}")
+        
+        logging.info(f"⚙️ [Alignment] 自动校验校验结束。共重整对齐了 {realigned_count} 个标的。")
+        return f"Successfully realigned {realigned_count} stops."
+        
+    except Exception as e:
+        import traceback
+        logging.error(f"❌ [Alignment] 自动对齐异常: {e}, 堆栈: {traceback.format_exc()}")
+        return f"Error: {e}"

@@ -506,6 +506,14 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
     # Phase 4: 决策 (Reduce) - 仅把活跃的专家研报和相关的组合指令发给 CIO 决策
     result = await phase4_strategic_decision(agent, collected_data, briefings_json, risk_result["score"], logger, portfolio_directives)
     logger.info(f"本轮决策结论:\n{result}")
+
+    # ── 新增: 后置追踪止损全自动重整对齐 ──
+    try:
+        from tools.trading import auto_align_trailing_stops
+        auto_align_trailing_stops()
+    except Exception as e_align:
+        logger.error(f"[Alignment] 自动对齐追踪止损执行失败: {e_align}")
+
     return morning_briefing_sent
 
 async def run_event_driven_cycle(events, tool_registry, config, logger, orchestrator, agent, feishu_notifier, trade_logger):
@@ -556,6 +564,13 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
         agent, collected_data, briefings_json, risk_result["score"], logger, portfolio_directives=portfolio_directives, interrupt_events=event_str
     )
     logger.info(f"事件驱动决策结论:\n{result}")
+
+    # ── 新增: 后置追踪止损全自动重整对齐 ──
+    try:
+        from tools.trading import auto_align_trailing_stops
+        auto_align_trailing_stops()
+    except Exception as e_align:
+        logger.error(f"[Alignment] 自动对齐追踪止损执行失败: {e_align}")
 
 
 def _get_daily_atr(quote_ctx, full_symbol, period=14):

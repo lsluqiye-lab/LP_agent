@@ -10,7 +10,7 @@ echo "  LP-Agent v4.0 启动程序"
 echo "============================================================"
 
 # 1. 检查并清理已有的旧进程
-PID=$(ps -ef | grep "python3 -u $APP_NAME" | grep -v grep | awk '{print $2}')
+PID=$(ps -ef | grep "python -u $APP_NAME" | grep -v grep | awk '{print $2}')
 if [ -n "$PID" ]; then
     echo "发现正在运行的旧进程 (PID: $PID)，正在关闭..."
     kill -9 $PID
@@ -25,11 +25,11 @@ fi
 
 # 3. 启动程序
 echo "正在启动 $APP_NAME..."
-nohup python3 -u $APP_NAME >> $LOG_FILE 2>&1 &
+nohup python -u $APP_NAME >> $LOG_FILE 2>&1 &
 
 # 4. 确认启动状态
 sleep 2
-NEW_PID=$(ps -ef | grep "python3 -u $APP_NAME" | grep -v grep | awk '{print $2}')
+NEW_PID=$(ps -ef | grep "python -u $APP_NAME" | grep -v grep | awk '{print $2}')
 if [ -n "$NEW_PID" ]; then
     echo "✅ 启动成功! (PID: $NEW_PID)"
     echo "日志正在输出到: $LOG_FILE"

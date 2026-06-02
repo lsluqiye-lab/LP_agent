@@ -120,7 +120,8 @@ class LongPortTradingEngine(BaseTradingEngine):
         """
         import re
         clean_sym = symbol.split('.')[0] if '.' in symbol else symbol
-        pattern = r'^([A-Z]{1,6})([0-9]{6})([CP])([0-9]{8})$'
+        # 兼容 4 至 8 位的行权价数字表示形式
+        pattern = r'^([A-Z]{1,6})([0-9]{6})([CP])([0-9]{4,8})$'
         match = re.match(pattern, clean_sym)
         if match:
             return {

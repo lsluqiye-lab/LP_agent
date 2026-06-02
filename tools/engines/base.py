@@ -70,6 +70,6 @@ class BaseTradingEngine(ABC):
         """
         # 移除后缀
         clean_sym = symbol.split('.')[0] if '.' in symbol else symbol
-        # OCC 标准格式: 字母(1-6位) + 6位数字(到期日) + C/P(方向) + 8位数字(行权价)
-        pattern = r'^[A-Z]{1,6}[0-9]{6}[CP][0-9]{8}$'
+        # OCC 标准格式: 字母(1-6位) + 6位数字(到期日) + C/P(方向) + 4至8位数字(行权价，兼容非标准少零填充格式)
+        pattern = r'^[A-Z]{1,6}[0-9]{6}[CP][0-9]{4,8}$'
         return bool(re.match(pattern, clean_sym))

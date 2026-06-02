@@ -26,10 +26,14 @@ class TestTradingV4Adapter(unittest.TestCase):
         self.assertTrue(BaseTradingEngine.is_option_symbol("TSM260619P00150000"))
         self.assertTrue(BaseTradingEngine.is_option_symbol("AAPL260619C00200000.US"))
         self.assertTrue(BaseTradingEngine.is_option_symbol("AAPL260619C00200000"))
+        # 添加对昨日真实发生并被误拦截的 6 位行权价符号支持测试
+        self.assertTrue(BaseTradingEngine.is_option_symbol("ARM260612P390000.US"))
+        self.assertTrue(BaseTradingEngine.is_option_symbol("ARM260612P390000"))
         
         # 3. 边界和异常格式
         self.assertFalse(BaseTradingEngine.is_option_symbol("TSM260619P"))
-        self.assertFalse(BaseTradingEngine.is_option_symbol("TSM260619P00150"))
+        # 长度小于 4 位的行权价不应被视为合法期权符号
+        self.assertFalse(BaseTradingEngine.is_option_symbol("TSM260619P001"))
 
     def test_factory_loading(self):
         """测试工厂方法能正常加载 LongPortTradingEngine 且为单例"""

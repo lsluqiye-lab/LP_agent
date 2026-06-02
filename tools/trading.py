@@ -648,6 +648,7 @@ class SellStockTool(BaseTool):
             clean_symbol = symbol.split('.')[0] if '.' in symbol else symbol
 
             # 安全校验：获取真实持仓，防止因状态未同步导致重复卖出或意外做空
+            cost_price = None
             try:
                 positions_data = engine.get_positions()
                 my_qty = Decimal('0')
@@ -655,6 +656,7 @@ class SellStockTool(BaseTool):
                     pos_sym = pos["symbol"]
                     if clean_symbol in pos_sym or full_symbol in pos_sym:
                         my_qty += Decimal(str(pos["quantity"]))
+                        cost_price = float(pos["cost_price"])
 
                 if my_qty == Decimal('0'):
                     error_msg = f"卖出拦截: 当前未持有 {symbol}，无法执行卖出操作（防止做空）。"
@@ -670,10 +672,34 @@ class SellStockTool(BaseTool):
 
             # Trailing Stop Sanity Check (追踪止损比例微调限制)
             if order_type == "TSMPCT" and trailing_percent is not None:
+                # 🛡️ 引入高级非线性 PRR (Profit Retention Ratio) 利润留存算法保护
+                # 当正股出现浮盈时，若 ATR 止损过宽会导致在下跌时吞食所有本金和浮盈。
+                # 只要正股脱离风险期，我们动态收紧追踪比例，保证如果回调触发，至少锁死 50% 的浮盈利润。
+                if cost_price is not None:
+                    try:
+                        from tools.market_data import get_quote_ctx
+                        ctx = get_quote_ctx()
+                        quotes = ctx.quote([full_symbol])
+                        if quotes:
+                            current_price = float(quotes[0].last_done)
+                            if current_price > cost_price:
+                                # 锁定最高浮盈 50% 对应的目标追踪比例: T_target = (0.5 * (P - C) / P) * 100
+                                t_target = (0.5 * (current_price - cost_price) / current_price) * 100.0
+                                # 仅在利润空间脱离风险期（目标止损比 > 3% 的波动噪声垫）且计算值比原本 ATR 计算出的比例更窄时，才强行收缩收网
+                                if t_target >= 3.0 and t_target < trailing_percent:
+                                    orig_trailing_percent = trailing_percent
+                                    trailing_percent = round(t_target, 2)
+                                    logging.info(
+                                        f"🛡️ [PRR Guard] 侦测到持仓 {symbol} 处于盈利状态 (成本: ${cost_price:.2f}, 现价: ${current_price:.2f})。"
+                                        f"为了在下跌中锁定至少 50% 的浮盈，动态利润留存锁启动，追踪比例由 {orig_trailing_percent}% 收网收紧至 {trailing_percent}%！"
+                                    )
+                    except Exception as prr_err:
+                        logging.warning(f"[PRR Guard] 利润保护计算时发生异常: {prr_err}")
                 orig_trailing_percent = trailing_percent
-                if trailing_percent > 12.0:
-                    trailing_percent = 12.0
-                    logging.warning(f"⚠️ [Sanity Check] 检测到追踪止损百分比过宽 ({orig_trailing_percent}%)，自动缩限为 12.0%，以防严重吞食利润和亏损本金。")
+                # 配合 V3.5+ 自适应 ATR 机制，将原 12% 上限拓宽至 25%，给予高波动股票（如 ARM, NVDA）在主升浪里足够呼吸空间
+                if trailing_percent > 25.0:
+                    trailing_percent = 25.0
+                    logging.warning(f"⚠️ [Sanity Check] 检测到追踪止损百分比过宽 ({orig_trailing_percent}%)，自动缩限为 25.0%，以防大模型幻觉并限制极端利润回吐。")
                 elif trailing_percent < 3.0:
                     trailing_percent = 3.0
                     logging.warning(f"⚠️ [Sanity Check] 检测到追踪止损百分比过窄 ({orig_trailing_percent}%)，自动放大到 3.0%，以防频繁被无谓的日内震荡噪声洗盘扫出。")

@@ -81,6 +81,12 @@ class FeishuNotifier:
             return False
             
         try:
+            import os
+            is_real_dir = "LP_agent_real" in os.getcwd()
+            is_dry_run = os.getenv("TRADING_DRY_RUN", "false").lower() == "true"
+            env_suffix = " [实盘影子模式]" if is_real_dir and is_dry_run else (" [实盘交易模式]" if is_real_dir else " [模拟测试模式]")
+            content = f"{content}\n\n---\n来自: {env_suffix.strip()}"
+
             payload = {
                 "msg_type": "text",
                 "content": {
@@ -116,6 +122,12 @@ class FeishuNotifier:
             return False
             
         try:
+            import os
+            is_real_dir = "LP_agent_real" in os.getcwd()
+            is_dry_run = os.getenv("TRADING_DRY_RUN", "false").lower() == "true"
+            env_suffix = " [实盘影子模式]" if is_real_dir and is_dry_run else (" [实盘交易模式]" if is_real_dir else " [模拟测试模式]")
+            title = f"{title}{env_suffix}"
+
             elements = [
                 {
                     "tag": "div",

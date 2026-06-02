@@ -10,136 +10,60 @@ LP-Agent v4.0 是一款基于 **Strategic Multi-Agent (SMA)** 架构、全面重
 
 ---
 
-## 🏛️ 系统逻辑架构 (Core Architecture)
+## 🏛️ 系统分层逻辑架构 (System Core Architecture)
 
-*(注：展示了 v4.0 行情交易分离架构、可拔插交易引擎、三大立体期权武器、四大物理拦截网与全局沙盒阻断机制)*
+为了实现系统各层级职责的完全内聚、高解耦，并保障交易在物理上的确定性安全，LP-Agent v4.0 将整个系统的运行机制模块化地划分为以下 **5 个标准物理/逻辑层级（Perception, Decision, Adapter, Self-Healing, Memory）**：
 
-```mermaid
-graph TD
-    classDef default fill:#1E293B,stroke:#475569,stroke-width:1px,color:#F8FAFC;
-    classDef core fill:#0F172A,stroke:#38BDF8,stroke-width:2px,color:#F0F9FF;
-    classDef qlib fill:#1e3a8a,stroke:#60a5fa,stroke-width:3px,color:#eff6ff,stroke-dasharray: 5 5;
-    classDef wd fill:#7f1d1d,stroke:#f87171,stroke-width:2px,color:#fef2f2;
-    classDef memory fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#f0fdf4;
-    classDef pre fill:#422006,stroke:#f59e0b,stroke-width:2px,color:#fef3c7;
-
-    subgraph Dual_Track_Engine ["Dual-Track Architecture (双轨制引擎 v4.0)"]
-        direction TB
-
-        %% High-Frequency Watchdog
-        subgraph Watchdog ["高频监控层 (WebSocket毫秒监听 + 1分钟心跳) - 纯本地/低延迟"]
-            WD_Timer((定时/推送触发))
-            WD_StopLoss[ATR 动态宽容防守<br>跌破成本 2.0*ATR 止损]
-            WD_TakeProfit[ATR 动态锁润机制<br>盈利 3.0*ATR 且 RSI超买]
-            WD_WS[WebSocket 瞬间拦截<br>极速断路熔断 & 异动抢跑]
-            
-            WD_Timer --> WD_StopLoss
-            WD_Timer --> WD_TakeProfit
-            WD_Timer --> WD_WS
-        end
-
-        %% Strategic Brain
-        subgraph Brain ["深度决策层 (定时10:00/15:30触发) - 数据与 LLM 协同驱动"]
-            direction TB
-            
-            %% Phase 1-2.5
-            subgraph Phase_Front ["数据流与前置风控 (Phase 1-2.5)"]
-                MacroRisk[MacroRiskManager<br>纯本地计算大盘评分]
-                PortManager[PortfolioManager<br>自适应买入阈值与杂草清理]
-                AlphaScan[Alpha Scanner v4.0<br>Top-Down 自上而下动态选股]
-            end
-
-            %% Quant Factor Engine v4.0
-            QuantEngine_40((("多因子行情引擎 v4.0<br>(Sector RS & 真实技术因子计算)"))):::qlib
-            
-            %% Phase 2.6: Local Pre-Screening
-            subgraph PreScreenBlock ["本地规则初筛门限 (Phase 2.6)"]
-                PreScreen[Local Pre-Screening<br>硬规则判断异动与突破]:::pre
-                AutoHold[Auto-HOLD 观望<br>0 Token 挂机休眠]:::wd
-            end
-
-            %% Phase 3
-            subgraph Phase_Experts ["专家并行研报 (Phase 3 - 门限激活)"]
-                TechExpert[技术面专家<br>趋势确认与支撑位]
-                FundExpert[基本面专家<br>PE/PEG估值与财报分析]
-                FundCache[(基本面 5日 缓存<br>Fundamental Cache)]:::memory
-                SentExpert[情绪舆情专家<br>Reddit/Twitter热度]
-                SectExpert[板块轮动专家<br>行业 Relative Strength]
-                
-                FundExpert <--> FundCache
-            end
-
-            %% Phase 4
-            subgraph Phase_CIO ["主脑战术决策 (Phase 4 - 门限激活)"]
-                CIO[CIO Agent<br>ReAct 终极推理与立体衍生品武器]
-                OrderExec[高级订单执行<br>LIT突破单/LO低吸单/配对换仓]
-            end
-
-            %% Phase 5
-            subgraph Phase_Review ["复盘与记忆 (Phase 5)"]
-                Review[每日复盘 Reviewer]
-                Memory[(长效历史教训库<br>Trading Memory)]:::memory
-            end
-        end
-
-        %% Pluggable Broker Adaptor
-        subgraph BrokerAdaptor ["可插拔交易引擎适配层 (Pluggable Broker Adaptor)"]
-            Factory[get_trading_engine 工厂单例]
-            BaseEngine[BaseTradingEngine 统一物理接口]
-            
-            subgraph RiskGate ["四大物理安全风控拦截网 (Security Interceptors)"]
-                RG_Qty[单笔最大张数 5张 物理上限]
-                RG_CC[裸卖 CC 拦截: 必须持有足额正股底仓]
-                RG_Put[裸卖 Put 拦截: 必须持有等额行权保证金]
-                RG_Dry[TRADING_DRY_RUN 沙盒阻断器]
-            end
-            
-            subgraph Adapters ["具体券商适配器"]
-                LP_Eng[LongPortTradingEngine<br>期权自适应滑点 & 1:100折算]
-                US_Eng[USMARTTradingEngine<br>uSMART 物理通道-规划中]
-            end
-            
-            Factory --> BaseEngine
-            BaseEngine --> RiskGate
-            RiskGate --> Adapters
-        end
-    end
-
-    %% Data Source
-    LongPort((LongPort OpenAPI 行情数据引擎))
-
-    %% Data Flow
-    LongPort -. "全量 11行业 ETF + SPY 日K线" .-> QuantEngine_40
-    QuantEngine_40 ==>|"1. Sector RS 行业相对强度过滤"| AlphaScan
-    
-    LongPort --> MacroRisk
-    LongPort --> Watchdog
-    LongPort --> Phase_Experts
-
-    AlphaScan --> PreScreen
-    MacroRisk --> PortManager
-    PortManager --> PreScreen
-    
-    PreScreen --> Phase_Experts
-    PreScreen -. "B. 无异动个股" .-> AutoHold
-    
-    TechExpert & FundExpert & SentExpert & SectExpert --> CIO
-    
-    Memory -. "注入防坑历史教训" .-> CIO
-    CIO --> OrderExec
-    
-    %% Decoupling
-    OrderExec ==> Factory
-    Watchdog ==> Factory
-    
-    LP_Eng -->|"真实通道"| LongPort
-    
-    Factory --> Review
-    Review --> Memory
-
-    class Watchdog wd;
-    class CIO,MacroRisk,AlphaScan,PortManager core;
-```
+<table width="100%">
+  <thead>
+    <tr>
+      <th width="30%" align="left">📌 逻辑分层 (System Layer)</th>
+      <th width="70%" align="left">🎯 核心组件与运作机能 (Core Components & Mechanics)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>1. 实时感知数据层</b><br><sub>Perception & Data</sub></td>
+      <td>
+        • <b>WebSocket Millisecond Watchdog</b>: 毫秒级盘中高频雷达，跌破成本 8% 极速防守熔断与高点抢跑抢筹。<br>
+        • <b>1-Minute Cron Watchdog</b>: 动态 ATR 追踪止损守护，过滤日内震荡噪声。<br>
+        • <b>Qlib Quant Engine</b>: 微软开源多因子量化中台，机器学习模型选股与盘中多特征因子在线对齐。
+      </td>
+    </tr>
+    <tr>
+      <td><b>2. 投研与风控决策层</b><br><sub>Strategic Decision</sub></td>
+      <td>
+        • <b>Portfolio & Risk Manager</b>: 宏观风控线性插值算法，输出单股/板块动态红线与胜率自适应门限。<br>
+        • <b>Parallel Expert Matrix</b>: 在 <code>asyncio.Semaphore(2)</code> 并发锁保护下，多线程并行产出技术/基本/舆情研报。<br>
+        • <b>CIO ReAct Strategic Brain</b>: 核心战略决策主脑，Through-Action-Observation 闭环思考下达交易动作。
+      </td>
+    </tr>
+    <tr>
+      <td><b>3. 物理执行抽象层</b><br><sub>Multi-Broker Adapter</sub></td>
+      <td>
+        • <b>BaseTradingEngine</b>: 统一物理接口定义，向策略层 100% 屏蔽券商差异，实现底层完全解耦。<br>
+        • <b>LongPort / uSMART Adapters</b>: 物理执行单例适配器，原生提供 OCC 1:100 股数/张数折算与大滑点补偿机制。<br>
+        • <b>Cancel-Before-Modify 挂单锁</b>: 下达新单前毫秒级自动检索并一键撤销同向冲突未成交挂单，杜绝额度占用。
+      </td>
+    </tr>
+    <tr>
+      <td><b>4. 立体防守与自愈层</b><br><sub>Defensive & Self-Healing</sub></td>
+      <td>
+        • <b>PRR (Profit Retention Ratio) 利润留存锁</b>: 独创非线性移动锁利，在 50% 利润分成区动态缩紧止损，锁死至少一半浮盈。<br>
+        • <b>auto_align_trailing_stops()</b>: 全自动数量自愈对齐，每日盘后/加仓后自动对齐最新持仓与止损单数量，严防错配漏挂。<br>
+        • <b>三重期权风控网</b>: Covered Call 正股底仓校验、Cash-secured Put 现金保证金硬锁、单笔最高 5 张物理拦截。
+      </td>
+    </tr>
+    <tr>
+      <td><b>5. 长期记忆与通知层</b><br><sub>Memory & Notification</sub></td>
+      <td>
+        • <b>ReviewAgent (Phase 5)</b>: 每日收盘后对账、盈亏审计与行为自省，提炼高价值战术经验并记入交易日志。<br>
+        • <b>TradingMemory 长期心智</b>: 经验教训压缩沉淀，动态更新长效规则库并回填 <code>daily_watchlist.json</code>。<br>
+        • <b>Feishu Multi-Mode Notifier</b>: 飞书卡片环境感知，根据路径和沙盒开关自动盖印 <code>[实盘影子模式]</code> 视觉标识。
+      </td>
+    </tr>
+  </tbody>
+</table>
 
 ---
 

@@ -1,199 +1,271 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 960 740" style="background:#0B1329; border-radius:12px; box-shadow:0 20px 40px rgba(0,0,0,0.5); font-family:'Inter', system-ui, sans-serif;">
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 1000 780" style="background:#090D1A; border-radius:16px; box-shadow:0 30px 60px rgba(0,0,0,0.6); font-family:'Inter', system-ui, sans-serif;">
     <defs>
-      <!-- Gradients for standard card backgrounds -->
-      <linearGradient id="layer-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#1E293B" />
-        <stop offset="100%" stop-color="#0F172A" />
+      <!-- Premium Glassmorphic Card Gradient -->
+      <linearGradient id="card-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#1E293B" stop-opacity="0.85" />
+        <stop offset="100%" stop-color="#0B0F19" stop-opacity="0.95" />
       </linearGradient>
-      <linearGradient id="header-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#1E40AF" />
-        <stop offset="50%" stop-color="#3B82F6" />
-        <stop offset="100%" stop-color="#1D4ED8" />
+      
+      <!-- Glow Gradients for Layer Borders -->
+      <linearGradient id="glow-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#38BDF8" />
+        <stop offset="100%" stop-color="#0EA5E9" />
       </linearGradient>
-      <!-- Neon glows for layer borders -->
-      <linearGradient id="border-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#06B6D4" />
-        <stop offset="100%" stop-color="#3B82F6" />
+      <linearGradient id="glow-gold" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#FBBF24" />
+        <stop offset="100%" stop-color="#F59E0B" />
       </linearGradient>
-      <linearGradient id="border-gold" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#F59E0B" />
+      <linearGradient id="glow-red" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#F87171" />
         <stop offset="100%" stop-color="#EF4444" />
       </linearGradient>
-      <linearGradient id="border-purple" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#8B5CF6" />
-        <stop offset="100%" stop-color="#EC4899" />
+      <linearGradient id="glow-purple" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#C084FC" />
+        <stop offset="100%" stop-color="#8B5CF6" />
       </linearGradient>
-      <linearGradient id="border-emerald" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#10B981" />
-        <stop offset="100%" stop-color="#059669" />
-      </linearGradient>
-      <linearGradient id="border-violet" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#6366F1" />
-        <stop offset="100%" stop-color="#4F46E5" />
+      <linearGradient id="glow-emerald" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#34D399" />
+        <stop offset="100%" stop-color="#10B981" />
       </linearGradient>
       
-      <!-- Drop shadow filters -->
-      <filter id="card-shadow" x="-10%" y="-10%" width="120%" height="120%">
-        <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
+      <!-- Core Title Banner Gradient -->
+      <linearGradient id="title-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#1E3A8A" />
+        <stop offset="50%" stop-color="#2563EB" />
+        <stop offset="100%" stop-color="#1D4ED8" />
+      </linearGradient>
+
+      <!-- Drop Shadows -->
+      <filter id="shadow-premium" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000000" flood-opacity="0.75"/>
       </filter>
-    </defs>
-
-    <!-- Background Decoration Grid -->
-    <g stroke="#ffffff" stroke-opacity="0.03" stroke-width="1">
-      <path d="M 0,50 L 960,50 M 0,100 L 960,100 M 0,150 L 960,150 M 0,200 L 960,200 M 0,250 L 960,250 M 0,300 L 960,300 M 0,350 L 960,350 M 0,400 L 960,400 M 0,450 L 960,450 M 0,500 L 960,500 M 0,550 L 960,550 M 0,600 L 960,600 M 0,650 L 960,650 M 0,700 L 960,700" />
-      <path d="M 100,0 L 100,740 M 200,0 L 200,740 M 300,0 L 300,740 M 400,0 L 400,740 M 500,0 L 500,740 M 600,0 L 600,740 M 700,0 L 700,740 M 800,0 L 800,740 M 900,0 L 900,740" />
-    </g>
-
-    <!-- Top Banner Title -->
-    <rect x="0" y="0" width="960" height="60" fill="url(#header-grad)" />
-    <text x="30" y="38" fill="#FFFFFF" font-size="20" font-weight="800" letter-spacing="1">LP-AGENT v4.0 FULL-STACK ARCHITECTURE</text>
-    <rect x="740" y="16" width="190" height="28" rx="14" fill="#000000" fill-opacity="0.4" />
-    <circle cx="756" cy="30" r="5" fill="#34D399" />
-    <text x="768" y="34" fill="#E2E8F0" font-size="11" font-weight="700">Broker-Decoupled Live</text>
-
-    <!-- ================= LAYER 1: PERCEPTION ================= -->
-    <g filter="url(#card-shadow)">
-      <!-- Outer glowing border -->
-      <rect x="30" y="85" width="900" height="100" rx="8" fill="url(#layer-grad)" stroke="url(#border-cyan)" stroke-width="1.5" />
-      <!-- Left indicator badge -->
-      <rect x="42" y="97" width="160" height="24" rx="4" fill="#06B6D4" fill-opacity="0.15" />
-      <text x="50" y="113" fill="#22D3EE" font-size="11" font-weight="800" letter-spacing="0.5">1. PERCEPTION LAYER</text>
-      <text x="42" y="156" fill="#94A3B8" font-size="11" font-weight="500">Real-time market sensing &amp; ingestion</text>
       
-      <!-- Sub-Component Cards -->
-      <!-- WS Watchdog -->
-      <rect x="220" y="97" width="220" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="232" y="120" fill="#38BDF8" font-size="12" font-weight="700">WebSocket Watchdog</text>
-      <text x="232" y="138" fill="#64748B" font-size="10">Millisecond push-driven triggers</text>
-      <text x="232" y="154" fill="#38BDF8" font-size="10" font-weight="600">8% Stop &amp; High-Breakout Capture</text>
-
-      <!-- 1-Min Watchdog -->
-      <rect x="455" y="97" width="220" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="467" y="120" fill="#38BDF8" font-size="12" font-weight="700">1-Min Cron Watchdog</text>
-      <text x="467" y="138" fill="#64748B" font-size="10">High-frequency local polling radar</text>
-      <text x="467" y="154" fill="#38BDF8" font-size="10" font-weight="600">ATR-based Dynamic Stop-losses</text>
-
-      <!-- Qlib Quant Engine -->
-      <rect x="690" y="97" width="220" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="702" y="120" fill="#38BDF8" font-size="12" font-weight="700">Qlib Quant Engine</text>
-      <text x="702" y="138" fill="#64748B" font-size="10">Microsoft Open-source Multi-Factor</text>
-      <text x="702" y="154" fill="#38BDF8" font-size="10" font-weight="600">GRU/LightGBM Alpha158 Sorting</text>
-    </g>
-
-    <!-- Connecting Arrow Layer 1 -> Layer 2 -->
-    <path d="M 480,185 L 480,205" fill="none" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="4 4" />
-
-    <!-- ================= LAYER 2: DECISION ================= -->
-    <g filter="url(#card-shadow)">
-      <rect x="30" y="210" width="900" height="110" rx="8" fill="url(#layer-grad)" stroke="url(#border-gold)" stroke-width="1.5" />
-      <rect x="42" y="222" width="160" height="24" rx="4" fill="#F59E0B" fill-opacity="0.15" />
-      <text x="50" y="238" fill="#FBBF24" font-size="11" font-weight="800" letter-spacing="0.5">2. DECISION LAYER</text>
-      <text x="42" y="285" fill="#94A3B8" font-size="11" font-weight="500">Expert analysis &amp; cognitive reasoning</text>
-
-      <!-- Portfolio / Risk Manager -->
-      <rect x="220" y="222" width="180" height="86" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="232" y="244" fill="#FBBF24" font-size="12" font-weight="700">Risk &amp; Port Manager</text>
-      <text x="232" y="264" fill="#64748B" font-size="10">Linear Risk Scoring</text>
-      <text x="232" y="280" fill="#FBBF24" font-size="10" font-weight="600">Dynamic Sector Limits</text>
-
-      <!-- Parallel Expert Matrix -->
-      <rect x="415" y="222" width="240" height="86" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="427" y="244" fill="#FBBF24" font-size="12" font-weight="700">Expert Matrix (Sem=2)</text>
-      <text x="427" y="264" fill="#64748B" font-size="10">Multi-threaded parallel research briefings</text>
-      <text x="427" y="280" fill="#FBBF24" font-size="10" font-weight="600">Tech / Fund / Sentiment / Quant</text>
-
-      <!-- CIO ReAct Brain -->
-      <rect x="670" y="222" width="240" height="86" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="682" y="244" fill="#EF4444" font-size="12" font-weight="700">CIO ReAct Brain</text>
-      <text x="682" y="264" fill="#64748B" font-size="10">Thought-Action-Observation loop</text>
-      <text x="682" y="280" fill="#EF4444" font-size="10" font-weight="600">Advanced Option / Sizing Strategy</text>
-    </g>
-
-    <!-- Connecting Arrow Layer 2 -> Layer 3 -->
-    <path d="M 480,320 L 480,340" fill="none" stroke="#F59E0B" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="4 4" />
-
-    <!-- ================= LAYER 3: ADAPTER ================= -->
-    <g filter="url(#card-shadow)">
-      <rect x="30" y="345" width="900" height="100" rx="8" fill="url(#layer-grad)" stroke="url(#border-purple)" stroke-width="1.5" />
-      <rect x="42" y="357" width="160" height="24" rx="4" fill="#8B5CF6" fill-opacity="0.15" />
-      <text x="50" y="373" fill="#A78BFA" font-size="11" font-weight="800" letter-spacing="0.5">3. TRADING ADAPTER</text>
-      <text x="42" y="415" fill="#94A3B8" font-size="11" font-weight="500">Unified broker-agnostic physical layer</text>
-
-      <!-- BaseTradingEngine Interface -->
-      <rect x="220" y="357" width="310" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="232" y="380" fill="#C084FC" font-size="12" font-weight="700">BaseTradingEngine Core Interface</text>
-      <text x="232" y="398" fill="#64748B" font-size="10">100% decouple trading from strategies</text>
-      <text x="232" y="414" fill="#C084FC" font-size="10" font-weight="600">Submit, Cancel, Position &amp; Balance Methods</text>
-
-      <!-- Pluggable Broker Channels -->
-      <rect x="545" y="357" width="365" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="557" y="380" fill="#EC4899" font-size="12" font-weight="700">Pluggable Channels &amp; Dynamic Slippage</text>
-      <text x="557" y="398" fill="#64748B" font-size="10">Cancel-Before-Modify order lock to avoid collateral locks</text>
-      <text x="557" y="414" fill="#EC4899" font-size="10" font-weight="600">LongPortTradingEngine (Live) / uSMART Adaptor (Planned)</text>
-    </g>
-
-    <!-- Connecting Arrow Layer 3 -> Layer 4 -->
-    <path d="M 480,445 L 480,465" fill="none" stroke="#8B5CF6" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="4 4" />
-
-    <!-- ================= LAYER 4: DEFENSIVE &amp; HEALING ================= -->
-    <g filter="url(#card-shadow)">
-      <rect x="30" y="470" width="900" height="100" rx="8" fill="url(#layer-grad)" stroke="url(#border-emerald)" stroke-width="1.5" />
-      <rect x="42" y="482" width="160" height="24" rx="4" fill="#10B981" fill-opacity="0.15" />
-      <text x="50" y="498" fill="#34D399" font-size="11" font-weight="800" letter-spacing="0.5">4. DEFENSIVE &amp; HEALING</text>
-      <text x="42" y="540" fill="#94A3B8" font-size="11" font-weight="500">Non-linear locks &amp; security filters</text>
-
-      <!-- PRR Profit Locking Guard -->
-      <rect x="220" y="482" width="315" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="232" y="504" fill="#34D399" font-size="12" font-weight="700">PRR (Profit Retention Ratio) Guard</text>
-      <text x="232" y="522" fill="#64748B" font-size="10">Non-linear profit lock (50% target tightening ratio)</text>
-      <text x="232" y="538" fill="#34D399" font-size="10" font-weight="600">Dynamically secures bull gains (e.g., TSM 4.09%, ARM 6.53%)</text>
-
-      <!-- Auto Alignment Stop Loss -->
-      <rect x="550" y="482" width="170" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="562" y="504" fill="#34D399" font-size="12" font-weight="700">Auto Stop Aligner</text>
-      <text x="562" y="522" fill="#64748B" font-size="10">Quantity healing alignment</text>
-      <text x="562" y="538" fill="#34D399" font-size="10" font-weight="600">Prevents Stop-qty mismatches</text>
-
-      <!-- Triple Option Shield -->
-      <rect x="735" y="482" width="175" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="747" y="504" fill="#10B981" font-size="12" font-weight="700">Triple Option Shield</text>
-      <text x="747" y="522" fill="#64748B" font-size="10">Hard limit on contracts</text>
-      <text x="747" y="538" fill="#10B981" font-size="10" font-weight="600">Covered/Cash-Secured Check</text>
-    </g>
-
-    <!-- Connecting Arrow Layer 4 -> Layer 5 -->
-    <path d="M 480,570 L 480,590" fill="none" stroke="#10B981" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="4 4" />
-
-    <!-- ================= LAYER 5: FEEDBACK &amp; NOTIFICATION ================= -->
-    <g filter="url(#card-shadow)">
-      <rect x="30" y="595" width="900" height="100" rx="8" fill="url(#layer-grad)" stroke="url(#border-violet)" stroke-width="1.5" />
-      <rect x="42" y="607" width="160" height="24" rx="4" fill="#6366F1" fill-opacity="0.15" />
-      <text x="50" y="623" fill="#818CF8" font-size="11" font-weight="800" letter-spacing="0.5">5. MEMORY &amp; FEEDBACK</text>
-      <text x="42" y="665" fill="#94A3B8" font-size="11" font-weight="500">Post-market reviews &amp; notification</text>
-
-      <!-- ReviewAgent (Phase 5) -->
-      <rect x="220" y="607" width="220" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="232" y="630" fill="#818CF8" font-size="12" font-weight="700">ReviewAgent (Phase 5)</text>
-      <text x="232" y="648" fill="#64748B" font-size="10">PnL calculation &amp; self-reflection</text>
-      <text x="232" y="664" fill="#818CF8" font-size="10" font-weight="600">Extracts actionable trading lessons</text>
-
-      <!-- TradingMemory -->
-      <rect x="455" y="607" width="220" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="467" y="630" fill="#818CF8" font-size="12" font-weight="700">Trading Memory Engine</text>
-      <text x="467" y="648" fill="#64748B" font-size="10">Ensures long-term consistency</text>
-      <text x="467" y="664" fill="#818CF8" font-size="10" font-weight="600">Generates next-day daily_watchlist</text>
-
-      <!-- Feishu Multi-Mode Notifier -->
-      <rect x="690" y="607" width="220" height="76" rx="6" fill="#0F172A" stroke="#1E293B" stroke-width="1" />
-      <text x="702" y="630" fill="#6366F1" font-size="12" font-weight="700">Feishu Notifier</text>
-      <text x="702" y="648" fill="#64748B" font-size="10">Multi-environment path detection</text>
-      <text x="702" y="664" fill="#6366F1" font-size="10" font-weight="600">Labels [实盘影子模式] cards dynamically</text>
-    </g>
-
-    <!-- Arrow Marker Definition -->
-    <defs>
-      <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-        <path d="M 0 1 L 10 5 L 0 9 z" fill="#3B82F6" />
+      <!-- Marker Arrows -->
+      <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38BDF8" />
+      </marker>
+      <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#EF4444" />
+      </marker>
+      <marker id="arrow-emerald" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10B981" />
+      </marker>
+      <marker id="arrow-gold" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#FBBF24" />
       </marker>
     </defs>
+
+    <!-- Deep Space Grid Background -->
+    <g stroke="#ffffff" stroke-opacity="0.02" stroke-width="1">
+      <path d="M 0,40 L 1000,40 M 0,80 L 1000,80 M 0,120 L 1000,120 M 0,160 L 1000,160 M 0,200 L 1000,200 M 0,240 L 1000,240 M 0,280 L 1000,280 M 0,320 L 1000,320 M 0,360 L 1000,360 M 0,400 L 1000,400 M 0,440 L 1000,440 M 0,480 L 1000,480 M 0,520 L 1000,520 M 0,560 L 1000,560 M 0,600 L 1000,600 M 0,640 L 1000,640 M 0,680 L 1000,680 M 0,720 L 1000,720" />
+      <path d="M 100,0 L 100,780 M 200,0 L 200,780 M 300,0 L 300,780 M 400,0 L 400,780 M 500,0 L 500,780 M 600,0 L 600,780 M 700,0 L 700,780 M 800,0 L 800,780 M 900,0 L 900,780" />
+    </g>
+
+    <!-- Header Block -->
+    <rect x="0" y="0" width="1000" height="60" fill="url(#title-grad)" />
+    <text x="30" y="38" fill="#FFFFFF" font-size="22" font-weight="900" letter-spacing="1.5">LP-AGENT v4.0 COGNITIVE TRADING TOPOLOGY</text>
+    <rect x="760" y="16" width="210" height="28" rx="14" fill="#000000" fill-opacity="0.5" />
+    <circle cx="778" cy="30" r="6" fill="#10B981" />
+    <text x="792" y="34" fill="#34D399" font-size="11" font-weight="800">3D STEREOSCOPIC FLOW</text>
+
+    <!-- ==================== FLOW CONNECTORS (THE WIRES) ==================== -->
+    <g fill="none" stroke-linecap="round">
+      <!-- Qlib -> PM Data Pipe -->
+      <path d="M 150,150 L 150,220" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-blue)" />
+      <text x="160" y="190" fill="#38BDF8" font-size="10" font-weight="700">Alpha List</text>
+      
+      <!-- PM -> PreScreen Ingestion -->
+      <path d="M 150,300 L 150,360" stroke="#FBBF24" stroke-width="2.5" marker-end="url(#arrow-gold)" />
+      <text x="160" y="335" fill="#FBBF24" font-size="10" font-weight="700">Limits &amp; Rules</text>
+
+      <!-- PreScreen -> Expert Matrix Trigger -->
+      <path d="M 260,400 L 340,400" stroke="#FBBF24" stroke-width="2.5" marker-end="url(#arrow-gold)" />
+      <text x="268" y="392" fill="#FBBF24" font-size="10" font-weight="700">Active Signals</text>
+
+      <!-- Expert Briefings -> CIO ReAct Brain -->
+      <path d="M 590,400 L 670,400" stroke="#C084FC" stroke-width="3" marker-end="url(#arrow-blue)" />
+      <text x="596" y="390" fill="#C084FC" font-size="10" font-weight="700">Expert Briefings</text>
+
+      <!-- WebSocket Watchdog -> CIO Emergency Wakeup (Bézier Curve) -->
+      <path d="M 595,115 C 690,115 765,150 765,270" stroke="#EF4444" stroke-width="2.5" marker-end="url(#arrow-red)" stroke-dasharray="6 4" />
+      <text x="672" y="135" fill="#EF4444" font-size="10" font-weight="800">🚨 WS Emergency Ingestion</text>
+
+      <!-- 1-Min Watchdog -> CIO Regular Poll Wakeup (Bézier Curve) -->
+      <path d="M 595,215 C 660,215 725,230 745,270" stroke="#EF4444" stroke-width="2" marker-end="url(#arrow-red)" stroke-dasharray="6 4" />
+
+      <!-- CIO Decision -> BaseTradingEngine Interface -->
+      <path d="M 765,430 C 765,500 660,530 590,530" stroke="#C084FC" stroke-width="3" marker-end="url(#arrow-blue)" />
+      <text x="670" y="495" fill="#C084FC" font-size="10" font-weight="700">Decoupled Order Msg</text>
+
+      <!-- BaseTradingEngine -> PRR Guard (Loopback) -->
+      <path d="M 180,520 Q 110,520 110,535 Q 110,550 180,550" stroke="#10B981" stroke-width="2" marker-end="url(#arrow-emerald)" />
+      <text x="115" y="505" fill="#34D399" font-size="9" font-weight="700">PRR Hook</text>
+
+      <!-- BaseTradingEngine -> Auto-Stop Aligner (Loopback) -->
+      <path d="M 780,520 Q 850,520 850,535 Q 850,550 780,550" stroke="#10B981" stroke-width="2" marker-end="url(#arrow-emerald)" />
+      <text x="795" y="505" fill="#34D399" font-size="9" font-weight="700">Align Stops</text>
+
+      <!-- BaseTradingEngine -> LongPort Channel -->
+      <path d="M 350,570 L 350,630" stroke="#8B5CF6" stroke-width="2.5" marker-end="url(#arrow-blue)" />
+      <text x="360" y="605" fill="#C084FC" font-size="10" font-weight="700">Live API Execution</text>
+
+      <!-- LongPort Execution -> Review Agent (Feedback Loop) -->
+      <path d="M 450,670 C 650,670 875,650 875,200" stroke="#10B981" stroke-width="2" marker-end="url(#arrow-emerald)" stroke-dasharray="5 3" />
+      <text x="675" y="660" fill="#34D399" font-size="10" font-weight="800">📊 Post-Market PnL Audit</text>
+
+      <!-- Review Agent -> Memory Consolidation -->
+      <path d="M 875,150 L 875,220" stroke="#10B981" stroke-width="2.5" marker-end="url(#arrow-emerald)" />
+
+      <!-- Memory Lessons Injection -> CIO Brain (Bézier Loop) -->
+      <path d="M 875,290 L 875,320" stroke="#34D399" stroke-width="2.5" marker-end="url(#arrow-blue)" />
+      <text x="885" y="308" fill="#34D399" font-size="10" font-weight="700">Lessons</text>
+    </g>
+
+
+    <!-- ==================== STEREOSCOPIC NODES (THE CARDS) ==================== -->
+
+    <!-- [PERCEPTION] Qlib Quant Engine -->
+    <g filter="url(#shadow-premium)">
+      <rect x="40" y="80" width="220" height="70" rx="10" fill="url(#card-grad)" stroke="url(#border-cyan)" stroke-width="1.5" />
+      <rect x="52" y="90" width="20" height="20" rx="4" fill="#06B6D4" fill-opacity="0.2" />
+      <text x="58" y="104" fill="#22D3EE" font-size="11" font-weight="900">Q</text>
+      <text x="80" y="100" fill="#F8FAFC" font-size="12" font-weight="800">Qlib Quant Engine</text>
+      <text x="80" y="116" fill="#64748B" font-size="9" font-weight="700">Alpha158 Factor Sorting</text>
+      <text x="80" y="130" fill="#22D3EE" font-size="9" font-weight="700">Top-Down Stock Selection</text>
+    </g>
+
+    <!-- [PERCEPTION] WebSocket Watchdog -->
+    <g filter="url(#shadow-premium)">
+      <rect x="360" y="80" width="230" height="70" rx="10" fill="url(#card-grad)" stroke="url(#border-cyan)" stroke-width="1.5" />
+      <rect x="372" y="90" width="20" height="20" rx="4" fill="#06B6D4" fill-opacity="0.2" />
+      <text x="377" y="104" fill="#22D3EE" font-size="11" font-weight="900">W</text>
+      <text x="400" y="100" fill="#F8FAFC" font-size="12" font-weight="800">WebSocket Watchdog</text>
+      <text x="400" y="116" fill="#64748B" font-size="9" font-weight="700">Millisecond push-driven monitor</text>
+      <text x="400" y="130" fill="#EF4444" font-size="9" font-weight="700">8% Cost Stop &amp; High-Breakout</text>
+    </g>
+
+    <!-- [PERCEPTION] 1-Min Cron Watchdog -->
+    <g filter="url(#shadow-premium)">
+      <rect x="360" y="180" width="230" height="70" rx="10" fill="url(#card-grad)" stroke="url(#border-cyan)" stroke-width="1.2" />
+      <rect x="372" y="190" width="20" height="20" rx="4" fill="#06B6D4" fill-opacity="0.2" />
+      <text x="378" y="204" fill="#22D3EE" font-size="11" font-weight="900">C</text>
+      <text x="400" y="200" fill="#F8FAFC" font-size="12" font-weight="800">1-Min Cron Watchdog</text>
+      <text x="400" y="216" fill="#64748B" font-size="9" font-weight="700">Medium frequency polling check</text>
+      <text x="400" y="230" fill="#22D3EE" font-size="9" font-weight="700">ATR-based Dynamic Stops</text>
+    </g>
+
+    <!-- [DECISION] Risk & Port Manager -->
+    <g filter="url(#shadow-premium)">
+      <rect x="40" y="220" width="220" height="80" rx="10" fill="url(#card-grad)" stroke="url(#border-gold)" stroke-width="1.5" />
+      <rect x="52" y="232" width="20" height="20" rx="4" fill="#F59E0B" fill-opacity="0.2" />
+      <text x="58" y="246" fill="#FBBF24" font-size="11" font-weight="900">R</text>
+      <text x="80" y="242" fill="#F8FAFC" font-size="12" font-weight="800">Portfolio &amp; Risk Manager</text>
+      <text x="80" y="258" fill="#64748B" font-size="9" font-weight="700">Linear macro risk scoring</text>
+      <text x="80" y="272" fill="#FBBF24" font-size="9" font-weight="700">Adaptive single/sector caps</text>
+    </g>
+
+    <!-- [DECISION] Pre-Screening Filter -->
+    <g filter="url(#shadow-premium)">
+      <rect x="40" y="360" width="220" height="80" rx="10" fill="url(#card-grad)" stroke="url(#border-gold)" stroke-width="1.5" />
+      <rect x="52" y="372" width="20" height="20" rx="4" fill="#F59E0B" fill-opacity="0.2" />
+      <text x="58" y="386" fill="#FBBF24" font-size="11" font-weight="900">F</text>
+      <text x="80" y="382" fill="#F8FAFC" font-size="12" font-weight="800">Local Pre-Screening</text>
+      <text x="80" y="398" fill="#64748B" font-size="9" font-weight="700">Hard rules threshold gate</text>
+      <text x="80" y="412" fill="#34D399" font-size="9" font-weight="700">Allows Auto-HOLD (0 Token)</text>
+    </g>
+
+    <!-- [DECISION] Parallel Expert Matrix -->
+    <g filter="url(#shadow-premium)">
+      <rect x="340" y="350" width="250" height="100" rx="10" fill="url(#card-grad)" stroke="url(#border-purple)" stroke-width="1.5" />
+      <rect x="352" y="362" width="20" height="20" rx="4" fill="#8B5CF6" fill-opacity="0.2" />
+      <text x="358" y="376" fill="#C084FC" font-size="11" font-weight="900">E</text>
+      <text x="380" y="372" fill="#F8FAFC" font-size="12" font-weight="800">Expert Matrix (Sem=2)</text>
+      <text x="380" y="390" fill="#94A3B8" font-size="9">Technical: Multitimeframe Quantity</text>
+      <text x="380" y="404" fill="#94A3B8" font-size="9">Fundamental: PE/PEG &amp; SWT Analyst</text>
+      <text x="380" y="418" fill="#94A3B8" font-size="9">Sentiment &amp; Quant Aligned Factors</text>
+    </g>
+
+    <!-- [DECISION] CIO ReAct Strategic Brain -->
+    <g filter="url(#shadow-premium)">
+      <rect x="670" y="320" width="280" height="110" rx="10" fill="url(#card-grad)" stroke="url(#border-red)" stroke-width="2" />
+      <rect x="682" y="332" width="20" height="20" rx="4" fill="#EF4444" fill-opacity="0.2" />
+      <text x="687" y="346" fill="#F87171" font-size="11" font-weight="900">C</text>
+      <text x="710" y="342" fill="#F8FAFC" font-size="13" font-weight="900">CIO ReAct Strategic Brain</text>
+      <text x="710" y="362" fill="#94A3B8" font-size="9.5" font-weight="700">Thought-Action-Observation decision loop</text>
+      <text x="710" y="378" fill="#F87171" font-size="9" font-weight="700">Covered Call / Protective Put / Sizing</text>
+      <rect x="710" y="394" width="220" height="22" rx="4" fill="#000000" fill-opacity="0.4" />
+      <text x="720" y="408" fill="#38BDF8" font-size="9" font-weight="700">Active Wakeup &amp; Strategic Auto-Adjustment</text>
+    </g>
+
+    <!-- [ADAPTER] BaseTradingEngine Interface -->
+    <g filter="url(#shadow-premium)">
+      <rect x="180" y="490" width="600" height="80" rx="10" fill="url(#card-grad)" stroke="url(#border-purple)" stroke-width="1.8" />
+      <rect x="192" y="502" width="20" height="20" rx="4" fill="#8B5CF6" fill-opacity="0.2" />
+      <text x="198" y="516" fill="#C084FC" font-size="11" font-weight="900">I</text>
+      <text x="220" y="512" fill="#F8FAFC" font-size="13" font-weight="800">BaseTradingEngine Core Interface</text>
+      <text x="220" y="528" fill="#64748B" font-size="10" font-weight="700">100% decouple execution from strategic logic</text>
+      <text x="220" y="544" fill="#A78BFA" font-size="9.5" font-weight="700">Covered Call Guard ── Cash-secured Put Lock ── Cancel-Before-Modify order lock</text>
+    </g>
+
+    <!-- [HEALING] PRR Profit Locking Guard -->
+    <g filter="url(#shadow-premium)">
+      <rect x="40" y="490" width="120" height="80" rx="10" fill="url(#layer-grad)" stroke="url(#border-emerald)" stroke-width="1.5" />
+      <rect x="48" y="500" width="16" height="16" rx="3" fill="#10B981" fill-opacity="0.2" />
+      <text x="53" y="512" fill="#34D399" font-size="9" font-weight="900">P</text>
+      <text x="70" y="512" fill="#F8FAFC" font-size="11" font-weight="800">PRR Lock</text>
+      <text x="48" y="534" fill="#94A3B8" font-size="8">50% Profit Retention</text>
+      <text x="48" y="546" fill="#34D399" font-size="8" font-weight="700">Tightens stops</text>
+      <text x="48" y="558" fill="#34D399" font-size="8" font-weight="700">automatically</text>
+    </g>
+
+    <!-- [HEALING] auto_align_trailing_stops -->
+    <g filter="url(#shadow-premium)">
+      <rect x="800" y="490" width="150" height="80" rx="10" fill="url(#layer-grad)" stroke="url(#border-emerald)" stroke-width="1.5" />
+      <rect x="808" y="500" width="16" height="16" rx="3" fill="#10B981" fill-opacity="0.2" />
+      <text x="813" y="512" fill="#34D399" font-size="9" font-weight="900">A</text>
+      <text x="830" y="512" fill="#F8FAFC" font-size="11" font-weight="800">Auto Aligner</text>
+      <text x="808" y="534" fill="#94A3B8" font-size="8">Stop-loss Qty Auto Healing</text>
+      <text x="808" y="546" fill="#34D399" font-size="8" font-weight="700">Matches actual holdings</text>
+      <text x="808" y="558" fill="#34D399" font-size="8" font-weight="700">against active stops</text>
+    </g>
+
+    <!-- [EXECUTION] LongPort Channel (Live Broker) -->
+    <g filter="url(#shadow-premium)">
+      <rect x="220" y="630" width="260" height="80" rx="10" fill="url(#card-grad)" stroke="url(#border-purple)" stroke-width="1.5" />
+      <rect x="232" y="642" width="20" height="20" rx="4" fill="#8B5CF6" fill-opacity="0.2" />
+      <text x="238" y="656" fill="#C084FC" font-size="11" font-weight="900">L</text>
+      <text x="260" y="652" fill="#F8FAFC" font-size="13" font-weight="800">LongPort Broker Adaptor</text>
+      <text x="260" y="668" fill="#64748B" font-size="9" font-weight="700">High-fidelity execution adaptor</text>
+      <text x="260" y="682" fill="#38BDF8" font-size="9" font-weight="700">1:100 OCC Options &amp; Slippage calculation</text>
+    </g>
+
+    <!-- [EXECUTION] uSMART Channel (Planned Broker) -->
+    <g filter="url(#shadow-premium)">
+      <rect x="500" y="630" width="260" height="80" rx="10" fill="url(#card-grad)" stroke="#1E293B" stroke-width="1" />
+      <rect x="512" y="642" width="20" height="20" rx="4" fill="#334155" fill-opacity="0.4" />
+      <text x="518" y="656" fill="#94A3B8" font-size="11" font-weight="900">U</text>
+      <text x="540" y="652" fill="#94A3B8" font-size="13" font-weight="800">uSMART Broker Adaptor</text>
+      <text x="540" y="668" fill="#64748B" font-size="9" font-weight="700">Alternative gateway support</text>
+      <text x="540" y="682" fill="#94A3B8" font-size="9" font-weight="700">Planned Virtual Conditional Orders</text>
+    </g>
+
+    <!-- [MEMORY] ReviewAgent -->
+    <g filter="url(#shadow-premium)">
+      <rect x="740" y="80" width="210" height="70" rx="10" fill="url(#layer-grad)" stroke="url(#border-violet)" stroke-width="1.2" />
+      <rect x="748" y="90" width="16" height="16" rx="3" fill="#6366F1" fill-opacity="0.2" />
+      <text x="753" y="102" fill="#818CF8" font-size="9" font-weight="900">V</text>
+      <text x="770" y="101" fill="#F8FAFC" font-size="11" font-weight="800">ReviewAgent (Phase 5)</text>
+      <text x="748" y="122" fill="#64748B" font-size="8.5">Audit &amp; Post-market daily review</text>
+      <text x="748" y="134" fill="#818CF8" font-size="8.5" font-weight="700">Extracts tactical rules dynamically</text>
+    </g>
+
+    <!-- [MEMORY] TradingMemory -->
+    <g filter="url(#shadow-premium)">
+      <rect x="740" y="210" width="210" height="80" rx="10" fill="url(#layer-grad)" stroke="url(#border-violet)" stroke-width="1.2" />
+      <rect x="748" y="220" width="16" height="16" rx="3" fill="#6366F1" fill-opacity="0.2" />
+      <text x="753" y="232" fill="#818CF8" font-size="9" font-weight="900">M</text>
+      <text x="770" y="231" fill="#F8FAFC" font-size="11" font-weight="800">TradingMemory Engine</text>
+      <text x="748" y="252" fill="#64748B" font-size="8.5">Long-term mind &amp; lesson database</text>
+      <text x="748" y="264" fill="#34D399" font-size="8.5" font-weight="700">Generates next-day daily_watchlist</text>
+    </g>
 </svg>

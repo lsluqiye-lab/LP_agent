@@ -17,7 +17,7 @@ LP-Agent v4.0 是一款基于 **Strategic Multi-Agent (SMA)** 架构、全面重
 我们专门设计了下方这套**科技感十足、完美适配浅色与深色模式的像素级 3D 浮雕式分层逻辑架构图**，它精确展现了从毫秒级行情捕获、CIO 主脑推理决策，到物理级 PRR 利润自愈锁和多态飞书监控的完整全景。
 
 <p align="center">
-  <img src="architecture_v4.svg" width="100%">
+  <img src="architecture_v4_final.svg" width="100%">
 </p>
 
 ---

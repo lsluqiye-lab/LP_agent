@@ -527,6 +527,33 @@ class BuyStockTool(BaseTool):
                 logging.warning(error_msg)
                 return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
 
+            # 3. 突破单情绪分仓惩罚与假突破确认 (痛点一优化)
+            # 如果是买入市价单(MO)且理由包含突破、追高、打穿等字眼
+            is_breakout_buy = (order_type == "MO") and any(w in reason.lower() or w in str(kwargs).lower() for w in ["突破", "追高", "打穿", "breakout", "offensive"])
+            
+            # (1) 分仓减半处罚：如果大盘情绪极其低迷 (Sentiment < 40)，下单股数强制减半
+            if sentiment < 40:
+                original_qty = quantity
+                quantity = max(1, quantity // 2)
+                reason += f" [风控干预: 当前情绪分 Sentiment={sentiment:.1f}<40, 触发分仓减半处罚, 原始股数 {original_qty} -> 惩罚后股数 {quantity}]"
+                logging.warning(f"[Sentiment Position Penalty] Sentiment={sentiment:.1f} < 40, Quantity cut from {original_qty} to {quantity}")
+
+            # (2) 假突破防接飞刀过滤：在低情绪/弱市环境 (Sentiment < 50) 下，禁止使用市价单(MO)直接追高突破，自动转换为带价格缓冲的回踩限价单(LO)
+            if is_breakout_buy and sentiment < 50:
+                try:
+                    config_lp = get_longport_config()
+                    quote_ctx = QuoteContext(config_lp)
+                    quote_res = quote_ctx.quote([modify_symbol(symbol)])
+                    if quote_res:
+                        current_price = float(quote_res[0].last_done)
+                        # 将市价单(MO)降级为带价格缓冲的回踩 0.6% 确认限价单(LO)，防范假突破套牢
+                        order_type = "LO"
+                        price = round(current_price * 0.994, 2)
+                        reason += f" [风控干预: 弱市(Sentiment={sentiment:.1f}<50)突破追高风险大, 强制将市价单(MO)降级为0.6%回踩限价单(LO), 挂单价 ${price}]"
+                        logging.warning(f"[Fake Breakout Filter] Downgraded breakout MO to pullback LO @ ${price} for symbol {symbol}")
+                except Exception as e:
+                    logging.error(f"[Fake Breakout Filter] 查询报价失败，无法执行回踩确认: {e}")
+
             engine = get_trading_engine()
             
             # 直接调用统一的 submit_order

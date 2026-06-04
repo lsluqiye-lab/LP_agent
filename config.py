@@ -23,8 +23,8 @@ def load_dotenv(filepath=".env"):
                     key, value = line.split("=", 1)
                     key = key.strip()
                     value = value.strip().strip("'\"")
-                    if key not in os.environ:
-                        os.environ[key] = value
+                    # 强力防御覆盖：本地 .env 声明的值必须 100% 强制覆盖任何全局/系统环境变量，以防止多环境多账户交叉污染
+                    os.environ[key] = value
 
 load_dotenv()
 

@@ -17,22 +17,23 @@ echo "  使用 Python: $PYTHON_BIN"
 echo "============================================================"
 
 # 1. 检查并清理已有的旧进程 (基于进程物理工作路径进行隔离，防止干扰相邻环境的 main.py)
-PID=""
+FOUND_PIDS=""
 ALL_PIDS=$(pgrep -f "$APP_NAME")
 for p in $ALL_PIDS; do
     if [ -d "/proc/$p" ]; then
         PROC_CWD=$(readlink -f "/proc/$p/cwd")
         CURR_CWD=$(pwd)
         if [ "$PROC_CWD" = "$CURR_CWD" ] && [ "$p" != "$$" ]; then
-            PID=$p
-            break
+            FOUND_PIDS="$FOUND_PIDS $p"
         fi
     fi
 done
 
-if [ -n "$PID" ]; then
-    echo "发现正在此目录运行的旧进程 (PID: $PID)，正在关闭..."
-    kill -9 $PID
+if [ -n "$FOUND_PIDS" ]; then
+    echo "发现正在此目录运行的旧进程 (PIDs:$FOUND_PIDS)，正在关闭..."
+    for kill_pid in $FOUND_PIDS; do
+        kill -9 $kill_pid 2>/dev/null || true
+    done
     sleep 1
 fi
 

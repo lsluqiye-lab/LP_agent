@@ -958,6 +958,43 @@ def main():
     run_history = {"morning": False, "afternoon": False}
     scanner_ran = False
     
+    # 盘前选股自适应补跑检查
+    try:
+        import os
+        import json
+        import config as app_config
+        current_time_startup = datetime.now(eastern)
+        current_date_startup = current_time_startup.strftime('%Y-%m-%d')
+        watchlist_path = "data/daily_watchlist.json"
+        need_scan = False
+        
+        if os.path.exists(watchlist_path):
+            with open(watchlist_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if data.get("date") != current_date_startup:
+                need_scan = True
+        else:
+            need_scan = True
+            
+        if need_scan and current_time_startup.strftime("%H:%M") >= "09:00":
+            logger.info("⚠️ 侦测到盘前自选股已过期且已过 09:00 AM，启动自适应补跑 Alpha Scanner...")
+            from agent.alpha_scanner import AlphaScanner
+            scanner = AlphaScanner(llm=analyst_llm)
+            new_watchlist, scan_reason = scanner.run()
+            
+            app_config.update_watchlist_in_place(new_watchlist)
+            logger.info(f"✅ 自适应补跑 Alpha Scanner 完毕，标的池已就地更新为: {app_config.WATCHLIST}")
+            scanner_ran = True
+            
+            if feishu_notifier:
+                feishu_notifier.send_card(
+                    title="🌅 每日动态标的池自动补跑更新",
+                    content=f"**补跑原因：** 守护进程重启/过期自适应修复\n\n**今日监控名单：**\n`{', '.join(new_watchlist)}`",
+                    color="turquoise"
+                )
+    except Exception as e:
+        logger.error(f"启动自适应补跑 Alpha Scanner 失败: {e}")
+    
     # News Watchdog 相关状态
     known_critical_events = ""
     last_critical_alert_time = None

@@ -23,6 +23,7 @@ class LongPortTradingEngine(BaseTradingEngine):
         self._config = _get_config()
         # 创建底层的 TradeContext 实例
         self._trade_ctx = TradeContext(self._config)
+        self._mock_sales = {} # Maps symbol to net mock quantity change
         logging.info("🎯 LongPortTradingEngine 底层 TradeContext 链接初始化完成")
 
     def _calculate_dynamic_slippage(self, symbol: str, base_price: float, order_side: str, order_type: str) -> tuple[float, float]:
@@ -273,6 +274,13 @@ class LongPortTradingEngine(BaseTradingEngine):
         import os
         if os.getenv("TRADING_DRY_RUN", "false").lower() == "true":
             logging.info(f"🚧 [DRY_RUN MOCK] 检测到开启了交易 DRY_RUN 沙盒，跳过真实长桥下单。组装好的下单报文细节: {order_params}")
+            qty_val = float(actual_qty)
+            if side == "Sell" or side == "OrderSide.Sell":
+                self._mock_sales[symbol] = self._mock_sales.get(symbol, 0.0) - qty_val
+                logging.info(f"🚧 [DRY_RUN MOCK] 虚拟扣减持仓: {symbol} 减少 {qty_val} 股/张 (当前累计变化: {self._mock_sales[symbol]})")
+            elif side == "Buy" or side == "OrderSide.Buy":
+                self._mock_sales[symbol] = self._mock_sales.get(symbol, 0.0) + qty_val
+                logging.info(f"🚧 [DRY_RUN MOCK] 虚拟增加持仓: {symbol} 增加 {qty_val} 股/张 (当前累计变化: {self._mock_sales[symbol]})")
             return {
                 "order_id": f"DRY-RUN-MOCK-{int(time.time())}",
                 "success": True,
@@ -299,25 +307,52 @@ class LongPortTradingEngine(BaseTradingEngine):
 
     def get_positions(self) -> List[Dict[str, Any]]:
         """
-        获取当前账户持仓，并进行标准格式清洗
+        获取当前账户持仓，并进行标准格式清洗，支持 Dry-Run 模拟仓位增减
         """
         position_resp = self._trade_ctx.stock_positions()
         cleaned = []
+        retrieved_symbols = set()
+        
         for channel in position_resp.channels:
             for pos in channel.positions:
                 symbol = pos.symbol
-                # 1. 甄别是否为期权
+                retrieved_symbols.add(symbol)
                 is_opt = self.is_option_symbol(symbol)
                 asset_type = "OPTION" if is_opt else "STOCK"
                 
-                cleaned.append({
-                    "symbol": symbol,
-                    "quantity": float(pos.available_quantity),
-                    "cost_price": float(pos.cost_price),
-                    "market_value": float(pos.market_value) if hasattr(pos, 'market_value') else 0.0,
-                    "asset_type": asset_type,
-                    "raw_position": pos
-                })
+                qty = float(pos.available_quantity)
+                
+                import os
+                if os.getenv("TRADING_DRY_RUN", "false").lower() == "true":
+                    mock_change = self._mock_sales.get(symbol, 0.0)
+                    qty += mock_change
+                
+                if qty > 0:
+                    cleaned.append({
+                        "symbol": symbol,
+                        "quantity": qty,
+                        "cost_price": float(pos.cost_price),
+                        "market_value": float(pos.market_value) if hasattr(pos, 'market_value') else 0.0,
+                        "asset_type": asset_type,
+                        "raw_position": pos
+                    })
+                    
+        # 兼容在沙盒中买入、且实盘没有持仓的股票
+        import os
+        if os.getenv("TRADING_DRY_RUN", "false").lower() == "true":
+            for symbol, mock_change in self._mock_sales.items():
+                if symbol not in retrieved_symbols and mock_change > 0:
+                    is_opt = self.is_option_symbol(symbol)
+                    asset_type = "OPTION" if is_opt else "STOCK"
+                    cleaned.append({
+                        "symbol": symbol,
+                        "quantity": mock_change,
+                        "cost_price": 0.0,
+                        "market_value": 0.0,
+                        "asset_type": asset_type,
+                        "raw_position": None
+                    })
+                    
         return cleaned
 
     def get_account_balance(self) -> Dict[str, Any]:

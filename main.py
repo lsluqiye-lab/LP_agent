@@ -915,7 +915,8 @@ def main():
     feishu_notifier = FeishuNotifier(
         webhook_url=config.feishu.webhook_url,
         app_id=config.feishu.app_id,
-        app_secret=config.feishu.app_secret
+        app_secret=config.feishu.app_secret,
+        chat_id=config.feishu.chat_id
     ) if config.feishu.enabled else None
 
     orchestrator = ExpertOrchestrator(llm=analyst_llm, feishu_notifier=feishu_notifier)

@@ -383,8 +383,8 @@ class LongPortTradingEngine(BaseTradingEngine):
             
         # 兼容多币种汇总
         return {
-            "cash": float(acc[0].cash) if acc else 0.0,
-            "buying_power": float(acc[0].power) if acc else 0.0,
+            "cash": float(acc[0].total_cash) if acc else 0.0,
+            "buying_power": float(acc[0].buy_power) if acc else 0.0,
             "net_assets": float(acc[0].net_assets) if acc else 0.0,
             "raw_balance": acc
         }

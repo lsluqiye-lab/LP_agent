@@ -316,17 +316,20 @@ class FeishuConfig:
     webhook_url: str = ""
     app_id: str = ""
     app_secret: str = ""
+    chat_id: str = ""
 
     @classmethod
     def from_env(cls) -> "FeishuConfig":
         webhook_url = os.getenv("FEISHU_WEBHOOK_URL", "")
         app_id = os.getenv("FEISHU_APP_ID", "")
         app_secret = os.getenv("FEISHU_APP_SECRET", "")
+        chat_id = os.getenv("FEISHU_CHAT_ID", "")
         return cls(
-            enabled=bool(webhook_url or (app_id and app_secret)),
+            enabled=bool(webhook_url or (app_id and app_secret) or chat_id),
             webhook_url=webhook_url,
             app_id=app_id,
             app_secret=app_secret,
+            chat_id=chat_id,
         )
 
 

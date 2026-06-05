@@ -147,5 +147,40 @@ class TestOptionSafetyInterceptors(unittest.TestCase):
         self.mock_trade_context.submit_order.assert_not_called()
         logging.info("✅ 成功验证：TRADING_DRY_RUN 开启时，跳过真实调用，下单模拟阻断成功！")
 
+    def test_protective_put_pairing_interceptor(self):
+        """测试保护性看跌期权（Protective Put）正股少于 100 股超额对冲硬拦截"""
+        # 1. 模拟当前持仓仅有 30 股 VRT（不足对冲 1 张合约所需的 100 股）
+        self.engine.get_positions = MagicMock(return_value=[
+            {"symbol": "VRT.US", "quantity": 30.0, "cost_price": 310.0, "market_value": 9300.0}
+        ])
+        
+        # 购买 30 股对应的 VRT Put（系统换算为 1 张 Put，需要 100 股正股）
+        # 应该被拒绝并抛出 ValueError
+        with self.assertRaises(ValueError) as context:
+            self.engine.submit_order(
+                symbol="VRT260618P295000.US",
+                side="Buy",
+                order_type="MO",
+                quantity=30  # 向上取整换算为 1 张 Put
+            )
+        
+        self.assertIn("强行拦截保护性看跌期权", str(context.exception))
+        logging.info("✅ 成功验证：迷你持仓下购买 Protective Put 超额对冲拦截成功！")
+
+        # 2. 模拟当前持仓达到 100 股 VRT（足额配对）
+        self.engine.get_positions = MagicMock(return_value=[
+            {"symbol": "VRT.US", "quantity": 100.0, "cost_price": 310.0, "market_value": 31000.0}
+        ])
+        os.environ["TRADING_DRY_RUN"] = "true"
+        resp = self.engine.submit_order(
+            symbol="VRT260618P295000.US",
+            side="Buy",
+            order_type="MO",
+            quantity=100  # 1 张 Put
+        )
+        self.assertTrue(resp["success"])
+        self.assertIn("DRY-RUN-MOCK", resp["order_id"])
+        logging.info("✅ 成功验证：持有足额正股（100股）时，1张 Protective Put 配对对冲安全通过！")
+
 if __name__ == "__main__":
     unittest.main()

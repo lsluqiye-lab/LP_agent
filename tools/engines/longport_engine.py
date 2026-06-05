@@ -214,6 +214,26 @@ class LongPortTradingEngine(BaseTradingEngine):
                         logging.error(error_msg)
                         raise ValueError(error_msg)
 
+                # 4) Protective Put（保护性看跌期权）正股配对比例拦截 (防止超额过度对冲)
+                elif side == "Buy" and opt_info["option_type"] == "Put":
+                    positions = self.get_positions()
+                    underlying_stock = f"{opt_info['underlying']}.US"
+                    held_stock_qty = 0.0
+                    for pos in positions:
+                        if pos["symbol"] == underlying_stock:
+                            held_stock_qty += pos["quantity"]
+
+                    required_stock_qty = float(actual_qty * 100)
+                    if held_stock_qty < required_stock_qty:
+                        error_msg = (
+                            f"❌ [Risk Interceptor] 强行拦截保护性看跌期权 (Protective Put)！"
+                            f"购买 {actual_qty} 张 Put 期权需要持仓至少持有 {required_stock_qty} 股 {opt_info['underlying']} 正股进行 1:100 配对，"
+                            f"而当前实际持仓仅为 {held_stock_qty} 股。这会导致严重的超额过度对冲 (Over-hedged) 并吞噬利润！"
+                            f"物理层已硬性锁死并拒绝下单！"
+                        )
+                        logging.error(error_msg)
+                        raise ValueError(error_msg)
+
         # 3. 决定有效期类型 Time in Force
         tif = TimeInForceType.Day if order_type == "MO" else TimeInForceType.GoodTilCanceled
 

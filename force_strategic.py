@@ -7,9 +7,10 @@ from agent.orchestrator import ExpertOrchestrator
 from agent.react import ReActAgent
 from agent.react import STRATEGIC_SYSTEM_PROMPT
 from data.trade_logger import get_trade_logger
+import os
 from notification.feishu import FeishuNotifier
 
-config = AppConfig.from_env()
+config = AppConfig.from_env(os.getenv("LLM_PROVIDER", "gemini"))
 logger = setup_logger("force_strategic")
 
 tool_registry = ToolRegistry()

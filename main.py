@@ -355,6 +355,18 @@ def pre_screen_candidates(candidates: list, risk_result: dict, portfolio_directi
         positions = pos_data.get("positions", [])
     except Exception:
         positions = []
+
+    # 提取总资产 (Net Assets) 与单股仓位限制，用于进行超量持仓风控拦截
+    acct_raw = collected_data.get("get_account_balance", "{}")
+    try:
+        acct_bal = json.loads(acct_raw) if isinstance(acct_raw, str) else acct_raw
+        net_assets = float(acct_bal.get("net_assets", 0.0))
+    except Exception:
+        net_assets = 0.0
+
+    max_stock_limit = 15.0  # 默认单股上限
+    if portfolio_directives and "dynamic_limits" in portfolio_directives:
+        max_stock_limit = float(portfolio_directives["dynamic_limits"].get("max_single_stock_exposure_pct", 15.0))
         
     pos_profit_map = {}
     for p in positions:
@@ -362,7 +374,9 @@ def pre_screen_candidates(candidates: list, risk_result: dict, portfolio_directi
         try:
             cost = float(p.get("cost_price", 0))
             qty = float(p.get("quantity", 0))
-            cur_price = float(p.get("market_value", 0)) / qty if qty > 0 else cost
+            # 优先使用实时现价（last_done）进行准确利润及市值计算
+            p_last = p.get("last_done")
+            cur_price = float(p_last) if p_last and p_last != "N/A" else cost
             profit_pct = (cur_price / cost - 1) * 100 if cost > 0 else 0.0
             pos_profit_map[sym] = profit_pct
         except Exception:
@@ -385,27 +399,42 @@ def pre_screen_candidates(candidates: list, risk_result: dict, portfolio_directi
         
         # ── A. 持仓股票诊断门限 ──
         if c_type in ["POSITION", "WEAK_POSITION"]:
-            # 门限 A1: 被 PortfolioManager 标记为需要淘汰的弱势杂草 (Weed out)
-            if sym in weed_out_list or c_type == "WEAK_POSITION":
-                is_active = True
-                active_reason = "被标记为需要淘汰的弱势持仓，需 CIO 进行优胜劣汰决策。"
-                
-            # 门限 A2: 宏观风控大跌 (Score < 50)，强制收紧持仓防守
-            elif macro_score < 50:
-                is_active = True
-                active_reason = f"宏观风控评分({macro_score})大跌进入防御，必须强制收紧防守线。"
-                
-            # 门限 A3: 浮盈不高（浮盈 < 2.0% 且近期大幅回撤 ret_20d < -4.0%），利润保护触发
-            else:
-                profit_pct = pos_profit_map.get(sym, 0.0)
-                if profit_pct < 2.0 and ret_20d < -4.0:
+            # 门限 A0: 单股持仓比例严重超过自适应上限 (例如超标 1.5% 以上)，强制触发 CIO 减仓决策
+            pos_item = next((p for p in positions if p.get("symbol") == sym), None)
+            if pos_item and net_assets > 0:
+                try:
+                    p_qty = float(pos_item.get("quantity", 0.0))
+                    p_last = pos_item.get("last_done")
+                    p_price = float(p_last) if p_last and p_last != "N/A" else float(pos_item.get("cost_price", 0.0))
+                    p_exposure_pct = (p_qty * p_price) / net_assets * 100
+                    if p_exposure_pct > max_stock_limit + 1.5:  # 给予 1.5% 的安全震荡及上涨缓冲
+                        is_active = True
+                        active_reason = f"单股持仓比例({p_exposure_pct:.2f}%)严重超标（当前自适应风控上限为 {max_stock_limit:.2f}%），必须强行触发 CIO 进行减仓/仓位再平衡决策。"
+                except Exception as e:
+                    logger.error(f"计算 {sym} 仓位占比超标预筛异常: {e}")
+
+            if not is_active:
+                # 门限 A1: 被 PortfolioManager 标记为需要淘汰的弱势杂草 (Weed out)
+                if sym in weed_out_list or c_type == "WEAK_POSITION":
                     is_active = True
-                    active_reason = f"持仓浮盈过低({profit_pct:.2f}%)，且20日走势回落严重({ret_20d}%)，需锁定微薄利润防洗盘。"
-                
-                # 门限 A4: 盈利加仓（浮盈 >= 0.0%，且今日爆量拉升 vol_ratio > 1.3）
-                elif profit_pct >= 0.0 and (vol_ratio >= 1.3 or "HIGH_VOL" in flags):
+                    active_reason = "被标记为需要淘汰的弱势持仓，需 CIO 进行优胜劣汰决策。"
+                    
+                # 门限 A2: 宏观风控大跌 (Score < 50)，强制收紧持仓防守
+                elif macro_score < 50:
                     is_active = True
-                    active_reason = f"底仓浮盈({profit_pct:.2f}%)，且个股今日放量异动(量比 {vol_ratio}x)，存在金字塔加仓机会。"
+                    active_reason = f"宏观风控评分({macro_score})大跌进入防御，必须强制收紧防守线。"
+                    
+                # 门限 A3: 浮盈不高（浮盈 < 2.0% 且近期大幅回撤 ret_20d < -4.0%），利润保护触发
+                else:
+                    profit_pct = pos_profit_map.get(sym, 0.0)
+                    if profit_pct < 2.0 and ret_20d < -4.0:
+                        is_active = True
+                        active_reason = f"持仓浮盈过低({profit_pct:.2f}%)，且20日走势回落严重({ret_20d}%)，需锁定微薄利润防洗盘。"
+                    
+                    # 门限 A4: 盈利加仓（浮盈 >= 0.0%，且今日爆量拉升 vol_ratio > 1.3）
+                    elif profit_pct >= 0.0 and (vol_ratio >= 1.3 or "HIGH_VOL" in flags):
+                        is_active = True
+                        active_reason = f"底仓浮盈({profit_pct:.2f}%)，且个股今日放量异动(量比 {vol_ratio}x)，存在金字塔加仓机会。"
 
         # ── B. 监控池股票买入诊断门限 ──
         elif c_type == "STRONG_SIGNAL" and allow_buy:

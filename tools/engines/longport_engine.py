@@ -377,7 +377,7 @@ class LongPortTradingEngine(BaseTradingEngine):
 
     def get_account_balance(self) -> Dict[str, Any]:
         """获取账户资金余额、可用购买力与总资产"""
-        acc = self._trade_ctx.account_balance()
+        acc = self._trade_ctx.account_balance("USD")
         if not acc:
             raise RuntimeError("无法获取 LongPort 账户余额数据")
             

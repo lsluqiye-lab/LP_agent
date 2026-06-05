@@ -1,19 +1,19 @@
 {
-    "date": "2026-05-31",
+    "date": "2026-06-05",
     "watchlist": [
-        "LLY",
-        "QCOM",
-        "ASML",
-        "FCX",
-        "AAPL",
-        "HOOD",
-        "GE",
-        "GS",
-        "ARM",
+        "VRT",
         "NVDA",
-        "TSM",
-        "TSLA"
+        "MS",
+        "LLY",
+        "GS",
+        "GE",
+        "FCX",
+        "ASML",
+        "ARM",
+        "QCOM",
+        "UNH",
+        "HOOD"
     ],
-    "reason": "在宏观风控评分 75.0 的 FAVORABLE 环境下，策略全面拥抱高动能与强催化标的。持仓股中 LLY 和 QCOM 凭借医保覆盖利好及 ByteDance 巨额 AI 订单获得 95 分最高评级。根据财报规避原则，剔除 3 日后发布财报的 AVGO 以防波动风险。新纳入 GE 受益于 10 亿美元 MRO 投资及国防合同，GS 展现了强劲的技术面突破。重点监控 HOOD 在 6 月 4 日 PDT 规则变更及 Agentic Trading 驱动下的交易活跃度爆发，以及半导体板块（NVDA, TSM, ARM）在 Blackwell 量产与 3nm 涨价预期下的持续估值扩张。",
-    "updated_at": "2026-05-31T09:02:09.065680-04:00"
+    "reason": "在宏观风控FAVORABLE（75分）的牛市环境下，策略核心在于‘持仓监控+动能爆发’。除强制保留的9只持仓股外，精选QCOM、UNH和HOOD入池：1. QCOM（评分90）具备6月24日投资者日及Dragonfly数据中心芯片发布的强催化；2. UNH（评分90）受益于防御性资金回流及Q1业绩指引大幅上调后的估值修复；3. HOOD（评分80）受FINRA取消PDT规则及SpaceX IPO零售配售双重利好，流动性溢价极高。所有新增标的均避开了未来5个交易日的财报窗口，且符合牛市环境下对高估值/超买动能龙头的容忍度，旨在捕获Vera Rubin平台（NVDA/VRT）及GLP-1口服药（LLY）等核心主线的持续溢价。",
+    "updated_at": "2026-06-05T09:02:50.177137-04:00"
 }

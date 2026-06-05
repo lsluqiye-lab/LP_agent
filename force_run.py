@@ -7,10 +7,11 @@ from main import run_strategic_cycle, setup_logger, create_llm, create_market_da
 from tools.base import ToolRegistry
 from agent.orchestrator import ExpertOrchestrator
 from agent.react import ReActAgent, STRATEGIC_SYSTEM_PROMPT
+import os
 from data.trade_logger import get_trade_logger
 from notification.feishu import FeishuNotifier
 
-config = AppConfig.from_env()
+config = AppConfig.from_env(os.getenv("LLM_PROVIDER", "gemini"))
 logger = setup_logger("force_run")
 
 tool_registry = ToolRegistry()

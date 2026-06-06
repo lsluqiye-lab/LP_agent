@@ -114,15 +114,22 @@ class MacroRiskManager:
         # ── 6. 波动率评分 (0-100) ──
         components["volatility"] = self._score_volatility(market_overview)
 
+        # ── 7. 坠落检测评分 (Crash Detection - 0-100) ──
+        components["crash_detection"] = self._score_crash_detection(market_overview)
+
         # ── 加权汇总 ──
         cfg = self.config
+        # 重新分配权重: crash_detection 占据 15%，减少其他分项
+        # 原权重: temp(25), spy(25), rsi(15), flow(15), sent(10), vol(10)
+        # 新权重: temp(20), spy(20), rsi(10), flow(10), sent(10), vol(15), crash(15)
         weighted_score = (
-            components["market_temperature"] * cfg.weight_market_temp +
-            components["spy_technical"] * cfg.weight_spy_technical +
-            components["rsi_breadth"] * cfg.weight_rsi_breadth +
-            components["capital_flow"] * cfg.weight_capital_flow +
-            components["sentiment"] * cfg.weight_sentiment +
-            components["volatility"] * cfg.weight_volatility
+            components["market_temperature"] * 0.20 +
+            components["spy_technical"] * 0.20 +
+            components["rsi_breadth"] * 0.10 +
+            components["capital_flow"] * 0.10 +
+            components["sentiment"] * 0.10 +
+            components["volatility"] * 0.15 +
+            components["crash_detection"] * 0.15
         )
         score = round(max(0, min(100, weighted_score)), 1)
 
@@ -147,6 +154,17 @@ class MacroRiskManager:
                 f"SPY技术面硬约束触发: spy_technical={spy_tech_score:.0f} < {cfg.score_spy_override}, "
                 f"总分 {score} 降级为 CAUTIOUS（禁止新建仓）"
             )
+
+        # ── 新增：坠落检测一票否决权 ──
+        crash_score = components.get("crash_detection", 100)
+        if crash_score < 40 and regime in (RiskRegime.NORMAL, RiskRegime.FAVORABLE):
+            regime = RiskRegime.CAUTIOUS
+            spy_override = True
+            logger.warning(f"坠落检测触发硬拦截: crash_score={crash_score} < 40, 即使总分高达 {score} 也强制降级为 CAUTIOUS")
+        
+        if crash_score < 10:
+            regime = RiskRegime.LOCKDOWN
+            logger.warning(f"坠落检测触发极端拦截: crash_score={crash_score} < 10, 强制进入 LOCKDOWN 模式")
 
         # ── 计算约束条件 ──
         constraints = self._calculate_constraints(score, regime)
@@ -183,29 +201,79 @@ class MacroRiskManager:
     def _score_market_temperature(self, data: dict) -> float:
         """
         市场温度评分
-
-        LongPort temperature: 0-100（市场热度）
-        我们希望温度适中（30-70为佳），过高过低都扣分
+        修正：如果温度适中但价格大跌，不再给高分（防止把崩盘当降温）
         """
         temp_data = data.get("market_temperature", {})
         if not temp_data or "error" in temp_data:
-            return 50.0  # 无数据时给中性分
+            return 50.0
 
         temperature = temp_data.get("temperature")
         if temperature is None:
             return 50.0
 
-        # 温度 40-60 最好(100分)，往两端递减
+        # 获取大盘日内表现作为修正因子
+        spy = data.get("indexes", {}).get("SPY", {})
+        intraday_change = spy.get("intraday_change_pct", 0)
+
+        # 正常逻辑：温度 40-60 最好
         if 40 <= temperature <= 60:
-            return 100.0
+            base_score = 100.0
         elif 30 <= temperature < 40 or 60 < temperature <= 70:
-            return 75.0
+            base_score = 75.0
         elif 20 <= temperature < 30 or 70 < temperature <= 80:
-            return 50.0
+            base_score = 50.0
         elif temperature < 20:
-            return 25.0  # 极度冷淡
+            base_score = 25.0
         else:
-            return 30.0  # 极度过热
+            base_score = 30.0
+
+        # 修正逻辑：如果 SPY 日内跌幅超过 0.8%，温度分强制打 7 折，超过 1.5% 打 3 折
+        if intraday_change < -1.5:
+            base_score *= 0.3
+        elif intraday_change < -0.8:
+            base_score *= 0.7
+
+        return base_score
+
+    def _score_crash_detection(self, data: dict) -> float:
+        """
+        坠落检测评分 (0-100)
+        专门监控 SPY/QQQ 的日内跌幅和高点回撤
+        """
+        spy = data.get("indexes", {}).get("SPY", {})
+        qqq = data.get("indexes", {}).get("QQQ", {})
+        
+        # 取两者中最差的情况
+        spy_drop = spy.get("intraday_change_pct", 0)
+        qqq_drop = qqq.get("intraday_change_pct", 0)
+        worst_drop = min(spy_drop, qqq_drop)
+        
+        spy_dd = spy.get("high_drawdown_pct", 0)
+        qqq_dd = qqq.get("high_drawdown_pct", 0)
+        worst_dd = min(spy_dd, qqq_dd)
+
+        # 评分逻辑：
+        # 跌幅 < 0.3%: 100分 (安全)
+        # 跌幅 0.3% - 1.0%: 100 -> 60 分
+        # 跌幅 1.0% - 2.0%: 60 -> 20 分
+        # 跌幅 > 2.0%: 0分 (崩盘)
+        
+        if worst_drop >= -0.3:
+            score = 100.0
+        elif worst_drop >= -1.0:
+            # 线性插值: -0.3 -> 100, -1.0 -> 60
+            score = 60 + (worst_drop - (-1.0)) / 0.7 * 40
+        elif worst_drop >= -2.0:
+            # 线性插值: -1.0 -> 60, -2.0 -> 20
+            score = 20 + (worst_drop - (-2.0)) / 1.0 * 40
+        else:
+            score = 0.0
+
+        # 高点回撤额外扣分：如果从日内高点回落超过 1.5%，额外扣 20 分
+        if worst_dd < -1.5:
+            score -= 20
+            
+        return max(0, min(100, score))
 
     def _score_spy_technical(self, data: dict) -> float:
         """

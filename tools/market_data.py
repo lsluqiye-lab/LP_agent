@@ -1014,6 +1014,11 @@ class GetMarketOverviewTool(BaseTool):
             # ── SPY/QQQ 技术面 ──
             for index_symbol in ["SPY.US", "QQQ.US"]:
                 short_name = cut_symbol(index_symbol)
+                
+                # 获取实时报价以计算日内表现
+                quotes = ctx.quote([index_symbol])
+                rt_quote = quotes[0] if quotes else None
+                
                 daily = ctx.history_candlesticks_by_offset(
                     index_symbol, Period.Day, AdjustType.ForwardAdjust,
                     forward=False, count=250
@@ -1025,7 +1030,15 @@ class GetMarketOverviewTool(BaseTool):
                 closes = [float(c.close) for c in daily]
                 highs = [float(c.high) for c in daily]
                 lows = [float(c.low) for c in daily]
-                price = closes[-1]
+                
+                # 优先使用实时价，否则用最后收盘价
+                price = float(rt_quote.last_done) if rt_quote else closes[-1]
+                open_price = float(rt_quote.open) if rt_quote else float(daily[-1].open)
+                high_price = float(rt_quote.high) if rt_quote else float(daily[-1].high)
+
+                # 计算日内相对于开盘价和日内最高价的偏离度
+                intraday_change_pct = round((price / open_price - 1) * 100, 2) if open_price else 0
+                high_drawdown_pct = round((price / high_price - 1) * 100, 2) if high_price else 0
 
                 sma20 = calc_sma(closes, 20)
                 sma50 = calc_sma(closes, 50)
@@ -1041,6 +1054,10 @@ class GetMarketOverviewTool(BaseTool):
 
                 results[short_name] = {
                     "price": round(price, 2),
+                    "open": round(open_price, 2),
+                    "high": round(high_price, 2),
+                    "intraday_change_pct": intraday_change_pct,
+                    "high_drawdown_pct": high_drawdown_pct,
                     "SMA20": round(sma20, 2) if sma20 else None,
                     "SMA50": round(sma50, 2) if sma50 else None,
                     "SMA200": round(sma200, 2) if sma200 else None,

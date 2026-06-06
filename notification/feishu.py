@@ -147,7 +147,7 @@ class FeishuNotifier:
             print(f"飞书消息发送网络异常: {e}")
             return False
 
-    def send_card(self, title: str, content: str, color: str = "blue", footer: str = "LP-Agent v4.0", image_key: Optional[str] = None) -> bool:
+    def send_card(self, title: str, content: str, color: str = "blue", footer: str = "LP-Agent v4.1", image_key: Optional[str] = None) -> bool:
         """
         发送飞书卡片消息 (优先通过 Chat ID API，其次 Webhook)
         支持传入 image_key 以在卡片中嵌入图片

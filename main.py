@@ -1,5 +1,5 @@
 """
-LP-Agent v4.1 主入口 (Strategic Multi-Agent)
+LP-Agent v4.2 主入口 (Strategic Multi-Agent)
 AI自动交易智能体 - 专家协作架构
 
 执行流程:
@@ -43,8 +43,8 @@ from notification.feishu import FeishuNotifier
 
 def is_trading_hours(eastern_time: datetime) -> bool:
     """
-    检查是否在交易时段（盘前1小时 + 盘中 + 盘后1小时）
-    8:30 - 17:00 ET
+    检查是否在交易监控时段（覆盖盘前防御 + 盘中决策 + 盘后复盘）
+    8:00 - 17:00 ET
     """
     nyse_holidays = holidays.NYSE()
     today_str = eastern_time.strftime('%Y-%m-%d')
@@ -53,8 +53,8 @@ def is_trading_hours(eastern_time: datetime) -> bool:
     if eastern_time.weekday() >= 5:
         return False
     current_t = eastern_time.time()
-    # 限制为正常交易时段 (9:30 - 16:00 ET)，避免盘前盘后的低流动性假突破疯狂唤醒 CIO
-    if dt_time(9, 30) <= current_t <= dt_time(16, 0):
+    # 扩大窗口至 8:00 - 17:00 ET，确保盘前黑天鹅防御和盘后对冲对齐
+    if dt_time(8, 0) <= current_t <= dt_time(17, 0):
         return True
     return False
 
@@ -267,10 +267,15 @@ async def phase3_map_experts(
 
     logger.info(f"[Phase 3] 开始并行专家分析: {len(candidates)} 只个股")
     
+    # 🆕 升级：不再仅使用浅层的 risk_result，而是调用 MacroAnalyst 进行深度本质分析
+    logger.info("[Phase 3] 获取深度宏观结构化研报 (Macro Deep Analysis)...")
+    macro_deep_report = await orchestrator.get_macro_deep_briefing()
+    
     macro_briefing = {
         "risk_level": risk_result["regime"].upper(),
         "score": risk_result["score"],
         "summary": risk_result.get("constraints", {}).get("message", "无明确约束信息"),
+        "deep_analysis": macro_deep_report, # 注入深度分析
         "key_events": []
     }
 
@@ -924,7 +929,7 @@ def main():
     logger = setup_logger("strategic_agent", config.log)
     
     logger.info("=" * 60)
-    logger.info("LP-Agent v4.1 (Watchdog + Strategic Brain) 启动")
+    logger.info("LP-Agent v4.2 (Watchdog + Strategic Brain) 启动")
     logger.info("=" * 60)
 
     try:
@@ -1175,7 +1180,7 @@ def main():
             logger.error(f"主循环出错: {e}", exc_info=True)
             time.sleep(60)
 
-    logger.info("LP-Agent v4.1 已退出")
+    logger.info("LP-Agent v4.2 已退出")
 
 if __name__ == "__main__":
     main()

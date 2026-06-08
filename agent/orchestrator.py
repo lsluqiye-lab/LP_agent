@@ -12,6 +12,7 @@ from agent.fundamental_analyst import FundamentalAnalyst
 from agent.technical_analyst import TechnicalAnalyst
 from agent.sentiment_analyst import SentimentAnalyst
 from agent.sector_analyst import SectorAnalyst
+from agent.macro_analyst import MacroAnalyst
 from llm.base import BaseLLM
 from logger import setup_logger
 
@@ -30,11 +31,16 @@ class ExpertOrchestrator:
         self.t_analyst = TechnicalAnalyst(llm)
         self.s_analyst = SentimentAnalyst(llm)
         self.sec_analyst = SectorAnalyst(llm)
+        self.m_analyst = MacroAnalyst(llm)
         self.feishu_notifier = feishu_notifier
 
     async def get_sector_briefing(self) -> SectorBriefing:
         """Runs the sector rotation analysis once globally."""
         return await self.sec_analyst.analyze()
+
+    async def get_macro_deep_briefing(self) -> Dict:
+        """Runs the deep macro structural analysis."""
+        return await self.m_analyst.analyze()
 
     async def get_full_briefing(self, symbol: str, macro_briefing: MacroBriefing, sector_briefing: SectorBriefing) -> DecisionBriefing:
         """

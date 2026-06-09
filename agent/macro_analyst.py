@@ -27,8 +27,9 @@ class MacroAnalyst:
         # Step 1: Gather structural macro information
         queries = [
             "latest US non-farm payrolls structural analysis: high-tech layoffs vs service growth",
-            "Fed latest hawkish/dovish sentiment and interest rate path projection",
-            "Wall Street reaction to US jobs data and tech industry downsizing",
+            "Fed FOMC June 2026 interest rate path projection and dot plot expectations",
+            "Bank of Japan June 2026 rate hike rumors and Yen carry trade impact on US tech",
+            "Global Central Bank Week June 2026: BoJ and Fed policy synergy/divergence",
             "10-year Treasury yield impact on high-growth tech valuation logic"
         ]
         

@@ -93,6 +93,7 @@ class ExpertOrchestrator:
                 "technical": technical_res,
                 "sentiment": sentiment_res,
                 "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res),
+                "identified_certainties": self._detect_certainties(macro_briefing, fundamental_res, technical_res, sentiment_res),
                 "trading_history": history_summary
             }
             
@@ -109,9 +110,13 @@ class ExpertOrchestrator:
                     f"**🌐 消息面 ({sentiment_res.get('market_sentiment', 'Unknown')}):**\\n{s_summary}"
                 )
                 
+                if briefing.get('identified_certainties'):
+                    certainty_str = "\\n- ".join(briefing['identified_certainties'])
+                    card_content += f"\\n\\n**✅ 确认信号 (Certainties):**\\n- {certainty_str}"
+
                 if briefing.get('identified_conflicts'):
                     conflict_str = "\\n- ".join(briefing['identified_conflicts'])
-                    card_content += f"\\n\\n**⚠️ 发现矛盾点:**\\n- {conflict_str}"
+                    card_content += f"\\n\\n**⚠️ 矛盾/警报 (Conflicts):**\\n- {conflict_str}"
 
                 self.feishu_notifier.send_card(
                     title=f"🔎 专家研报完成: {symbol}",
@@ -144,10 +149,31 @@ class ExpertOrchestrator:
         if technical.get('trend_stage') != "Stage 2":
             conflicts.append(f"Price is in {technical.get('trend_stage')}, failing the Stage 2 buy requirement.")
 
-        # 4. Momentum vs Volume
-        # (Add more as needed)
+        # 4. Momentum vs Volume (Overbought Warning)
+        if technical.get('is_rsi_overbought'):
+            conflicts.append("⚠️ 技术指标极端超买 (RSI > 75). 警惕追高回调风险！")
 
         return conflicts
+
+    def _detect_certainties(self, macro, fundamental, technical, sentiment) -> List[str]:
+        """
+        Extract strong positive confluences and structured indicators.
+        """
+        certainties = []
+
+        # 1. Volume Confirmation
+        if technical.get('is_volume_breakout'):
+            certainties.append("✅ 真实量价齐升：监测到成交量显著异动放大 (>1.5x)。")
+        
+        # 2. Stage 2 Confirmation
+        if technical.get('trend_stage') == "Stage 2":
+             certainties.append("✅ 趋势确认：处于健康的 Stage 2 上升通道。")
+             
+        # 3. Fundamental Backing
+        if fundamental.get('valuation') in ["Undervalued", "Very Undervalued", "Fair Value"]:
+             certainties.append("✅ 基本面支撑：估值处于合理或低估区间。")
+             
+        return certainties
 
     def _get_error_briefing(self, expert_name: str) -> Dict:
         """Fallback for failed analysis."""

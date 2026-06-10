@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.1] - 2026-06-10
+### Added
+- **Execution Audit Loop**: Added regex-based intention scanning in `agent/react.py` to physically intercept and warn the CIO if a decided trading action (BUY/SELL) is not accompanied by an actual tool call, mitigating LLM "hallucination" failures during high-stress market events (like the ARM drop on 06-09).
+- **Information Distillation**: Introduced `identified_certainties` to the `DecisionBriefing` schema. The `Orchestrator` now extracts hard boolean metrics (`is_volume_breakout`, `is_rsi_overbought`) from weak expert agents and displays them at the top of the briefing to prevent CIO cognitive overload.
+
+### Changed
+- **Opening Hysteria Protocol**: Refined the "Opening Hysteria" rules in `react.py`. Shifted from a rigid time-based ban to a "Volume Veto" approach. The CIO is now required to deny any breakout missing a >1.5x volume spike.
+- **Dynamic Hedge Unwinding**: Upgraded the advanced options instruction in `react.py`. The CIO is now explicitly authorized to dynamically close Protective Puts when the macro risk score recovers (>70) or the Put achieves outsized defensive profits, rather than holding to expiration.
+
 ## [4.2.0] - 2026-06-08
 ### Added
 - **MacroAnalyst Agent**: New specialized agent for "Seeing the Essence Through Phenomena". Performs structural macro analysis (e.g., jobs data quality, Fed transmission).

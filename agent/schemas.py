@@ -22,6 +22,8 @@ class TechnicalBriefing(TypedDict):
     trend_stage: TrendStage
     summary: str  # e.g., "处于强势上升趋势，但RSI指标显示超买"
     volume_price_analysis: str  # e.g., "放量突破，OBV看多背离，资金流入明显"
+    is_volume_breakout: bool # e.g., True if volume is > 1.5x average
+    is_rsi_overbought: bool  # e.g., True if daily RSI > 75
     key_signals: List[str]  # e.g., ["RSI > 75", "股价 > 50日均线", "出现口袋支点"]
     support_levels: List[float]
     resistance_levels: List[float]
@@ -70,6 +72,13 @@ class DecisionBriefing(TypedDict):
     # e.g., [
     #   "基本面强劲 vs. 技术面超买",
     #   "市场情绪极度乐观 vs. 宏观环境谨慎"
+    # ]
+    
+    # 专家层提纯的结构化确定性信号 (Information Distillation)
+    identified_certainties: List[str]
+    # e.g., [
+    #   "真实量价齐升：成交量放大 > 1.5x",
+    #   "明确的 Stage 2 主升浪"
     # ]
     
     # 该股票在本账户的近期历史战绩（胜率/盈亏等），用于长效记忆反思

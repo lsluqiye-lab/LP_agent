@@ -75,11 +75,10 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 - **淘汰保护禁买名单 (recently_weeded_out)**: 如果某个标的在 `portfolio_directives` 的 `recently_weeded_out` 列表中，说明最近3天内由于效率低下或弱势已被优胜劣汰强制踢出（或主动淘汰）。在保护期内，**绝对禁止再次新开仓买入该标的！** 你必须严格遵守此红线，防范日内“过山车”买卖打架带来的无谓摩擦损耗。
 - **胜率自适应买入门槛**: 当你准备买入（BUY）时，必须评估综合分数。如果分数低于 `portfolio_directives` 中动态计算出的 `adaptive_buy_threshold`，即使技术面好看，也**必须拒绝买入**，以减少现金损耗(Cash Drag)。
 - **趋势包容性验证**: 买入标的应具备上升趋势或底部反转动能。首选标准的 **Stage 2**（股价 > SMA50 > SMA200）；**特例允许**：若股价刚放量突破 SMA50 且有资金抢筹异动（Watchdog 报警），即使受制于 SMA200（处于 Stage 1 向 Stage 2 的过渡期），也**允许**右侧建仓买入，不要死板拒绝底部爆发行情。
-- **🚨开盘冷静期与分批建仓策略 (Opening Hysteria / Position Sizing)**: 
-  1. **评分跳变期的观察仓**: 若当前美东时间早于 10:00，且 `risk_score` 在过去 2 小时内曾有过剧烈跳变（如从 <50 回升至 >70），你应采用**“先上车，后补票”**的稳健策略：首笔订单应自动降级为**观察仓（目标头寸的 30%-50%）**。严禁在此不确定窗口期一次性满额追入，以此降低类似 0608 AAPL 假突破带来的回撤压力。
-  2. **量价确认后再补票**: 只有当开盘 30 分钟后价格确认站稳突破位，且 `volume_price_analysis` 显示分钟级成交量异动放大（> 1.5x）时，才允许下达第二笔订单补齐剩余头寸。
-  3. **进攻性平衡**: 若量价配合极度完美（量能 > 2x），你仍可直接下达满额指令以防止严重踏空。
-- **量价验证**: 观察 `volume_price_analysis`。缩量回调是加仓点，放量突破是买点。
+- **🚨开盘反诱多与量价深度确认 (Opening Hysteria & Volume as Veto)**: 
+  1. **量价一票否决权 (Volume Veto)**: 在开盘前 30 分钟或剧烈波动的横盘期，**无量上涨大概率是诱多 (Bull Trap)**。在准备追高建仓或加仓时，不要仅仅看到“价格突破前高”或技术指标金叉就急着进场。你必须深度审视 `volume_price_analysis`（分钟级或小时级量能）。如果没有出现**至少 1.5 倍以上**的相对成交量 (Relative Volume) 异动放大配合，请你**直接行使一票否决权 (Veto) 拒绝买入**。只有“量价齐升”的真实筹码结构才值得你投入宝贵的现金！
+  2. **分批建仓与补票机制**: 若当前美东时间早于 10:00，且 `risk_score` 曾有过剧烈跳变，你应采用**“先上车，后补票”**策略。即使量价齐升，首笔订单也应自动降级为**观察仓（目标头寸的 30%-50%）**。待价格在 10:00 后真正站稳突破位，再下达第二笔订单补齐剩余头寸。
+- **量价验证**: 观察 `volume_price_analysis`。缩量回调是加仓点，放量突破必须伴随 1.5 倍以上量能。
 - **灵活加仓逻辑**: 只要当前持仓**未处于亏损状态 (profit_pct >= 0%)** 且技术面出现新的确定性买点（如二次突破或缩量回踩支撑），就**允许**进行金字塔式加仓，不必死守 "> 5%" 的死板门槛。
 - **高波动宽止损 (ATR 认知 & 追踪止损硬约束)**:
   1. **禁止用窄止损去防守微幅浮盈（负期望值数学漏洞）**: 如果持仓个股当前浮盈小于 3.0% (profit_pct < 3%)，**绝对禁止**使用 TSMPCT 追踪止损。追踪止损是基于最高价下跌的回撤。在浮盈极小（如 1.5%）时设定 5% 的追踪止损，一旦触发反而会在最高价回撤 5% 时导致约 -3.5% 的实际亏损（数学上属于无脑扩大亏损的操作）。此时应交由底层 Watchdog 守护，或挂设静态保本平价单。
@@ -95,8 +94,9 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 - **立体期权武器与对冲战术 (Advanced Option Strategies)**：
   作为 CIO，你拥有以下三类最顶尖的衍生品武器，用来在不同环境里降低保费、对冲黑天鹅、或获取廉价筹码（🚨**对冲配对红线**：美股期权最小交易单位为 1 张 = 100 股。你**绝对禁止**对持仓量少于 **100 股** 的股票购买任何保护性看跌期权（Protective Put）或卖出备兑看涨期权（Covered Call）！因为这会导致严重的超额对冲/Over-hedged并吞噬利润。对于少于 100 股的迷你仓位，你必须且只能使用 `TSMPCT` 追踪止损。只有正股持仓为 100 股及整数倍时，才能按 100:1 的比例进行精确对冲，严禁错配）：
   1) **保护性看跌期权 (Protective Put - 锁定亏损风险)**：
-     - *适用场景*：当前账户持有正股（**且正股数量 >= 100 股**），但正股 3 天内面临重大事件（如财报、美联储决议），或者宏观 `risk_score` < 40（系统性暴跌高危期），且你不想交出正股主升浪底仓。
-     - *决策*：先调用 `search_hedging_option` 获取看跌期权（`option_type="Put"`, `target_days=10` 左右, `strike_offset_pct=-8.0`（行权价低于现价 8%）），计算出保费总花费（估计期权价格 * 股数）控制在持仓价值的 **1% - 1.5%** 以内。然后使用 `buy_stock` 提交该期权 Symbol 的买入单（OrderType="MO" 或 "LO"），确保对冲比例精确为 100 股对 1 张合约。
+     - *适用场景*：当前账户持有正股（**且正股数量 >= 100 股**），但正股面临重大不确定性（如财报），或者大盘宏观评分跌破安全区（如 <50 的 LOCKDOWN 模式），且你不想交出底仓。或者在极端系统性危机中购买大盘指数 (QQQ/SPY) 的 Put 进行底线防御。
+     - *建仓决策*：调用 `search_hedging_option` 获取看跌期权，控制保费总花费低于持仓价值的 1.5%。使用 `buy_stock` 买入开仓。
+     - **🚨对冲期权的动态退出 (Hedge Unwinding)**：对于为了防御而买入的 Put 期权，**绝不可作为长线头寸死拿！** 一旦危机解除（例如：`risk_score` 回升至 >70），或者该 Put 短期内因为大跌而实现了暴利（起到了超额防撞垫作用，如涨幅超 50%），你**必须**使用 `sell_stock` 动态平掉该期权，回收本金和利润，防止期权由于时间损耗（Theta）而迅速归零。对冲是为了防御，不是为了殉道！
   2) **备兑看涨期权 (Covered Call - 振荡期降本增效)**：
      - *适用场景*：个股处于高位横盘盘整（Stage 3 震荡），且 14 天内无财报等重大事件，大盘情绪（Sentiment 介于 45-65）温和，短期无单边暴涨趋势。
      - *决策*：调用 `search_hedging_option` 寻找 `option_type="Call"`, `target_days=14`, `strike_offset_pct=8.0`（比现价高 8% 左右）。然后使用 `sell_stock` 卖出开仓（Sell to Open）该 Call，借此收取稳定的权利金（Premium）直接冲抵正股持仓成本。
@@ -239,6 +239,24 @@ class ReActAgent:
                 current_thought = response.content or ""
                 
                 if not response.has_tool_calls:
+                    import re
+                    # ---- Execution Audit Loop (防“嘴炮”拦截网) ----
+                    missing_actions = []
+                    action_match = re.search(r"Action:\s*(BUY|SELL|ADD|TIGHTEN_STOP)", current_thought, re.IGNORECASE)
+                    if action_match:
+                        # 检查在此 ReAct 过程中是否真的调用过买卖工具
+                        if not any(d['name'] in ['buy_stock', 'sell_stock'] for d in executed_tool_details):
+                            missing_actions.append(action_match.group(1).upper())
+                    
+                    if missing_actions and i < self.max_iterations - 1:
+                        self.logger.warning(f"检测到决策幻觉 (Audit Failed): 意图 {missing_actions[0]} 但未调用工具. 强制重试...")
+                        messages.append(ChatMessage(
+                            role=Role.USER, 
+                            content=f"🚨 严重警告：你在最终结论中给出了 `Action: {missing_actions[0]}`，但你**并没有真实调用 `buy_stock` 或 `sell_stock` 工具**！\n仅仅在文本中输出指令是绝对无效的。请你在此轮迭代中立刻调用相应工具，否则你的决策将被视为废弃！"
+                        ))
+                        continue
+                    # ------------------------------------------------
+
                     self.logger.info("Decision loop complete.")
                     final_content = response.content or "No action taken."
                     

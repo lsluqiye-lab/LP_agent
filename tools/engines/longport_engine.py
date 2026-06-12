@@ -160,9 +160,10 @@ class LongPortTradingEngine(BaseTradingEngine):
         if order_type != "MO":
             self._cancel_duplicate_pending_orders(symbol, side)
 
-        # 2. 数量适配：若是期权代码，自动将股数转换为张数 (1张 = 100股)，向上取整，最少为 1 张
+        # 2. 数量适配：核心修正 - 统一接收“股数”，若是期权代码，自动将股数转换为张数 (1张 = 100股)
         if self.is_option_symbol(full_symbol):
-            actual_qty = Decimal(str(max(int(quantity / 100), 1)))
+            # 采用 Decimal 确保精度，且至少为 1 张
+            actual_qty = Decimal(str(max(int(round(quantity / 100.0)), 1)))
             logging.info(f"🔮 [Multiplier Conversion] 检测到期权交易 ({full_symbol})，自动将输入股数 {quantity} 转换为张数 {actual_qty} 张")
         else:
             actual_qty = Decimal(str(quantity))
@@ -331,7 +332,8 @@ class LongPortTradingEngine(BaseTradingEngine):
 
     def get_positions(self) -> List[Dict[str, Any]]:
         """
-        获取当前账户持仓，并进行标准格式清洗，支持 Dry-Run 模拟仓位增减
+        获取当前账户持仓，并进行标准格式清洗，支持 Dry-Run 模拟仓位增减。
+        核心修正：对于期权，将底层返回的“张数”自动乘以 100 转换为“股数”，确保与主系统单位对齐。
         """
         position_resp = self._trade_ctx.stock_positions()
         cleaned = []
@@ -344,12 +346,19 @@ class LongPortTradingEngine(BaseTradingEngine):
                 is_opt = self.is_option_symbol(symbol)
                 asset_type = "OPTION" if is_opt else "STOCK"
                 
+                # 核心单位转换逻辑
                 qty = float(pos.available_quantity)
+                if is_opt:
+                    qty = qty * 100.0  # 张转股
                 
                 import os
                 if os.getenv("TRADING_DRY_RUN", "false").lower() == "true":
                     mock_change = self._mock_sales.get(symbol, 0.0)
-                    qty += mock_change
+                    # mock_change 存储的是 actual_qty (张数)，也需要转换
+                    if is_opt:
+                        qty += mock_change * 100.0
+                    else:
+                        qty += mock_change
                 
                 if qty > 0:
                     cleaned.append({
@@ -368,9 +377,10 @@ class LongPortTradingEngine(BaseTradingEngine):
                 if symbol not in retrieved_symbols and mock_change > 0:
                     is_opt = self.is_option_symbol(symbol)
                     asset_type = "OPTION" if is_opt else "STOCK"
+                    qty = mock_change * 100.0 if is_opt else mock_change
                     cleaned.append({
                         "symbol": symbol,
-                        "quantity": mock_change,
+                        "quantity": qty,
                         "cost_price": 0.0,
                         "market_value": 0.0,
                         "asset_type": asset_type,
@@ -402,12 +412,20 @@ class LongPortTradingEngine(BaseTradingEngine):
             status_str = str(o.status)
             llm_status = self._format_order_status_for_llm(status_str)
             
+            is_opt = self.is_option_symbol(o.symbol)
+            qty = float(getattr(o, 'quantity', 0.0))
+            exec_qty = float(getattr(o, 'executed_quantity', 0.0))
+            if is_opt:
+                qty = qty * 100.0  # 张转股
+                exec_qty = exec_qty * 100.0
+            
             cleaned.append({
                 "order_id": o.order_id,
                 "symbol": o.symbol,
                 "side": str(o.side),
                 "order_type": str(o.order_type),
-                "quantity": float(getattr(o, 'quantity', 0.0)),
+                "quantity": qty,
+                "executed_quantity": exec_qty,
                 "price": float(getattr(o, 'price', 0.0)) if getattr(o, 'price', None) else None,
                 "status": status_str,
                 "llm_status": llm_status,
@@ -428,12 +446,20 @@ class LongPortTradingEngine(BaseTradingEngine):
             status_str = str(o.status)
             llm_status = self._format_order_status_for_llm(status_str)
             
+            is_opt = self.is_option_symbol(o.symbol)
+            qty = float(getattr(o, 'quantity', 0.0))
+            exec_qty = float(getattr(o, 'executed_quantity', 0.0))
+            if is_opt:
+                qty = qty * 100.0  # 张转股
+                exec_qty = exec_qty * 100.0
+            
             cleaned.append({
                 "order_id": o.order_id,
                 "symbol": o.symbol,
                 "side": str(o.side),
                 "order_type": str(o.order_type),
-                "quantity": float(getattr(o, 'quantity', 0.0)),
+                "quantity": qty,
+                "executed_quantity": exec_qty,
                 "price": float(getattr(o, 'price', 0.0)) if getattr(o, 'price', None) else None,
                 "status": status_str,
                 "llm_status": llm_status,

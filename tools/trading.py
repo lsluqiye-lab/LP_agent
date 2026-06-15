@@ -321,6 +321,7 @@ class GetTodayOrdersTool(BaseTool):
                     submitted_at_str = str(raw_order.submitted_at.astimezone(eastern))
                 
                 order_list.append({
+                    "order_id": str(o["order_id"]),
                     "symbol": cut_symbol(o["symbol"]),
                     "side": o["side"],
                     "status": o["llm_status"],
@@ -369,6 +370,7 @@ class GetHistoryOrdersTool(BaseTool):
                     submitted_at_str = str(raw_order.submitted_at.astimezone(eastern))
                 
                 order_list.append({
+                    "order_id": str(o["order_id"]),
                     "symbol": cut_symbol(o["symbol"]),
                     "side": o["side"],
                     "status": o["llm_status"],
@@ -527,6 +529,50 @@ class BuyStockTool(BaseTool):
                 logging.warning(error_msg)
                 return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
 
+            # 🚨 新增：原子化仓位预校验与自动缩减 (Atomic Position Scaling)
+            try:
+                from agent.portfolio_manager import PortfolioManager
+                pm = PortfolioManager()
+                # 获取动态上限 (基于当前风险评分)
+                max_stock_limit_pct = 5.0 + (risk_score / 100.0) * 10.0 # 5% - 15%
+                
+                # 获取当前账户状态
+                engine = get_trading_engine()
+                balance = engine.get_account_balance()
+                net_assets = float(balance.get("net_assets", 0))
+                
+                if net_assets > 0:
+                    positions_resp = engine.get_positions()
+                    current_pos_value = 0
+                    for p in positions_resp:
+                        if cut_symbol(p["symbol"]) == clean_symbol:
+                            current_pos_value = float(p.get("market_value", 0))
+                            break
+                    
+                    # 获取当前现价用于计算预估价值
+                    from tools.market_data import get_quote_ctx
+                    quote_ctx = get_quote_ctx()
+                    quote_res = quote_ctx.quote([modify_symbol(symbol)])
+                    est_price = float(quote_res[0].last_done) if quote_res else (price or trigger_price or 0)
+                    
+                    if est_price > 0:
+                        # 计算单笔最大允许增持金额
+                        allowed_total_value = net_assets * (max_stock_limit_pct / 100.0)
+                        remaining_quota = max(0, allowed_total_value - current_pos_value)
+                        
+                        requested_value = est_price * quantity
+                        if requested_value > remaining_quota:
+                            scaled_qty = int(remaining_quota / est_price)
+                            if scaled_qty < quantity:
+                                original_qty = quantity
+                                quantity = scaled_qty
+                                if quantity <= 0:
+                                    return json.dumps({"error": f"仓位拦截: {symbol} 当前持仓已达上限({max_stock_limit_pct}%)，无法继续买入。", "success": False}, ensure_ascii=False)
+                                reason += f" [仓位自动缩减: 触发单股上限 {max_stock_limit_pct}%, 股数 {original_qty} -> {quantity}]"
+                                logging.warning(f"[Position Scaling] {symbol} quantity scaled from {original_qty} to {quantity} to stay within {max_stock_limit_pct}% limit.")
+            except Exception as e:
+                logging.error(f"[Position Scaling] 预校验过程出错: {e}")
+
             # 3. 突破单情绪分仓惩罚与假突破确认 (痛点一优化)
             # 如果是买入市价单(MO)且理由包含突破、追高、打穿等字眼
             is_breakout_buy = (order_type == "MO") and any(w in reason.lower() or w in str(kwargs).lower() for w in ["突破", "追高", "打穿", "breakout", "offensive"])
@@ -594,7 +640,7 @@ class BuyStockTool(BaseTool):
                 "price": price if order_type in ["LO", "LIT"] else "市价",
                 "trigger_price": trigger_price if order_type in ["LIT", "MIT"] else None,
                 "status": status_msg,
-                "message": f"买入指令下达成功 [{status_msg}]: {quantity}股 {symbol}。{execution_hint}"
+                "message": f"买入指令下达成功 [{status_msg}]: {quantity}股 {symbol}。理由: {reason}。{execution_hint}"
             }, ensure_ascii=False)
 
         except Exception as e:

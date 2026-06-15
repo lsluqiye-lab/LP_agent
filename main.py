@@ -141,6 +141,52 @@ def phase1_collect_data(tool_registry: ToolRegistry, logger: logging.Logger) -> 
     return data
 
 
+def cleanup_stale_orders(collected_data: dict, tool_registry: ToolRegistry, logger: logging.Logger):
+    """
+    清理陈旧或逻辑冲突的挂单 (Daily Cleanup)
+    """
+    logger.info("[Cleanup] 正在扫描并清理陈旧挂单...")
+    try:
+        # 获取持仓
+        pos_raw = collected_data.get("get_positions", "{}")
+        positions_data = json.loads(pos_raw)
+        positions = positions_data.get("positions", []) if isinstance(positions_data, dict) else []
+        held_symbols = {p["symbol"] for p in positions if float(p.get("quantity", 0)) > 0}
+        
+        # 获取今日订单
+        orders_raw = collected_data.get("get_today_orders", "{}")
+        orders_data = json.loads(orders_raw)
+        orders = orders_data.get("orders", []) if isinstance(orders_data, dict) else []
+        
+        cancelled_count = 0
+        for o in orders:
+            # 仅处理挂单中的订单 (PENDING/NEW/WAITING/SUBMITTED 等)
+            status = str(o.get("status", "")).upper()
+            if not any(s in status for s in ["PENDING", "NEW", "WAITING", "SUBMITTED", "VARIETIESNOTREPORTED"]):
+                continue
+                
+            symbol = o["symbol"]
+            side = str(o["side"]).upper()
+            order_id = o.get("order_id")
+            
+            if not order_id:
+                continue
+
+            # 1. 清理幽灵卖单: 无持仓但挂着卖单 (包括止损单)
+            if "SELL" in side and symbol not in held_symbols:
+                logger.warning(f"[Cleanup] 发现幽灵卖单: {symbol} 无持仓，正在撤销订单 {order_id}...")
+                tool_registry.execute("cancel_order", order_id=order_id, reason="Daily Cleanup: Ghost sell order without position")
+                cancelled_count += 1
+                
+        if cancelled_count > 0:
+            logger.info(f"[Cleanup] 清理完成，共撤销 {cancelled_count} 笔陈旧挂单。")
+        else:
+            logger.info("[Cleanup] 未发现陈旧挂单，账户状态干净。")
+            
+    except Exception as e:
+        logger.error(f"[Cleanup] 执行失败: {e}")
+
+
 # ═══════════════════════════════════════════
 # Phase 2: 风控评分
 # ═══════════════════════════════════════════
@@ -463,6 +509,10 @@ def pre_screen_candidates(candidates: list, risk_result: dict, portfolio_directi
 async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent, feishu_notifier, morning_briefing_sent, trade_logger):
     # Phase 1: 收集
     collected_data = phase1_collect_data(tool_registry, logger)
+    
+    # 🚨 新增：每日大扫除 - 清理陈旧挂单
+    cleanup_stale_orders(collected_data, tool_registry, logger)
+    
     # Phase 2: 风控
     risk_result = phase2_risk_scoring(collected_data, config, logger)
     
@@ -572,6 +622,10 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
 
     # 1. 收集全局上下文
     collected_data = phase1_collect_data(tool_registry, logger)
+    
+    # 🚨 新增：每日大扫除 - 清理陈旧挂单
+    cleanup_stale_orders(collected_data, tool_registry, logger)
+
     # 2. 依然进行宏观打分，避免逆势
     risk_result = phase2_risk_scoring(collected_data, config, logger)
     

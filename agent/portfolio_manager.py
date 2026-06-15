@@ -65,31 +65,44 @@ class PortfolioManager:
         # 1. 计算胜率自适应阈值 (Adaptive Thresholds)
         directives["adaptive_buy_threshold"] = self._calculate_adaptive_threshold(macro_risk)
         
-        # 2. 计算最近被淘汰/硬止损的持仓保护名单 (例如3天内)，防止因事件唤醒CIO将其再度买回导致左右挨打(Whipsaw)
+        # 2. 计算最近被淘汰/硬止损的持仓保护名单 (Weed-out Cooldown Logic)
+        # 硬性止损(Hard Stop): 3天冷静期，防止恐慌中反复操作。
+        # 主动优胜劣汰(Weed Out): 1天观察期，允许在标的重新变强时以观察仓接回。
         recently_weeded = []
         try:
+            # 统一扫描最近 3 天的日志
             recent_logs = self.trade_logger.get_recent_logs(days=3)
+            now = datetime.now()
+            
             for daily in recent_logs:
+                log_date = datetime.strptime(daily.get("date"), "%Y-%m-%d")
+                days_ago = (now - log_date).days
+                
                 for t in daily.get("trades", []):
                     reason = str(t.get("reason", "")).lower()
                     side = str(t.get("side", "")).lower()
-                    
-                    is_sell = "sell" in side or "orderside.sell" in side
-                    if is_sell:
-                        # 判定是否属于优胜劣汰
-                        is_weed = "weed" in reason or "淘汰" in reason or "杂草" in reason
-                        # 判定是否属于硬性止损/亏损割肉/扫损/跌破关键线止损
-                        # 核心止损词：hard stop, 割肉, 扫损, 跌破, 破位, 亏损
-                        # 如果仅有 "止损"（如 "追踪止损"），但同时存在 "盈利"、"止盈"、"锁定利润" 等利润保护词，则不视为硬性亏损止损
-                        is_stop_loss = any(k in reason for k in ["hard stop", "割肉", "扫损", "跌破", "破位", "亏损"]) or ("止损" in reason and not any(k in reason for k in ["盈利", "止盈", "锁定利润"]))
+                    if "sell" not in side and "orderside.sell" not in side:
+                        continue
                         
-                        if is_weed or is_stop_loss:
-                            sym = t.get("symbol")
-                            if sym and sym not in recently_weeded:
-                                recently_weeded.append(sym)
+                    sym = t.get("symbol")
+                    if not sym: continue
+                    
+                    # 判定是否属于硬性止损/亏损割肉/扫损/跌破关键线止损
+                    is_stop_loss = any(k in reason for k in ["hard stop", "割肉", "扫损", "跌破", "破位", "亏损"]) or ("止损" in reason and not any(k in reason for k in ["盈利", "止盈", "锁定利润"]))
+                    # 判定是否属于优胜劣汰
+                    is_weed = "weed" in reason or "淘汰" in reason or "杂草" in reason
+                    
+                    if is_stop_loss and days_ago <= 3:
+                        # 硬止损 3 天内禁止买回（防止 Whipsaw）
+                        if sym not in recently_weeded:
+                            recently_weeded.append({"symbol": sym, "type": "HARD_STOP", "days_left": 3 - days_ago})
+                    elif is_weed and days_ago <= 1:
+                        # 主动淘汰 1 天内限制买回（仅限观察仓）
+                        if not any(r["symbol"] == sym for r in recently_weeded):
+                            recently_weeded.append({"symbol": sym, "type": "SOFT_WEED", "days_left": 1 - days_ago})
                                 
             if recently_weeded:
-                logger.info(f"[Portfolio Manager] 最近3天被淘汰/止损保护的持仓禁买名单: {recently_weeded}")
+                logger.info(f"[Portfolio Manager] 最近淘汰/止损状态列表: {recently_weeded}")
         except Exception as e:
             logger.error(f"[Portfolio Manager] 提取最近淘汰/止损记录失败: {e}")
         directives["recently_weeded_out"] = recently_weeded

@@ -172,7 +172,7 @@ class ReviewAgent:
         """
         准备复盘数据
 
-        将今日日志和近期统计整理为结构化文本
+        将今日日志、近期统计以及过去3天的交易记录整理为结构化文本
         """
         now = datetime.now(self.eastern)
         date_str = now.strftime("%Y-%m-%d")
@@ -181,6 +181,17 @@ class ReviewAgent:
             f"## 复盘日期: {date_str} (美东时间 {now.strftime('%H:%M')})",
             f"\n## 标的池: {', '.join(WATCHLIST)}",
         ]
+
+        # 过去3天的交易回顾（用于打脸分析）
+        past_logs = self.trade_logger.get_recent_logs(days=3)
+        parts.append("\n## 过去3日交易回顾 (用于策略审计)")
+        for plog in past_logs:
+            p_date = plog.get("date")
+            p_trades = [t for t in plog.get("trades", []) if t.get("side") == "Sell"]
+            if p_trades:
+                parts.append(f"### 日期: {p_date}")
+                for pt in p_trades:
+                    parts.append(f"- 卖出 {pt['symbol']} @ {pt.get('price', '未知价格')} (理由: {pt.get('reason', 'N/A')})")
 
         # 风控评分历史
         risk_scores = today_log.get("risk_scores", [])

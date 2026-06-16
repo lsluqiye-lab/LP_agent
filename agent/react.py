@@ -210,6 +210,42 @@ class ReActAgent:
                         if tc.name in ["buy_stock", "sell_stock"]:
                             executed_tool_details.append({"name": tc.name, "result": result, "arguments": tc.arguments})
                             
+                            # ---- 策略审计注入: 实时打脸/回补检测 ----
+                            if tc.name == "buy_stock":
+                                try:
+                                    symbol = tc.arguments.get("symbol")
+                                    buy_price = tc.arguments.get("price")
+                                    
+                                    # 回溯过去3天的日志
+                                    past_logs = self.trade_logger.get_recent_logs(days=3)
+                                    for plog in past_logs:
+                                        p_trades = plog.get("trades", [])
+                                        # 寻找最近的一次卖出记录
+                                        last_sell = next((t for t in reversed(p_trades) if t.get("symbol") == symbol and t.get("side") == "Sell"), None)
+                                        
+                                        if last_sell:
+                                            sell_price = last_sell.get("price")
+                                            if sell_price and buy_price:
+                                                friction = (float(buy_price) - float(sell_price)) / float(sell_price)
+                                                if friction > 0:
+                                                    # 记录审计：发现打脸行为
+                                                    self.trade_logger.log_audit(
+                                                        audit_type="WHIPSAW",
+                                                        symbol=symbol,
+                                                        event="RE_ENTRY_DETECTION",
+                                                        metrics={
+                                                            "sell_price": sell_price,
+                                                            "buy_price": buy_price,
+                                                            "friction_pct": round(friction * 100, 2),
+                                                            "sell_date": plog.get("date")
+                                                        },
+                                                        improvement=f"检测到打脸回补。卖出日期: {plog.get('date')}，价格摩擦: {round(friction * 100, 2)}%。建议检查是否受情绪驱动或开盘诱多影响。"
+                                                    )
+                                            break # 只对比最近一次
+                                except Exception as ae:
+                                    self.logger.error(f"Audit processing error: {ae}")
+                            # ----------------------------------------
+                            
                             # 记录决策日志
                             try:
                                 action_type = "BUY" if tc.name == "buy_stock" else "SELL"

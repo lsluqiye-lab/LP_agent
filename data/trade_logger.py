@@ -70,6 +70,7 @@ class TradeLogger:
             "decisions": [],
             "trades": [],
             "errors": [],
+            "audit_logs": [],
             "summary": None,
         }
 
@@ -182,6 +183,33 @@ class TradeLogger:
         })
         self._save_daily_log(daily)
         logger.info(f"交易记录: {side} {quantity}股 {symbol} @ {price or '市价'}")
+
+    # ═══════════════════════════════════════
+    # 策略审计记录
+    # ═══════════════════════════════════════
+
+    def log_audit(self, audit_type: str, symbol: str, event: str, metrics: dict, improvement: Optional[str] = None):
+        """
+        记录策略审计数据 (打脸率、摩擦成本、策略偏差等)
+
+        Args:
+            audit_type: 审计类型 (WHIPSAW, SLIPPAGE, STRATEGY_DEVIATION)
+            symbol: 股票代码
+            event: 具体事件描述
+            metrics: 量化指标
+            improvement: 改进建议
+        """
+        daily = self._load_daily_log()
+        daily["audit_logs"].append({
+            "timestamp": self._get_timestamp(),
+            "audit_type": audit_type,
+            "symbol": symbol,
+            "event": event,
+            "metrics": metrics,
+            "improvement": improvement
+        })
+        self._save_daily_log(daily)
+        logger.info(f"策略审计记录: [{audit_type}] {symbol} - {event}")
 
     # ═══════════════════════════════════════
     # 错误记录

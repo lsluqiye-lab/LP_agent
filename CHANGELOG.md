@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-06-16
+### Added
+- **Strategy Quality Audit**: Implemented a mandatory audit system for trade evaluation.
+- **Whipsaw Audit**: Automated back-tracking of sell decisions within 72 hours to identify "Whipsaw" (selling low, buying high) events.
+- **Re-entry Friction Tracking**: Integrated real-time friction cost calculation in `react.py` when re-entering a position sold within 3 days.
+- **Audit Logging**: Added `audit_logs` to daily trade logs in `trade_logger.py` for long-term strategy optimization and parameter tuning.
+- **Context Enrichment**: Upgraded `review.py` to include the past 3 days of trading history in the daily review report, providing better grounding for LLM-based post-trade analysis.
+
 ## [4.2.1] - 2026-06-10
 ### Added
 - **Execution Audit Loop**: Added regex-based intention scanning in `agent/react.py` to physically intercept and warn the CIO if a decided trading action (BUY/SELL) is not accompanied by an actual tool call, mitigating LLM "hallucination" failures during high-stress market events (like the ARM drop on 06-09).

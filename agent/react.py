@@ -1,5 +1,5 @@
 """
-ReAct Agent v4.1 (The Strategic Brain)
+ReAct Agent v4.3 (The Strategic Brain)
 A sophisticated Reasoning + Acting framework that orchestrates experts to make 
 high-conviction trading decisions based on the 'Risk-First' philosophy.
 """

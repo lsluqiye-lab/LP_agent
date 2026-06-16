@@ -1,18 +1,18 @@
-# LP-Agent v4.0: 证券交易自主智能体 (Multi-Broker Decoupled Core)
+# LP-Agent v4.3: 证券交易自主智能体 (Multi-Broker Decoupled Core)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Status](https://img.shields.io/badge/Status-Trading-success.svg)](#)
 
-LP-Agent v4.0 是一款基于 **Strategic Multi-Agent (SMA)** 架构、全面重构为**“行情-交易物理解耦分离”**的高鲁棒性美股量化交易智能体。系统模拟专业对冲基金运行模式，由 **CIO (首席投资官)** 统筹五大专家矩阵，并结合 **Watchdog (毫秒级高频监控)** 与 **Long-term Memory (长效教训记忆)**。
+LP-Agent v4.3 是一款基于 **Strategic Multi-Agent (SMA)** 架构、全面重构为**“行情-交易物理解耦分离”**的高鲁棒性美股量化交易智能体。系统模拟专业对冲基金运行模式，由 **CIO (首席投资官)** 统筹五大专家矩阵，并结合 **Watchdog (毫秒级高频监控)** 与 **Long-term Memory (长效教训记忆)**。
 
-在 V4.0 架构中，长桥（LongPort）被定义为高阶数据行情引擎，而交易执行层通过 `BaseTradingEngine` 彻底重构为**“可拔插券商适配器 (Pluggable Broker Adaptor)”**，完美兼容三大立体期权武器、四大物理防御网以及零资金 DRY_RUN 沙盒系统。
+在 V4.3 架构中，长桥（LongPort）被定义为高阶数据行情引擎，而交易执行层通过 `BaseTradingEngine` 彻底重构为**“可拔插券商适配器 (Pluggable Broker Adaptor)”**，完美兼容三大立体期权武器、四大物理防御网以及零资金 DRY_RUN 沙盒系统。
 
 ---
 
 ## 🏛️ 系统立体分层逻辑架构 (System Full-Stack Architecture)
 
-为了实现系统各层级职责的极致内聚与高解耦，并提供令投资人折服、工业级稳固的系统透视。LP-Agent v4.0 将整个系统的运行机制模块化地划分为以下 **5大标准逻辑层级**。
+为了实现系统各层级职责的极致内聚与高解耦，并提供令投资人折服、工业级稳固的系统透视。LP-Agent v4.3 将整个系统的运行机制模块化地划分为以下 **5大标准逻辑层级**。
 
 我们专门设计了下方这套**科技感十足、完美适配浅色与深色模式的像素级 3D 浮雕式分层逻辑架构图**，它精确展现了从毫秒级行情捕获、CIO 主脑推理决策，到物理级 PRR 利润自愈锁和多态飞书监控的完整全景。
 
@@ -22,19 +22,26 @@ LP-Agent v4.0 是一款基于 **Strategic Multi-Agent (SMA)** 架构、全面重
 
 ---
 
-## 🧠 系统核心升级亮点 (V4.0 Highlighting)
+## 🧠 系统核心升级亮点 (V4.3 Highlighting)
 
 ### 1. 行情与交易物理隔离解耦 (Market-Trading Separation)
-以前的版本中，各下单工具深度绑定长桥 API 接口。在 V4.0 中，行情层数据（MACD、布林带、期权链到期日、资金流）**继续使用高精度、免费额度丰富的长桥作为数据源中心**。而交易端通过统一的接口 `BaseTradingEngine` 进行了物理上的完全切离。
+以前的版本中，各下单工具深度绑定长桥 API 接口。在 V4.3 中，行情层数据（MACD、布林带、期权链到期日、资金流）**继续使用高精度、免费额度丰富的长桥作为数据源中心**。而交易端通过统一的接口 `BaseTradingEngine` 进行了物理上的完全切离。
+
+### 2. 策略质量审计系统 (Strategy Quality Audit)
+V4.3 引入了强制性的策略质量闭环：
+*   **Whipsaw 打脸检测**：自动识别并记录卖出后股价反弹、被洗盘出局（Whipsaw）的事件。
+*   **回补摩擦成本**：实时计算在 3 天内重新买回同一标的的溢价成本，防止情绪化频繁交易。
+*   **数据驱动调优**：所有审计记录存储在 `audit_logs` 中，作为系统动态调整 ATR 乘数和风控因子的唯一量化依据。
+
 *   **可插拔式迁移**：要将实盘迁移至 盈立（uSMART） 或 盈透（IBKR），上层 Agent 主脑、多专家、高频哨兵**100% 零修改**。仅需编写 5 个物理接口映射并在 `.env` 中修改 `TRADING_PROVIDER` 即可。
 
-### 2. 立体期权对冲武器库 (Advanced Option Strategies)
+### 3. 立体期权对冲武器库 (Advanced Option Strategies)
 CIO（主脑）不仅可以像以前一样做多、空仓，更被赋予了三维空间的期权套利与对冲决策：
 *   **保护性看跌 Put (Protective Put)**：重仓股财报前夕、或大盘风险极高时，自动买入 Put 锁定最大亏损，花费 1% 保费护航正股。
 *   **备兑看涨 CC (Covered Call)**：正股横盘振荡期，主动 Sell Call，收取稳定权利金，冲抵持仓成本。
 *   **现金备兑 Put (Cash-Secured Put)**：下方强技术支撑位上，通过 Sell Put 锁定廉价接盘权利，不跌则白赚保费。
 
-### 3. 四大物理风控安全网与 DRY_RUN 沙盒
+### 4. 四大物理风控安全网与 DRY_RUN 沙盒
 由于期权自带杠杆，为了防止 LLM 出现数值幻觉或代码溢出而对账户造成实盘穿透风险，交易底层加装了银行级四大物理防御网（毫秒级纯 Python 硬规则拦截）：
 1.  **单笔张数最大硬上限**：单笔下单绝对禁止超过 **5 张**（折合 500 股正股），否则强行拒绝。
 2.  **Covered Call 足额持仓硬拦截**：必须持有正股，且正股股数 $\ge$ 期权张数 * 100，否则拒绝下单，斩断裸 Sell CC 带来的无限风险。

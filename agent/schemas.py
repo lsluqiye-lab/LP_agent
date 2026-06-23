@@ -23,6 +23,7 @@ class TechnicalBriefing(TypedDict):
     summary: str  # e.g., "处于强势上升趋势，但RSI指标显示超买"
     volume_price_analysis: str  # e.g., "放量突破，OBV看多背离，资金流入明显"
     is_volume_breakout: bool # e.g., True if volume is > 1.5x average
+    breakout_quality_score: int # 0-100 score for breakout quality
     is_rsi_overbought: bool  # e.g., True if daily RSI > 75
     key_signals: List[str]  # e.g., ["RSI > 75", "股价 > 50日均线", "出现口袋支点"]
     support_levels: List[float]

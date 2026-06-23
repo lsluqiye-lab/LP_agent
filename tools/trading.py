@@ -25,7 +25,7 @@ def _calculate_dynamic_slippage(symbol, base_price, order_side, order_type):
     """
     计算动态滑点和容错率。避免整数关口交易拥挤，提高成交率。
     """
-    from tools.market_data import get_quote_ctx, modify_symbol
+    from tools.market_data import get_quote_ctx
     try:
         quote_ctx = get_quote_ctx()
         quotes = quote_ctx.quote([modify_symbol(symbol)])
@@ -231,7 +231,7 @@ class GetPositionsTool(BaseTool):
 
     def execute(self, **kwargs) -> str:
         try:
-            from tools.market_data import get_quote_ctx, modify_symbol
+            from tools.market_data import get_quote_ctx
             engine = get_trading_engine()
             positions_data = engine.get_positions()
             
@@ -328,6 +328,9 @@ class GetTodayOrdersTool(BaseTool):
                     "quantity": str(o["quantity"]),
                     "executed_quantity": str(o["executed_quantity"]),
                     "price": str(o["price"]) if o["price"] else "市价",
+                    "trailing_percent": o.get("trailing_percent"),
+                    "trailing_amount": o.get("trailing_amount"),
+                    "trigger_price": o.get("trigger_price"),
                     "executed_price": str(getattr(raw_order, 'executed_price', 'N/A')) if getattr(raw_order, 'executed_price', None) else "N/A",
                     "submitted_at": submitted_at_str
                 })
@@ -377,6 +380,9 @@ class GetHistoryOrdersTool(BaseTool):
                     "quantity": str(o["quantity"]),
                     "executed_quantity": str(o["executed_quantity"]),
                     "price": str(o["price"]) if o["price"] else "市价",
+                    "trailing_percent": o.get("trailing_percent"),
+                    "trailing_amount": o.get("trailing_amount"),
+                    "trigger_price": o.get("trigger_price"),
                     "executed_price": str(getattr(raw_order, 'executed_price', 'N/A')) if getattr(raw_order, 'executed_price', None) else "N/A",
                     "submitted_at": submitted_at_str
                 })
@@ -406,7 +412,7 @@ class GetQuoteTool(BaseTool):
 
     def execute(self, symbol: str, **kwargs) -> str:
         try:
-            from tools.market_data import get_quote_ctx, modify_symbol
+            from tools.market_data import get_quote_ctx
             quote_ctx = get_quote_ctx()
 
             full_symbol = modify_symbol(symbol)
@@ -436,7 +442,7 @@ class BuyStockTool(BaseTool):
     """买入股票或期权工具"""
 
     name = "buy_stock"
-    description = "买入股票或期权合约。支持市价单(MO)、限价单(LO)、触及限价单(LIT)和触及市价单(MIT)。自动判定代码格式，对于期权合约自动转换乘数及自适应专属大滑点。"
+    description = "买入股票或期权合约。支持多种订单类型。内设物理风控拦截：1. 单股持仓上限 (5%-15%); 2. 账户总杠杆上限 (1.0x-1.5x, 随评分动态调整); 3. 对冲头寸总额上限 (Put 总市值不得超过净资产 15%)。自动判定代码并换算乘数。"
     parameters = [
         ToolParameter(
             name="symbol",
@@ -512,6 +518,7 @@ class BuyStockTool(BaseTool):
 
             # 2. 风控评分硬拦截
             trade_logger = get_trade_logger()
+            
             latest_risk = trade_logger.get_latest_risk_score()
             risk_score = latest_risk["score"] if latest_risk else 0
             sentiment = latest_risk["components"].get("sentiment", 50) if latest_risk and "components" in latest_risk else 50
@@ -533,16 +540,59 @@ class BuyStockTool(BaseTool):
             try:
                 from agent.portfolio_manager import PortfolioManager
                 pm = PortfolioManager()
-                # 获取动态上限 (基于当前风险评分)
+                
+                # (A) 增加硬止损冷静期拦截 (Whipsaw Protection)
+                # 如果该标的在过去 3 天内刚触发过硬止损，禁止立刻买回
+                account_balance = engine.get_account_balance()
+                current_pos_resp = engine.get_positions()
+                pm_report = pm.analyze_portfolio(current_pos_resp, account_balance, {"score": risk_score})
+                
+                for weed in pm_report.get("recently_weeded_out", []):
+                    if weed["symbol"] == clean_symbol and weed["type"] == "HARD_STOP":
+                        error_msg = f"Whipsaw 拦截: {symbol} 在过去 {3 - weed['days_left']} 天内刚触发过硬止损(HARD_STOP)，目前仍处于 {weed['days_left']} 天的冷静保护期内。系统已硬性拦截该买入指令，防止在剧烈波动中左右挨打。"
+                        logging.warning(error_msg)
+                        return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
+
+                # (B) 获取动态上限 (基于当前风险评分)
                 max_stock_limit_pct = 5.0 + (risk_score / 100.0) * 10.0 # 5% - 15%
                 
                 # 获取当前账户状态
                 engine = get_trading_engine()
                 balance = engine.get_account_balance()
                 net_assets = float(balance.get("net_assets", 0))
-                
+                cash = float(balance.get("cash", 0))
+
                 if net_assets > 0:
+                    # 1. 🛡️ 杠杆率硬拦截 (Leverage Guard)
+                    # 理论持仓总市值 = 净资产 - 现金 (现金为负代表融资)
+                    current_leverage = (net_assets - cash) / net_assets
+                    # 动态最大杠杆：评分 100 时 1.5x，评分 0 时 1.0x (禁止任何融资)
+                    max_leverage = 1.0 + (risk_score / 100.0) * 0.5
+                    
+                    if current_leverage > max_leverage:
+                        error_msg = f"杠杆拦截: 当前账户总杠杆率 {current_leverage:.2f}x 已超过风控上限 {max_leverage:.2f}x (评分: {risk_score})。禁止新开仓位，请先平仓减速。"
+                        logging.warning(error_msg)
+                        return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
+
                     positions_resp = engine.get_positions()
+                    
+                    # 2. 🛡️ 对冲头寸总额拦截 (Hedge Over-protection Guard)
+                    # 如果当前在买入 Put 期权，检查全局 Put 占比
+                    is_put = BaseTradingEngine.is_option_symbol(symbol) and ("P" in symbol or "PUT" in symbol.upper())
+                    if is_put:
+                        total_put_value = 0
+                        for p in positions_resp:
+                            p_sym = p["symbol"]
+                            if BaseTradingEngine.is_option_symbol(p_sym) and ("P" in p_sym or "PUT" in p_sym.upper()):
+                                total_put_value += abs(float(p.get("market_value", 0)))
+                        
+                        max_hedge_pct = 15.0 # 总对冲市值上限 15%
+                        current_hedge_pct = (total_put_value / net_assets) * 100.0
+                        if current_hedge_pct > max_hedge_pct:
+                            error_msg = f"对冲拦截: 当前 Put 总市值占比 {current_hedge_pct:.2f}% 已达到上限 {max_hedge_pct}%。禁止进一步过度对冲，防止权利金无谓损耗。"
+                            logging.warning(error_msg)
+                            return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
+
                     current_pos_value = 0
                     for p in positions_resp:
                         if cut_symbol(p["symbol"]) == clean_symbol:
@@ -602,6 +652,42 @@ class BuyStockTool(BaseTool):
 
             engine = get_trading_engine()
             
+            # 🚨 核心增强：引入买单 Hysteresis 拦截，防止高频重复挂单
+            if order_type in ["LO", "LIT", "MIT"]:
+                try:
+                    today_orders = engine.get_today_orders()
+                    for o in today_orders:
+                        # 匹配标的、方向
+                        if (o["symbol"].startswith(clean_symbol) or clean_symbol in o["symbol"]) and "Buy" in str(o["side"]):
+                            status_str = o["llm_status"].upper()
+                            if any(s in status_str for s in ["PENDING", "NEW", "WAITING"]):
+                                is_match = False
+                                match_reason = ""
+                                
+                                # 类型相同且关键参数接近时拦截
+                                if order_type in str(o.get("order_type")):
+                                    if order_type == "LO" and price and o.get("price"):
+                                        diff_pct = abs(float(price) - float(o["price"])) / float(o["price"])
+                                        if diff_pct < 0.005:
+                                            is_match = True
+                                            match_reason = f"新旧买入限价差异仅为 {diff_pct*100:.2f}%，小于缓冲区 0.5%"
+                                    elif order_type in ["LIT", "MIT"] and trigger_price and o.get("trigger_price"):
+                                        diff_pct = abs(float(trigger_price) - float(o["trigger_price"])) / float(o["trigger_price"])
+                                        if diff_pct < 0.005:
+                                            is_match = True
+                                            match_reason = f"新旧触发价差异仅为 {diff_pct*100:.2f}%，小于缓冲区 0.5%"
+                                            
+                                if is_match:
+                                    logging.info(f"🚫 [Hysteresis] 拦截对 {symbol} 的重复买单。原因: {match_reason}。保持现有挂单 {o['order_id']}。")
+                                    return json.dumps({
+                                        "success": True,
+                                        "order_id": o["order_id"],
+                                        "symbol": cut_symbol(symbol),
+                                        "message": f"拦截重复买单：当前已存在相似挂单，符合缓冲区策略。{match_reason}。"
+                                    }, ensure_ascii=False)
+                except Exception as hyst_err:
+                    logging.warning(f"[Hysteresis] BuyStockTool 检查重复订单时出错: {hyst_err}")
+
             # 直接调用统一的 submit_order
             resp = engine.submit_order(
                 symbol=symbol,
@@ -776,6 +862,83 @@ class SellStockTool(BaseTool):
                 elif trailing_percent < 3.0:
                     trailing_percent = 3.0
                     logging.warning(f"⚠️ [Sanity Check] 检测到追踪止损百分比过窄 ({orig_trailing_percent}%)，自动放大到 3.0%，以防频繁被无谓的日内震荡噪声洗盘扫出。")
+
+            # 🚨 核心增强：引入调价缓冲区 (Hysteresis) 与重复订单拦截 (防止高频过度交易)
+            if order_type in ["TSMPCT", "TSM", "LIT", "MIT"]:
+                try:
+                    today_orders = engine.get_today_orders()
+                    # 提前获取实时价用于隐含触发价计算
+                    cur_price = None
+                    
+                    for o in today_orders:
+                        # 匹配标的、方向（支持 LONGPORT_ENGINE 返回的各种侧描述）
+                        if (o["symbol"].startswith(clean_symbol) or clean_symbol in o["symbol"]) and "Sell" in str(o["side"]):
+                            # 只有处于 PENDING/WAITING 状态的订单才需要对比
+                            status_str = o["llm_status"].upper()
+                            if any(s in status_str for s in ["PENDING", "NEW", "WAITING"]):
+                                is_match = False
+                                match_reason = ""
+                                
+                                # 1. 比例单对比 (0.5% 绝对值缓冲区)
+                                if order_type == "TSMPCT" and o.get("trailing_percent") is not None:
+                                    diff = abs(float(trailing_percent) - float(o["trailing_percent"]))
+                                    if diff < 0.5:
+                                        is_match = True
+                                        match_reason = f"新旧追踪比例差异仅为 {diff:.2f}%，小于迟滞缓冲区阈值 0.5%"
+                                
+                                # 2. 金额单对比 (1% 相对值缓冲区)
+                                elif order_type == "TSM" and o.get("trailing_amount") is not None:
+                                    diff_pct = abs(float(trailing_amount) - float(o["trailing_amount"])) / float(o["trailing_amount"])
+                                    if diff_pct < 0.01:
+                                        is_match = True
+                                        match_reason = f"新旧追踪金额差异仅为 {diff_pct*100:.2f}%，小于迟滞缓冲区阈值 1%"
+
+                                # 3. 触及单对比 (0.5% 相对值缓冲区)
+                                elif order_type in ["LIT", "MIT"] and o.get("trigger_price") is not None:
+                                    diff_pct = abs(float(trigger_price) - float(o["trigger_price"])) / float(o["trigger_price"])
+                                    if diff_pct < 0.005:
+                                        is_match = True
+                                        match_reason = f"新旧触发价差异仅为 {diff_pct*100:.2f}%，小于迟滞缓冲区阈值 0.5%"
+
+                                # 4. 跨类型模糊匹配 (防止在 TSMPCT 和 MIT 之间反复横跳)
+                                if not is_match:
+                                    cur_implied = None
+                                    exi_implied = None
+                                    if cur_price is None:
+                                        from tools.market_data import get_quote_ctx
+                                        q_res = get_quote_ctx().quote([modify_symbol(symbol)])
+                                        if q_res: cur_price = float(q_res[0].last_done)
+                                    
+                                    if cur_price:
+                                        # 计算新单隐含价
+                                        if order_type == "TSMPCT" and trailing_percent:
+                                            cur_implied = cur_price * (1 - float(trailing_percent)/100.0)
+                                        elif order_type in ["MIT", "LIT"] and trigger_price:
+                                            cur_implied = float(trigger_price)
+                                            
+                                        # 计算现有单隐含价
+                                        o_type_str = str(o.get("order_type"))
+                                        if "TSLP" in o_type_str and o.get("trailing_percent"):
+                                            exi_implied = cur_price * (1 - float(o["trailing_percent"])/100.0)
+                                        elif any(t in o_type_str for t in ["MIT", "LIT"]) and o.get("trigger_price"):
+                                            exi_implied = float(o["trigger_price"])
+                                            
+                                        if cur_implied and exi_implied:
+                                            diff_pct = abs(cur_implied - exi_implied) / exi_implied
+                                            if diff_pct < 0.01: # 跨类型给予 1% 缓冲区
+                                                is_match = True
+                                                match_reason = f"跨止损类型(新:{order_type} vs 旧:{o_type_str})隐含触发价差异仅为 {diff_pct*100:.2f}%，小于 1% 缓冲区"
+
+                                if is_match:
+                                    logging.info(f"🚫 [Hysteresis] 拦截对 {symbol} 的高频无效微调。原因: {match_reason}。保持现有挂单 {o['order_id']}。")
+                                    return json.dumps({
+                                        "success": True,
+                                        "order_id": o["order_id"],
+                                        "symbol": cut_symbol(full_symbol),
+                                        "message": f"拦截无效微调：当前已存在相似挂单，符合迟滞缓冲区策略。{match_reason}。若需强制修改，请先手动撤单或等待显著价差出现。"
+                                    }, ensure_ascii=False)
+                except Exception as hyst_err:
+                    logging.warning(f"[Hysteresis] 检查重复订单时出错: {hyst_err}")
 
             # 直接调用适配器的 submit_order
             resp = engine.submit_order(

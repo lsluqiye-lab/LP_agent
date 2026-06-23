@@ -14,9 +14,13 @@ class TestWeedProtection(unittest.TestCase):
 
     def test_recently_weeded_out_extraction(self):
         # 1. 模拟过去 3 天内发生的交易日志
+        from datetime import datetime, timedelta
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        yesterday_str = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        
         mock_logs = [
             {
-                "date": "2026-05-26",
+                "date": today_str,
                 "trades": [
                     {
                         "symbol": "GOOGL",
@@ -39,7 +43,7 @@ class TestWeedProtection(unittest.TestCase):
                 ]
             },
             {
-                "date": "2026-05-25",
+                "date": yesterday_str,
                 "trades": [
                     {
                         "symbol": "UNH",
@@ -65,7 +69,7 @@ class TestWeedProtection(unittest.TestCase):
 
         # 3. 断言验证
         # 应该包含最近3天作为杂草淘汰卖出的 GOOGL, AMZN, UNH
-        recently_weeded = directives.get("recently_weeded_out", [])
+        recently_weeded = [r["symbol"] for r in directives.get("recently_weeded_out", [])]
         self.assertIn("GOOGL", recently_weeded)
         self.assertIn("AMZN", recently_weeded)
         self.assertIn("UNH", recently_weeded)
@@ -79,9 +83,12 @@ class TestWeedProtection(unittest.TestCase):
 
     def test_stop_loss_cooldown_extraction(self):
         # 1. 模拟过去 3 天内发生过硬性止损/亏损割肉和保护性止盈的交易日志
+        from datetime import datetime
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        
         mock_logs = [
             {
-                "date": "2026-06-04",
+                "date": today_str,
                 "trades": [
                     {
                         "symbol": "VRT",
@@ -107,7 +114,7 @@ class TestWeedProtection(unittest.TestCase):
             macro_risk={"score": 75.0, "constraints": {"allow_new_buy": True}}
         )
 
-        recently_weeded = directives.get("recently_weeded_out", [])
+        recently_weeded = [r["symbol"] for r in directives.get("recently_weeded_out", [])]
         
         # 3. 断言验证：硬性止损的 VRT 必须进入保护名单
         self.assertIn("VRT", recently_weeded)

@@ -182,9 +182,28 @@ class ReviewAgent:
             f"\n## 标的池: {', '.join(WATCHLIST)}",
         ]
 
-        # 过去3天的交易回顾（用于打脸分析）
+        # 1. 自动执行量化审计 (效率审计)
+        trades = today_log.get("trades", [])
+        audit_results = self._perform_quantitative_audit(trades)
+        if audit_results:
+            parts.append("\n## 系统效率审计 (Over-trading Check)")
+            for item in audit_results:
+                parts.append(f"- {item}")
+                # 记录到持久化审计日志
+                if "频繁" in item:
+                    symbol = item.split(":")[0]
+                    self.trade_logger.log_audit(
+                        audit_type="OVER_TRADING",
+                        symbol=symbol,
+                        event="止损价高频微调",
+                        metrics={"count": item.count("次")},
+                        improvement="增加调价缓冲区(Hysteresis)，避免无谓撤改单。"
+                    )
+
+        # 2. 过去3天的交易回顾（用于打脸分析）
         past_logs = self.trade_logger.get_recent_logs(days=3)
         parts.append("\n## 过去3日交易回顾 (用于策略审计)")
+        # ... rest of the method logic
         for plog in past_logs:
             p_date = plog.get("date")
             p_trades = [t for t in plog.get("trades", []) if t.get("side") == "Sell"]
@@ -296,3 +315,39 @@ class ReviewAgent:
             self.log.info("复盘报告已推送飞书")
         except Exception as e:
             self.log.error(f"飞书推送失败: {e}")
+
+    def _perform_quantitative_audit(self, trades: list) -> list:
+        """
+        量化效率审计：检测是否存在过频操作（如：频繁微调止损、短时间内反复买卖）
+        """
+        results = []
+        if not trades:
+            return results
+
+        # 1. 检测同标的高频止损微调 (TSMPCT / MIT)
+        symbol_actions = {}
+        for t in trades:
+            sym = t.get("symbol")
+            reason = t.get("reason", "").lower()
+            if sym not in symbol_actions:
+                symbol_actions[sym] = []
+            symbol_actions[sym].append(t)
+
+        for sym, t_list in symbol_actions.items():
+            # 统计追踪止损调价次数
+            ts_adjustments = [t for t in t_list if "trailing stop" in t.get("reason", "").lower() or "追踪止损" in t.get("reason", "").lower()]
+            if len(ts_adjustments) >= 3:
+                results.append(f"{sym}: 今日频繁微调止损共 {len(ts_adjustments)} 次。建议 CIO 保持耐心，增加调价阈值以减少摩擦。")
+
+            # 检测短时间内的 Whipsaw (卖出后又买回)
+            # 这里由于复盘是在收盘后，主要看日内的反复
+            # 如果存在 Sell 后又 Buy 的记录
+            buy_after_sell = False
+            for i in range(len(t_list) - 1):
+                if t_list[i].get("side") == "Sell" and t_list[i+1].get("side") == "Buy":
+                    buy_after_sell = True
+                    break
+            if buy_after_sell:
+                results.append(f"{sym}: 存在“日内反复” (Whipsaw) 行为，即卖出后在同一日内又接回。请反思卖出决策是否过于草率或受盘中噪音干扰。")
+
+        return results

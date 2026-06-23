@@ -115,6 +115,9 @@ class RiskConfig:
     score_normal: int = 70        # 高于此分为正常模式
     score_spy_override: int = 40  # SPY技术面硬约束降级阈值
 
+    # 交易频率建议 (Soft Limit)
+    target_daily_trades: int = 8     # 建议的每日最大交易次数。系统不再硬性拦截，而是由 CIO 自主管控“交易预算”，减少手续费损耗。
+
     # 仓位限制倍率（根据风控评分动态调整）
     # 实际最大仓位 = base_max_position * position_multiplier
     base_max_position_pct: float = 0.30   # 基础单笔最大仓位(占可用现金)

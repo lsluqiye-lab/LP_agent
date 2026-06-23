@@ -1065,8 +1065,8 @@ def main():
         else:
             need_scan = True
             
-        if need_scan and current_time_startup.strftime("%H:%M") >= "09:00":
-            logger.info("⚠️ 侦测到盘前自选股已过期且已过 09:00 AM，启动自适应补跑 Alpha Scanner...")
+        if need_scan and current_time_startup.strftime("%H:%M") >= "08:00":
+            logger.info("⚠️ 侦测到盘前自选股已过期且已过 08:00 AM，启动自适应补跑 Alpha Scanner...")
             from agent.alpha_scanner import AlphaScanner
             scanner = AlphaScanner(llm=analyst_llm)
             new_watchlist, scan_reason = scanner.run()
@@ -1103,7 +1103,7 @@ def main():
 
             # 盘前 9:00 - 9:30 执行 Alpha Scanner 获取动态标的池
             time_str = current_time.strftime("%H:%M")
-            if "09:00" <= time_str < "09:30" and not scanner_ran:
+            if "08:00" <= time_str < "09:30" and not scanner_ran:
                 try:
                     from agent.alpha_scanner import AlphaScanner
                     scanner = AlphaScanner(llm=analyst_llm)

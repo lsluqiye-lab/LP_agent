@@ -201,19 +201,35 @@ class LongPortTradingEngine(BaseTradingEngine):
 
                 # 3) Cash-Secured Put（现金备兑看跌期权）资金硬保障拦截
                 elif side == "Sell" and opt_info["option_type"] == "Put":
-                    balance = self.get_account_balance()
-                    buying_power = balance["buying_power"]
-                    # 计算担保所需现金：行权价 * 张数 * 100
-                    required_margin = opt_info["strike_price"] * float(actual_qty) * 100.0
-                    if buying_power < required_margin:
-                        error_msg = (
-                            f"❌ [Risk Interceptor] 现金备兑 Put 资金保障不足！"
-                            f"卖出看跌期权行权价为 ${opt_info['strike_price']}，数量为 {actual_qty} 张，"
-                            f"需要现金担保 ${required_margin:.2f}，而当前账户可用购买力仅为 ${buying_power:.2f}！"
-                            f"防止保证金爆仓，系统强行锁定并拒绝下单！"
-                        )
-                        logging.error(error_msg)
-                        raise ValueError(error_msg)
+                    # 核心修正：区分“平仓多头”与“卖出开仓”
+                    # 先检查是否持有该期权的多头头寸
+                    positions = self.get_positions()
+                    held_option_qty = 0.0
+                    for pos in positions:
+                        if pos["symbol"] == full_symbol:
+                            held_option_qty += pos["quantity"]
+                    
+                    # 只有当卖出数量大于持仓数量（即涉及卖出开仓/做空期权）时，才需要校验保证金
+                    if float(actual_qty * 100) > held_option_qty:
+                        balance = self.get_account_balance()
+                        buying_power = balance["buying_power"]
+                        # 计算担保所需现金：行权价 * (卖出数量 - 已持仓数量) * 100
+                        excess_qty = float(actual_qty) - (held_option_qty / 100.0)
+                        required_margin = opt_info["strike_price"] * excess_qty * 100.0
+                        
+                        if buying_power < required_margin:
+                            error_msg = (
+                                f"❌ [Risk Interceptor] 现金备兑 Put 资金保障不足！"
+                                f"你正尝试卖出开仓 {excess_qty} 张 {full_symbol}，"
+                                f"需要现金担保 ${required_margin:.2f}，而当前账户可用购买力仅为 ${buying_power:.2f}！"
+                                f"防止保证金爆仓，系统强行锁定并拒绝下单！"
+                            )
+                            logging.error(error_msg)
+                            raise ValueError(error_msg)
+                        else:
+                            logging.info(f"✅ [Risk Interceptor] 卖出开仓 {excess_qty} 张 Put，保证金校验通过。")
+                    else:
+                        logging.info(f"✅ [Risk Interceptor] 检测到正在平仓现有期权多头 ({actual_qty} 张)，豁免保证金校验。")
 
                 # 4) Protective Put（保护性看跌期权）正股配对比例拦截 (防止超额过度对冲)
                 elif side == "Buy" and opt_info["option_type"] == "Put":
@@ -419,6 +435,12 @@ class LongPortTradingEngine(BaseTradingEngine):
                 qty = qty * 100.0  # 张转股
                 exec_qty = exec_qty * 100.0
             
+            # 核心增强：提取追踪止损和触及单的关键参数，消除 CIO 的认知盲区
+            trailing_percent = float(o.trailing_percent) if hasattr(o, 'trailing_percent') and o.trailing_percent else None
+            trailing_amount = float(o.trailing_amount) if hasattr(o, 'trailing_amount') and o.trailing_amount else None
+            trigger_price = float(o.trigger_price) if hasattr(o, 'trigger_price') and o.trigger_price else None
+            limit_offset = float(o.limit_offset) if hasattr(o, 'limit_offset') and o.limit_offset else None
+
             cleaned.append({
                 "order_id": o.order_id,
                 "symbol": o.symbol,
@@ -426,7 +448,11 @@ class LongPortTradingEngine(BaseTradingEngine):
                 "order_type": str(o.order_type),
                 "quantity": qty,
                 "executed_quantity": exec_qty,
-                "price": float(getattr(o, 'price', 0.0)) if getattr(o, 'price', None) else None,
+                "price": float(getattr(o, 'price', 0.0)) if getattr(o, 'price', None) and float(o.price) > 0 else None,
+                "trailing_percent": trailing_percent,
+                "trailing_amount": trailing_amount,
+                "trigger_price": trigger_price,
+                "limit_offset": limit_offset,
                 "status": status_str,
                 "llm_status": llm_status,
                 "raw_order": o
@@ -452,7 +478,13 @@ class LongPortTradingEngine(BaseTradingEngine):
             if is_opt:
                 qty = qty * 100.0  # 张转股
                 exec_qty = exec_qty * 100.0
-            
+                
+            # 核心增强：提取追踪止损和触及单的关键参数
+            trailing_percent = float(o.trailing_percent) if hasattr(o, 'trailing_percent') and o.trailing_percent else None
+            trailing_amount = float(o.trailing_amount) if hasattr(o, 'trailing_amount') and o.trailing_amount else None
+            trigger_price = float(o.trigger_price) if hasattr(o, 'trigger_price') and o.trigger_price else None
+            limit_offset = float(o.limit_offset) if hasattr(o, 'limit_offset') and o.limit_offset else None
+
             cleaned.append({
                 "order_id": o.order_id,
                 "symbol": o.symbol,
@@ -460,7 +492,11 @@ class LongPortTradingEngine(BaseTradingEngine):
                 "order_type": str(o.order_type),
                 "quantity": qty,
                 "executed_quantity": exec_qty,
-                "price": float(getattr(o, 'price', 0.0)) if getattr(o, 'price', None) else None,
+                "price": float(getattr(o, 'price', 0.0)) if getattr(o, 'price', None) and float(o.price) > 0 else None,
+                "trailing_percent": trailing_percent,
+                "trailing_amount": trailing_amount,
+                "trigger_price": trigger_price,
+                "limit_offset": limit_offset,
                 "status": status_str,
                 "llm_status": llm_status,
                 "raw_order": o,

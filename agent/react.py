@@ -37,11 +37,22 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
   - **SOFT_WEED**：1天观察期。允许你以**观察仓（单股上限 5%）**身份接回“知错就改”的标的。
 
 ### 3. 交易执行协议 (Execution Protocol)
-- **开盘反诱多 (Volume Veto)**：10:00 前的突破必须伴随 **>1.5x 相对成交量**，否则一票否决。10:00 前建议先开 30%-50% 观察仓。
+- **交易频率与预算意识 (Trade Budget & Frequency Awareness)**：
+  - **当前活跃度**：今日已执行交易次数：`{trade_count}` / 建议目标：`{target_trades}`。
+  - **手续费敏感**：频繁调仓会产生无谓的手续费损耗。请将有限的交易次数分配给**最高胜率**的信号。如果今日交易次数已接近或超过目标值，你必须在 Thought 中给出极为充分的理由（如：趋势发生逆转必须止损，或出现 2.0x 巨量突破的绝佳建仓点）。
+  - **非池内标的严选**：对于非 `WATCHLIST` 标的，除必须满足 Stage 2 外，**突破质量分 (breakout_quality_score) 必须 > 80 且伴随 > 2.0x 相对成交量**，否则严禁建仓。禁止在流动性差的标的上浪费宝贵的日内交易额度。
+  - **禁止无谓微调**：频繁撤改追踪止损位（TSMPCT）会产生巨大的心理成本和潜在手续费。除非股价波动使推荐止损位变化超过 **0.5%**，否则严禁更新止损位。**追求效率而非完美。**
+- **严惩“融资追高”行为 (No Ridiculous Financing Breakouts)**：
+  - **融资红线**：若当前账户已产生融资（现金为负），你对“突破”的审美必须变得极其挑剔。**严禁在没有 2.0x 以上成交量配合、或 RSI > 70 的情况下，使用融资杠杆去追逐所谓的“突破”**。
+  - **开盘反诱多 (Volume Veto)**：10:00 前的突破必须伴随 **>2.0x 相对成交量**（普通时段为 1.5x），否则一票否决。10:00 前建议先开 30%-50% 观察仓。
+- **时效与流动性敏感度 (Liquidity & Hours)**：
+  - **收盘/盘后噪音 (Post-Market Noise)**：16:00 后的价格波动通常具有随机性且流动性匮乏。**严禁在 16:00 后基于盘后小幅波动进行个股止损**，除非发生确定的重大黑天鹅消息。
+  - **紧急止损指令**：15:45 后的紧急止损必须使用 **MO (市价)** 以确保成交。
 - **追踪止损 (Trailing Stop)**：
   - **浮盈 < 3%**：禁止使用 TSMPCT，改用静态保本单 or Watchdog 防御。
   - **浮盈 >= 3%**：必须挂设 TSMPCT。比例建议 = `ATR_pct * recommended_atr_trailing_multiplier`。
 - **对冲期权 (Option Hedge)**：
+  - **单位统一协议 (Unit Protocol)**：**所有下单数量必须以“股数”为单位**，即使是期权也是如此（例如：买入 1 张期权请传入 `quantity=100`，买入 5 张请传入 `500`）。底层适配器会自动将 `500` 股转换为 `5` 张发送给券商。严禁在工具调用中脑补“张数”。
   - **配对红线**：正股 < 100 股严禁配置个股 Put。
   - **动态退出**：对冲是防御而非长线。宏观评分回升至 >70 或 Put 获利超 50% 时，必须主动平仓回收利润。
 
@@ -98,11 +109,19 @@ class ReActAgent:
         memory_context = self.trading_memory.get_memory_context() if self.trading_memory else "No prior history."
         portfolio_str = json.dumps(portfolio_directives, ensure_ascii=False) if portfolio_directives else "无组合级额外限制。"
         
+        # 获取今日交易次数
+        today_trades = self.trade_logger.get_today_trades()
+        trade_count = len(today_trades)
+        from config import RiskConfig
+        target_trades = RiskConfig.from_env().target_daily_trades
+
         system_prompt = self.system_prompt.replace("{tools_section}", self._build_tools_section(tools)) \
                                          .replace("{decision_briefings}", decision_briefings_json) \
                                          .replace("{memory_context}", memory_context) \
                                          .replace("{risk_score}", str(risk_score)) \
-                                         .replace("{portfolio_directives}", portfolio_str)
+                                         .replace("{portfolio_directives}", portfolio_str) \
+                                         .replace("{trade_count}", str(trade_count)) \
+                                         .replace("{target_trades}", str(target_trades))
 
         # 3. Initialize Messages
         messages = [

@@ -70,6 +70,7 @@ class TechnicalAnalyst:
   "summary": "一句话总结当前技术形态 (如：VCP突破前夕、超买回踩中等)",
   "volume_price_analysis": "详细描述量价关系。上涨是否有力？回调是否缩量？是否存在机构派发迹象？",
   "is_volume_breakout": true, // 布尔值：当前是否伴随真实的相对成交量放大 (>1.5x)？如果成交量平淡则必须设为 false。
+  "breakout_quality_score": 85, // 0-100 评分：综合评估突破质量。得分应考虑：1. 成交量配合度(>2x 最佳); 2. 突破位是否干净(无密集套牢盘); 3. 相对强度(RS)是否领先大盘。
   "is_rsi_overbought": false, // 布尔值：日线或周线 RSI 是否处于 >75 的危险超买区？
   "key_signals": ["信号1", "信号2"],
   "support_levels": [价格1, 价格2],

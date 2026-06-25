@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2026-06-25
+### Added
+- **Tiered Conviction Architecture**: Introduced a differentiated defense system for "Tier 1 Leaders" (High-Conviction stocks).
+  - **Conviction Parameter**: Added `conviction` parameter to `BuyStockTool` and `SellStockTool` to signal high-value positions.
+  - **Relaxed Defensive Padding**: High-conviction stocks now utilize a wider 3.0x ATR trailing stop multiplier by default, preventing washout during volatile主升浪 (primary bull runs).
+  - **Delayed PRR 收网**: Upgraded Profit Retention Ratio logic to only activate after 8% profit (instead of 3%) for leaders, allowing them more "breathing room" to reach 100% gains.
+- **V-Recovery Exception (纠偏回补)**:
+  - **Force Recovery Parameter**: Added `force_recovery` to `BuyStockTool` to bypass the 3-day `HARD_STOP` cooldown.
+  - **Re-entry Logic**: Allows the CIO to immediately re-enter a position if it exhibits a high-volume (>2.0x) reversal back above the stop-out price, solving the "stopped out at the bottom" problem.
+- **Enhanced CIO Strategic Brain**: Upgraded `agent/react.py` system prompt with instructions for managing the conviction tiering system and executing V-Recovery maneuvers.
+
 ## [4.3.0] - 2026-06-16
 ### Added
 - **Strategy Quality Audit**: Implemented a mandatory audit system for trade evaluation.

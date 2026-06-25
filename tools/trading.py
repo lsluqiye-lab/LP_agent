@@ -442,7 +442,7 @@ class BuyStockTool(BaseTool):
     """买入股票或期权工具"""
 
     name = "buy_stock"
-    description = "买入股票或期权合约。支持多种订单类型。内设物理风控拦截：1. 单股持仓上限 (5%-15%); 2. 账户总杠杆上限 (1.0x-1.5x, 随评分动态调整); 3. 对冲头寸总额上限 (Put 总市值不得超过净资产 15%)。自动判定代码并换算乘数。"
+    description = "买入股票或期权合约。支持多种订单类型。内设物理风控拦截：1. 单股持仓上限 (5%-15%); 2. 账户总杠杆上限 (1.0x-1.5x); 3. 对冲上限。支持高胜率领涨股(Tier 1 Leader)特权模式。"
     parameters = [
         ToolParameter(
             name="symbol",
@@ -466,7 +466,7 @@ class BuyStockTool(BaseTool):
             description="限价单(LO)或触及限价单(LIT)的限价",
             required=False
         ),
-                ToolParameter(
+        ToolParameter(
             name="trigger_price",
             type="number",
             description="触及单(LIT/MIT)的触发价格",
@@ -483,6 +483,21 @@ class BuyStockTool(BaseTool):
             type="number",
             description="追踪止损金额 (TSM)",
             required=False
+        ),
+        ToolParameter(
+            name="conviction",
+            type="string",
+            description="信心等级：'normal'(默认) 或 'high'。设置为 'high' 将标记为 Tier 1 Leader，自动应用更宽容的防守策略以博取翻倍收益。",
+            required=False,
+            enum=["normal", "high"],
+            default="normal"
+        ),
+        ToolParameter(
+            name="force_recovery",
+            type="boolean",
+            description="V型反转强制回补：设置为 true 可豁免最近 3 天的 HARD_STOP 冷静期拦截。仅限观察到巨量(>2.0x)收复失地且为 Tier 1 标的时使用。",
+            required=False,
+            default=False
         ),
         ToolParameter(
             name="reason",
@@ -502,6 +517,8 @@ class BuyStockTool(BaseTool):
         trigger_price: Optional[float] = None,
         trailing_percent: Optional[float] = None,
         trailing_amount: Optional[float] = None,
+        conviction: str = "normal",
+        force_recovery: bool = False,
         reason: str = "",
         **kwargs
     ) -> str:
@@ -543,18 +560,25 @@ class BuyStockTool(BaseTool):
                 
                 # (A) 增加硬止损冷静期拦截 (Whipsaw Protection)
                 # 如果该标的在过去 3 天内刚触发过硬止损，禁止立刻买回
+                engine = get_trading_engine()
                 account_balance = engine.get_account_balance()
                 current_pos_resp = engine.get_positions()
                 pm_report = pm.analyze_portfolio(current_pos_resp, account_balance, {"score": risk_score})
                 
                 for weed in pm_report.get("recently_weeded_out", []):
                     if weed["symbol"] == clean_symbol and weed["type"] == "HARD_STOP":
-                        error_msg = f"Whipsaw 拦截: {symbol} 在过去 {3 - weed['days_left']} 天内刚触发过硬止损(HARD_STOP)，目前仍处于 {weed['days_left']} 天的冷静保护期内。系统已硬性拦截该买入指令，防止在剧烈波动中左右挨打。"
-                        logging.warning(error_msg)
-                        return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
+                        if force_recovery and conviction == "high":
+                            logging.info(f"🛡️ [V-Recovery] 检测到对 {symbol} 的强力回补指令且具备 High Conviction，豁免冷静期拦截执行买入。")
+                            reason += " [V-Recovery 纠偏回补]"
+                        else:
+                            error_msg = f"Whipsaw 拦截: {symbol} 在过去 {3 - weed['days_left']} 天内刚触发过硬止损(HARD_STOP)，目前仍处于 {weed['days_left']} 天的冷静保护期内。系统已硬性拦截该买入指令，防止在剧烈波动中左右挨打。若确认为 V 型反转，请使用 force_recovery=True 且 conviction='high' 强行回补。"
+                            logging.warning(error_msg)
+                            return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
 
                 # (B) 获取动态上限 (基于当前风险评分)
                 max_stock_limit_pct = 5.0 + (risk_score / 100.0) * 10.0 # 5% - 15%
+                if conviction == "high":
+                    max_stock_limit_pct = min(18.0, max_stock_limit_pct * 1.2) # High Conviction 允许额外 20% 溢价空间，上限 18%
                 
                 # 获取当前账户状态
                 engine = get_trading_engine()
@@ -737,7 +761,7 @@ class SellStockTool(BaseTool):
     """卖出股票或期权工具"""
 
     name = "sell_stock"
-    description = "卖出股票或期权合约（平仓）。支持市价单(MO)、限价单(LO)、触及限价单(LIT)、触及市价单(MIT)、追踪止损单等。自动判定代码格式并自适应股张数量换算。"
+    description = "卖出股票或期权合约（平仓）。支持多种订单类型。内设高胜率领涨股(Tier 1 Leader)利润奔跑模式。"
     parameters = [
         ToolParameter(
             name="symbol",
@@ -780,6 +804,14 @@ class SellStockTool(BaseTool):
             required=False
         ),
         ToolParameter(
+            name="conviction",
+            type="string",
+            description="信心等级：'normal'(默认) 或 'high'。设置为 'high' 将标记为 Tier 1 Leader，自动应用更宽容的追踪止损和延迟的利润锁利算法，给翻倍牛股更多呼吸空间。",
+            required=False,
+            enum=["normal", "high"],
+            default="normal"
+        ),
+        ToolParameter(
             name="reason",
             type="string",
             description="卖出理由",
@@ -797,6 +829,7 @@ class SellStockTool(BaseTool):
         trigger_price: Optional[float] = None,
         trailing_percent: Optional[float] = None,
         trailing_amount: Optional[float] = None,
+        conviction: str = "normal",
         reason: str = "",
         **kwargs
     ) -> str:
@@ -806,7 +839,7 @@ class SellStockTool(BaseTool):
             full_symbol = modify_symbol(symbol)
             clean_symbol = symbol.split('.')[0] if '.' in symbol else symbol
 
-            # 安全校验：获取真实持仓，防止因状态未同步导致重复卖出或意外做空
+            # 安全校验：获取真实持仓
             cost_price = None
             try:
                 positions_data = engine.get_positions()
@@ -832,8 +865,6 @@ class SellStockTool(BaseTool):
             # Trailing Stop Sanity Check (追踪止损比例微调限制)
             if order_type == "TSMPCT" and trailing_percent is not None:
                 # 🛡️ 引入高级非线性 PRR (Profit Retention Ratio) 利润留存算法保护
-                # 当正股出现浮盈时，若 ATR 止损过宽会导致在下跌时吞食所有本金和浮盈。
-                # 只要正股脱离风险期，我们动态收紧追踪比例，保证如果回调触发，至少锁死 50% 的浮盈利润。
                 if cost_price is not None:
                     try:
                         from tools.market_data import get_quote_ctx
@@ -842,26 +873,33 @@ class SellStockTool(BaseTool):
                         if quotes:
                             current_price = float(quotes[0].last_done)
                             if current_price > cost_price:
-                                # 锁定最高浮盈 50% 对应的目标追踪比例: T_target = (0.5 * (P - C) / P) * 100
-                                t_target = (0.5 * (current_price - cost_price) / current_price) * 100.0
-                                # 仅在利润空间脱离风险期（目标止损比 > 3% 的波动噪声垫）且计算值比原本 ATR 计算出的比例更窄时，才强行收缩收网
-                                if t_target >= 3.0 and t_target < trailing_percent:
+                                # High Conviction 下 PRR 锁利倍率从 50% 放宽到 30%（即允许回撤 70% 的利润），给予更大波动空间
+                                prr_retention_ratio = 0.3 if conviction == "high" else 0.5
+                                # 锁定目标追踪比例
+                                t_target = (prr_retention_ratio * (current_price - cost_price) / current_price) * 100.0
+                                
+                                # High Conviction 启动阈值从 3.0% 提高到 8.0%（即盈利覆盖掉 8% 波动才收紧），给予翻倍股前期足够空间
+                                prr_trigger_threshold = 8.0 if conviction == "high" else 3.0
+                                
+                                if t_target >= prr_trigger_threshold and t_target < trailing_percent:
                                     orig_trailing_percent = trailing_percent
                                     trailing_percent = round(t_target, 2)
                                     logging.info(
-                                        f"🛡️ [PRR Guard] 侦测到持仓 {symbol} 处于盈利状态 (成本: ${cost_price:.2f}, 现价: ${current_price:.2f})。"
-                                        f"为了在下跌中锁定至少 50% 的浮盈，动态利润留存锁启动，追踪比例由 {orig_trailing_percent}% 收网收紧至 {trailing_percent}%！"
+                                        f"🛡️ [PRR Guard] 侦测到持仓 {symbol} 处于盈利状态 ({conviction.upper()} Conviction)。"
+                                        f"动态利润留存锁启动，追踪比例由 {orig_trailing_percent}% 收网收紧至 {trailing_percent}%！"
                                     )
                     except Exception as prr_err:
                         logging.warning(f"[PRR Guard] 利润保护计算时发生异常: {prr_err}")
+                
                 orig_trailing_percent = trailing_percent
-                # 配合 V3.5+ 自适应 ATR 机制，将原 12% 上限拓宽至 25%，给予高波动股票（如 ARM, NVDA）在主升浪里足够呼吸空间
-                if trailing_percent > 25.0:
-                    trailing_percent = 25.0
-                    logging.warning(f"⚠️ [Sanity Check] 检测到追踪止损百分比过宽 ({orig_trailing_percent}%)，自动缩限为 25.0%，以防大模型幻觉并限制极端利润回吐。")
+                # High Conviction 下上限拓宽至 35%，允许极端波动
+                max_trailing = 35.0 if conviction == "high" else 25.0
+                if trailing_percent > max_trailing:
+                    trailing_percent = max_trailing
+                    logging.warning(f"⚠️ [Sanity Check] 追踪止损百分比过宽 ({orig_trailing_percent}%)，自动缩限为 {max_trailing}%。")
                 elif trailing_percent < 3.0:
                     trailing_percent = 3.0
-                    logging.warning(f"⚠️ [Sanity Check] 检测到追踪止损百分比过窄 ({orig_trailing_percent}%)，自动放大到 3.0%，以防频繁被无谓的日内震荡噪声洗盘扫出。")
+                    logging.warning(f"⚠️ [Sanity Check] 追踪止损百分比过窄 ({orig_trailing_percent}%)，自动放大到 3.0%。")
 
             # 🚨 核心增强：引入调价缓冲区 (Hysteresis) 与重复订单拦截 (防止高频过度交易)
             if order_type in ["TSMPCT", "TSM", "LIT", "MIT"]:

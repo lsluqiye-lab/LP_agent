@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# LP-Agent 启动脚本 v4.3
+# LP-Agent 启动脚本 v4.4.0
 
 APP_NAME="main.py"
 LOG_FILE="agent.log"
@@ -12,7 +12,7 @@ if [ ! -f "$PYTHON_BIN" ]; then
 fi
 
 echo "============================================================"
-echo "  LP-Agent v4.3 启动程序"
+echo "  LP-Agent v4.4.0 启动程序"
 echo "  使用 Python: $PYTHON_BIN"
 echo "============================================================"
 

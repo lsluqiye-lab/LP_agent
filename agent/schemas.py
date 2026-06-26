@@ -82,5 +82,9 @@ class DecisionBriefing(TypedDict):
     #   "明确的 Stage 2 主升浪"
     # ]
     
+    # 选股神器注入的量化多因子评分与信心标签 (Alpha Scanner metadata)
+    quant_metadata: dict
+    # e.g., {"score": 92, "rank": 1, "conviction": "Tier 1", "reason": "..."}
+    
     # 该股票在本账户的近期历史战绩（胜率/盈亏等），用于长效记忆反思
     trading_history: str

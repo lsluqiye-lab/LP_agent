@@ -131,13 +131,39 @@ class AlphaScanner:
         risk_score = latest_risk["score"] if latest_risk else 75.0
         risk_regime = latest_risk["regime"] if latest_risk else "favorable"
 
-        # 6. 构造 LLM 催化剂避雷与优中选优 Prompt
+        # 6. 自动对冲标的入池 (Hedge Auto-Inclusion)
+        hedge_symbols = []
+        if risk_score < 70:
+            logger.info(f"由于风险评分较差 ({risk_score}), 启动自动对冲标的检索...")
+            try:
+                from tools.market_data import SearchHedgingOptionTool
+                hedge_tool = SearchHedgingOptionTool()
+                # 检索 SPY 和 QQQ 的对冲 Put
+                for index_sym in ["SPY", "QQQ"]:
+                    res_json = hedge_tool.execute(
+                        symbol=index_sym,
+                        option_type="Put",
+                        target_days=14,
+                        strike_offset_pct=-3.0
+                    )
+                    res_data = json.loads(res_json)
+                    if "option_symbol" in res_data:
+                        opt_sym = res_data["option_symbol"]
+                        hedge_symbols.append(opt_sym)
+                        logger.info(f"已自动添加对冲标的: {opt_sym}")
+            except Exception as e:
+                logger.error(f"自动对冲检索失败: {e}")
+
+        # 7. 构造 LLM 催化剂避雷与优中选优 Prompt
         system_prompt = f"""你是一个顶级对冲基金的 Alpha 选股分析师。
 你的任务是根据提供的技术候选个股列表、各股真实量化评分，并结合最近的财报日程和催化剂新闻，精选出 10-12 只高概率的美股标的组成今日监控标的池。
 
 【今日宏观风控环境】：
 - 宏观风控评分: {risk_score}/100
 - 风险象限状态: {risk_regime.upper()}
+
+【建议的自动对冲标的】：
+{json.dumps(hedge_symbols)} (如果风险评分较低，请必须包含这些对冲期权)
 
 【必选持仓股】（这些是你当前持有的股票，**必须**强制入选最终的监控池以确保监控）：
 {json.dumps(holdings)}
@@ -151,16 +177,22 @@ class AlphaScanner:
 【选股与排除硬约束】：
 1. 财报雷区避让：如果任何非持仓股在**未来5个交易日内**将发布财报，请必须将其**排除**（财报前属于开盲盒，风控不准买入）。
 2. 持仓包含约束：你输出的 watchlist 中**必须**强制包含全部的持仓股（即上面的持仓股：{holdings}）。
-3. 动态超买与估值松绑法则（方案 A）：
-   - 当【今日宏观风控环境】处于 **FAVORABLE** (分值 > 75) 极佳牛市多头状态时，市场风险偏好处于高位，说明市场以动能主升为主。对于虽然技术面有超买（如 RSI 在 70-80 区间）或估值很高（Very Overvalued，如 ARM 等半导体/AI龙头），但技术多因子评分极高且有近期明确爆发催化剂的动能股，**绝对允许并且应当将其纳入今日标的池**，以便高频监控和捕获强势上涨主段！不要因为估值恐高或指标超买而一刀切将动能龙头剔除。
+3. 风险对冲：若【今日宏观风控环境】分值 < 70，请必须在最终名单中包含上述建议的对冲期权。
+4. 动态超买与估值松绑法则（方案 A）：
+   - 当【今日宏观风控环境】处于 **FAVORABLE** (分值 > 75) 极佳牛市多头状态时，市场风险偏好处于高位，说明市场以动能主升为主。对于虽然技术面有超买（如 RSI 在 70-80 区间）或估值很高（Very Overvalued，如 ARM 等半导体/AI龙头），但技术多因子评分极高且有近期明确爆发催化剂的动能股，**绝对允许并且应当将其纳入今日标的池**，以便高频监控 and 捕获强势上涨主段！不要因为估值恐高或指标超买而一刀切将动能龙头剔除。
    - 当处于 **CAUTIOUS** 或 **LOCKDOWN** 状态时，必须严守防守硬约束，坚决把任何估值极度高估或指标处于超买高位的个股排除出去，以防大盘回调时在高位接盘。
-4. 选出真正具有近期重大上涨催化剂（如研报调级、技术面突破、重要大合同、行业风口）的 10-12 只标的。
+5. 选出真正具有近期重大上涨催化剂（如研报调级、技术面突破、重要大合同、行业风口）的标的。
 
 输出格式要求：
-请仅返回纯 JSON 格式，不要包含任何 markdown 标记或解释。格式必须为：
+请仅返回纯 JSON 格式。除了 watchlist (代码列表)，还必须为每只股票提供元数据。
+格式必须为：
 {{
     "sectors": ["主线板块1", "主线板块2"],
-    "watchlist": ["AAPL", "NVDA", ...],
+    "watchlist_detail": {{
+        "AAPL": {{"score": 85, "rank": 1, "conviction": "Tier 1", "reason": "..."}},
+        "NVDA": {{"score": 92, "rank": 2, "conviction": "Tier 1", "reason": "..."}},
+        ...
+    }},
     "reasoning": "结合真实技术评分和财报日程的精选逻辑"
 }}
 """
@@ -184,27 +216,31 @@ class AlphaScanner:
                 json_str = match.group(1) if match else content
                 
             data = json.loads(json_str.strip())
-            watchlist = data.get("watchlist", [])
+            watchlist_detail = data.get("watchlist_detail", {})
             
-            # 7. 纯代码兜底回填：再次强制保证 holdings 里的个股 100% 被纳入标的池，防止 LLM 漏掉
-            watchlist = [ticker.strip().upper() for ticker in watchlist if isinstance(ticker, str)]
+            # 8. 纯代码兜底回填：再次强制保证 holdings 和对冲标的 100% 被纳入
             for h in holdings:
-                if h not in watchlist:
-                    watchlist.append(h)
-                    
-            if len(watchlist) < 5:
-                raise ValueError("最终过滤出的个股数量过少。")
-                
-            logger.info(f"科学选股完成！\n最强行业: {data.get('sectors')}\n逻辑: {data.get('reasoning')}\n最终每日动态监控池(含持仓回填): {watchlist}")
+                if h not in watchlist_detail:
+                    watchlist_detail[h] = {"score": 50, "rank": 99, "conviction": "Tier 2", "reason": "Existing Holding"}
             
-            self._save_watchlist(watchlist, data.get("reasoning", ""))
+            for s in hedge_symbols:
+                if s not in watchlist_detail:
+                    watchlist_detail[s] = {"score": 100, "rank": 0, "conviction": "Tier 1", "reason": "Macro Hedge"}
+
+            # 提取最终列表用于后向兼容
+            watchlist = list(watchlist_detail.keys())
+                
+            logger.info(f"科学选股完成！包含 {len(watchlist)} 只标的。")
+            
+            self._save_watchlist(watchlist, watchlist_detail, data.get("reasoning", ""))
             return watchlist, data.get("reasoning", "基于行业轮动 RS、个股真实 K 线因子及 5 日财报排雷精选。")
             
         except Exception as e:
-            fallback_watchlist = list(set(DEFAULT_WATCHLIST + holdings))
+            fallback_watchlist = list(set(DEFAULT_WATCHLIST + holdings + hedge_symbols))
+            fallback_detail = {s: {"score": 50, "rank": 50, "conviction": "Tier 2", "reason": "Fallback"} for s in fallback_watchlist}
             error_msg = f"Alpha Scanner 科学选股异常: {e}，将回退并强制合并持仓。"
-            logger.error(f"{error_msg} 最终监控标的池: {fallback_watchlist}")
-            self._save_watchlist(fallback_watchlist, "Alpha Scanner failed, fallback to default + holdings")
+            logger.error(f"{error_msg}")
+            self._save_watchlist(fallback_watchlist, fallback_detail, "Alpha Scanner failed, fallback to default + holdings")
             return fallback_watchlist, error_msg
 
     def _get_current_holdings(self) -> list:
@@ -221,11 +257,12 @@ class AlphaScanner:
             logger.error(f"获取当前持仓失败: {e}")
         return []
 
-    def _save_watchlist(self, watchlist: list, reason: str):
+    def _save_watchlist(self, watchlist: list, watchlist_detail: dict, reason: str):
         today_str = datetime.now(pytz.timezone("US/Eastern")).strftime("%Y-%m-%d")
         data = {
             "date": today_str,
             "watchlist": watchlist,
+            "watchlist_detail": watchlist_detail,
             "reason": reason,
             "updated_at": datetime.now(pytz.timezone("US/Eastern")).isoformat()
         }

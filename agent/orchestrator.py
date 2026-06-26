@@ -83,6 +83,22 @@ class ExpertOrchestrator:
             except Exception as e:
                 logger.error(f"获取 {symbol} 的交易历史失败: {e}")
 
+            # --- Extract quantitative metadata from watchlist ---
+            quant_metadata = {}
+            try:
+                import json
+                import os
+                watchlist_path = "data/daily_watchlist.json"
+                if os.path.exists(watchlist_path):
+                    with open(watchlist_path, "r", encoding="utf-8") as f:
+                        w_data = json.load(f)
+                        details = w_data.get("watchlist_detail", {})
+                        if symbol in details:
+                            quant_metadata = details[symbol]
+                            logger.info(f"Loaded quant metadata for {symbol}: {quant_metadata}")
+            except Exception as e:
+                logger.error(f"Failed to load quant metadata for {symbol}: {e}")
+
             # Assemble
             briefing: DecisionBriefing = {
                 "symbol": symbol,
@@ -92,6 +108,7 @@ class ExpertOrchestrator:
                 "fundamental": fundamental_res,
                 "technical": technical_res,
                 "sentiment": sentiment_res,
+                "quant_metadata": quant_metadata,
                 "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res),
                 "identified_certainties": self._detect_certainties(macro_briefing, fundamental_res, technical_res, sentiment_res),
                 "trading_history": history_summary

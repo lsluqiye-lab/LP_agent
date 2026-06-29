@@ -59,11 +59,9 @@
 *   **并发优先**：在 ReAct 循环中，应优先使用并行工具调用（如同时获取多只股票的技术分析或新闻）以节省 Token 和时间。**注意**：在进行大规模并发大模型请求（如 `Phase 3` 中多专家分析多只股票）时，必须使用 `asyncio.Semaphore` 限制并发度（推荐最大并发数=2），以防触发 429 限流并导致底层网络库死锁。
 *   **大模型 JSON 提取**：大模型（特别是 Flash 级别模型）在输出 JSON 时常混杂 Markdown 标记或多余的自然语言解释。在解析 LLM 输出时，禁止使用粗暴的 `.replace("```json", "")`。必须使用正则表达式（如 `re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)` 或 `re.search(r'(\{.*\})', text, re.DOTALL)`）提取纯粹的 JSON 块。
 *   **环境变量与配置更新**：当修改 `.env` 配置文件（如更换大模型名称）后，必须使用 `kill` 终止旧进程，并使用 `start.sh` 重启常驻的 `main.py` 守护进程，防止内存中驻留旧配置引发 NotFound 等连锁错误。
-*   **模块化边界**：
-    *   `agent/`：存放智能体逻辑（ReAct, RiskManager, Reviewer）。
-    *   `tools/`：存放原子化的工具（Trading, MarketData, Search）。
-    *   `llm/`：LLM 适配层。
-    *   `data/`：持久化存储（Logs, Memory, Summaries）。
+*   **版本控制与文件对齐 (Versioning Consistency)**：
+    *   在进行任何重大功能更新或策略补丁后，必须同步检查并更新以下文件中的版本号：`CHANGELOG.md` (记录变更)、`agent/react.py` (Docstring与Prompt版本)、`start.sh` (启动Banner版本)。
+    *   **2026-06-29 准则**：在更新前，务必先读取 `GEMINI.md` 或 `MEMORY.md` 确认当前基准版本，严禁跨版本或倒退版本标注。当前基准版本已正式升级为 **v4.4.1**。
 *   **时区处理**：内部逻辑统一使用 `US/Eastern` (美东时间) 处理交易判断，显示输出可兼顾 `Asia/Shanghai`。
 *   **异常处理**：搜索工具失败不应中断整个交易流程，记录原因后继续执行核心逻辑。
 *   **LongPort OpenAPI 挂单策略与滑点控制**：

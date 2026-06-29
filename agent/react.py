@@ -1,5 +1,5 @@
 """
-ReAct Agent v4.3 (The Strategic Brain)
+ReAct Agent v4.4.1 (The Strategic Brain)
 A sophisticated Reasoning + Acting framework that orchestrates experts to make 
 high-conviction trading decisions based on the 'Risk-First' philosophy.
 """
@@ -14,7 +14,7 @@ from tools.base import ToolRegistry
 from data.memory import TradingMemory, get_trading_memory
 
 # ═══════════════════════════════════════════
-# SYSTEM PROMPT v4.4 - The Strategic Brain (Quant-Powered Edition)
+# SYSTEM PROMPT v4.4.1 - The Strategic Brain (Quant-Powered Edition)
 # ═══════════════════════════════════════════
 
 STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 (CIO)**。你的目标是实现账户净值的长期稳健增长。

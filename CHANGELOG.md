@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.1] - 2026-06-29
+### Optimized
+- **V-Recovery vs Bull Trap Boundaries**: Refined re-entry criteria for stopped-out positions. Requires 50% price recovery, `vol_ratio > 2.0x`, and confirmation within 48h. Added "Anti Bull Trap" checks to prevent re-entering on low volume or at major resistance levels.
+- **Tier 1 Leader Protection**: Increased ATR trailing stop multiplier from 3.0x to **3.5x - 4.0x** for high-conviction stocks, providing more room for primary bull runs.
+
 ## [4.4.0] - 2026-06-25
 ### Added
 - **Tiered Conviction Architecture**: Introduced a differentiated defense system for "Tier 1 Leaders" (High-Conviction stocks).

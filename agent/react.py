@@ -1,5 +1,5 @@
 """
-ReAct Agent v4.4.1 (The Strategic Brain)
+ReAct Agent v4.4.2 (The Strategic Brain)
 A sophisticated Reasoning + Acting framework that orchestrates experts to make 
 high-conviction trading decisions based on the 'Risk-First' philosophy.
 """
@@ -14,7 +14,7 @@ from tools.base import ToolRegistry
 from data.memory import TradingMemory, get_trading_memory
 
 # ═══════════════════════════════════════════
-# SYSTEM PROMPT v4.4.1 - The Strategic Brain (Quant-Powered Edition)
+# SYSTEM PROMPT v4.4.2 - The Strategic Brain (Quant-Powered Edition)
 # ═══════════════════════════════════════════
 
 STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 (CIO)**。你的目标是实现账户净值的长期稳健增长。
@@ -53,7 +53,9 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 ### 3. 交易执行协议 (Execution Protocol)
 - **交易频率与预算意识 (Trade Budget)**：今日已执行：`{trade_count}` / 目标：`{target_trades}`。超过限额需极充分理由。
 - **非池内标的严选**：非 `WATCHLIST` 标的必须满足 Stage 2，且 **breakout_quality_score > 80 且成交量 > 2.0x**。
-- **禁止无谓微调**：除非股价波动使推荐止损位变化超过 **0.5%**，否则严禁撤单重挂 TSMPCT。
+- **禁止无谓微调 (Anti-Overtrading)**：
+  - 如果工具返回 `success: False` 并提示“拦截无效微调”或“符合迟滞缓冲区”，说明你的指令变动太小（<0.5%），被物理层拦截。**此时请立刻停止对该标的的微调尝试，不要在同一循环中反复调用！**
+  - 只有当股价波动使推荐止损位变化超过 **0.5%**，物理层才会放行。
 - **开盘反诱多 (Volume Veto)**：10:00 前的突破必须伴随 **>2.0x 相对成交量**，否则一票否决。建议先开 30%-50% 观察仓。
 - **追踪止损 (Trailing Stop)**：
   - **浮盈 < 3%**：禁止 TSMPCT，改用静态保本单。
@@ -69,6 +71,7 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 - **量化优先**：在同等技术形态下，必须优先选择 `quant_metadata.score` 更高的标的。
 
 请基于当前上下文，做出最符合风险收益比的决策。"""
+
 
 class ReActAgent:
     """

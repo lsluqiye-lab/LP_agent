@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.4.1] - 2026-06-29
+## [v4.4.2] - 2026-07-06
+### Added
+- **Orchestrator 认知增强**: 在决策前注入 `recently_weeded_out` 冷静期冲突提示，直接在专家研报环节拦截无效的 Whipsaw 回补尝试。
+- **高频交易预警**: 在 Orchestrator 中根据交易历史自动识别并标记“高频反复交易”标的，警示 CIO 避免陷入过度交易陷阱。
+
+### Fixed
+- **Hysteresis 拦截逻辑闭环**: 将 `SellStockTool` 和 `BuyStockTool` 中的迟滞缓冲区拦截返回值由 `success: True` 改为 `success: False`。配合 Prompt 更新，强制让 CIO 意识到微小调价已被物理层拒绝，杜绝“空转”决策。
+- **V-Recovery 严格约束**: 在 System Prompt 中量化了 V-Recovery 的判定标准（收复 50% 跌幅 + 2x 成交量），严防 Bull Trap。
+
+## [v4.4.1] - 2026-06-29
+
 ### Optimized
 - **V-Recovery vs Bull Trap Boundaries**: Refined re-entry criteria for stopped-out positions. Requires 50% price recovery, `vol_ratio > 2.0x`, and confirmation within 48h. Added "Anti Bull Trap" checks to prevent re-entering on low volume or at major resistance levels.
 - **Tier 1 Leader Protection**: Increased ATR trailing stop multiplier from 3.0x to **3.5x - 4.0x** for high-conviction stocks, providing more room for primary bull runs.

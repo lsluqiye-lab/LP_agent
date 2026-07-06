@@ -704,11 +704,12 @@ class BuyStockTool(BaseTool):
                                 if is_match:
                                     logging.info(f"🚫 [Hysteresis] 拦截对 {symbol} 的重复买单。原因: {match_reason}。保持现有挂单 {o['order_id']}。")
                                     return json.dumps({
-                                        "success": True,
+                                        "success": False,
                                         "order_id": o["order_id"],
                                         "symbol": cut_symbol(symbol),
-                                        "message": f"拦截重复买单：当前已存在相似挂单，符合缓冲区策略。{match_reason}。"
+                                        "message": f"拦截重复买单：当前已存在相似挂单，符合缓冲区策略({match_reason})。指令未执行，以节省 API 频率。"
                                     }, ensure_ascii=False)
+
                 except Exception as hyst_err:
                     logging.warning(f"[Hysteresis] BuyStockTool 检查重复订单时出错: {hyst_err}")
 
@@ -970,11 +971,12 @@ class SellStockTool(BaseTool):
                                 if is_match:
                                     logging.info(f"🚫 [Hysteresis] 拦截对 {symbol} 的高频无效微调。原因: {match_reason}。保持现有挂单 {o['order_id']}。")
                                     return json.dumps({
-                                        "success": True,
+                                        "success": False,
                                         "order_id": o["order_id"],
                                         "symbol": cut_symbol(full_symbol),
-                                        "message": f"拦截无效微调：当前已存在相似挂单，符合迟滞缓冲区策略。{match_reason}。若需强制修改，请先手动撤单或等待显著价差出现。"
+                                        "message": f"拦截无效微调：当前已存在相似挂单，符合迟滞缓冲区策略({match_reason})。指令未执行，以节省 API 频率。若需强制修改，请先手动撤单或等待显著价差出现。"
                                     }, ensure_ascii=False)
+
                 except Exception as hyst_err:
                     logging.warning(f"[Hysteresis] 检查重复订单时出错: {hyst_err}")
 

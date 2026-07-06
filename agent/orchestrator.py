@@ -109,10 +109,24 @@ class ExpertOrchestrator:
                 "technical": technical_res,
                 "sentiment": sentiment_res,
                 "quant_metadata": quant_metadata,
-                "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res),
+                "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res, history_summary),
                 "identified_certainties": self._detect_certainties(macro_briefing, fundamental_res, technical_res, sentiment_res),
                 "trading_history": history_summary
             }
+            
+            # --- Whipsaw Cool-down Injection (v4.4.2) ---
+            try:
+                from agent.portfolio_manager import PortfolioManager
+                pm = PortfolioManager()
+                # 模拟一个 PM 报告来获取黑名单
+                pm_report = pm.analyze_portfolio([], {}, macro_briefing)
+                for weed in pm_report.get("recently_weeded_out", []):
+                    if weed["symbol"] == symbol:
+                        cool_down_msg = f"🚨 止损冷静期拦截 ({weed['type']}): 该标的最近刚被止损/淘汰，目前处于保护禁买期。除非发生极罕见的、放量 2x 以上且收复 50% 跌幅的强力 V-Recovery，否则严禁买入！"
+                        briefing["identified_conflicts"].append(cool_down_msg)
+            except Exception as e:
+                logger.error(f"Failed to inject cool-down conflict for {symbol}: {e}")
+
             
             # --- Send Live Broadcast Card to Feishu ---
             if self.feishu_notifier:
@@ -148,11 +162,15 @@ class ExpertOrchestrator:
             logger.error(f"Orchestration failed for {symbol}: {e}")
             raise
 
-    def _detect_conflicts(self, macro, fundamental, technical, sentiment) -> List[str]:
+    def _detect_conflicts(self, macro, fundamental, technical, sentiment, history_summary="") -> List[str]:
         """
         Heuristic-based preliminary conflict detection to prime the main agent.
         """
         conflicts = []
+        
+        # 0. High Frequency Warning (v4.4.2)
+        if "频繁交易" in history_summary or "反复止损" in history_summary:
+            conflicts.append("⚠️ 警报：检测到近期对该标的进行过高频反复交易。请审视是否陷入过度交易陷阱，当前应提高建仓门槛或直接跳过。")
         
         # 1. Fundamental vs Technical
         if fundamental.get('valuation') in ["Undervalued", "Very Undervalued"] and technical.get('trend_stage') == "Stage 4":

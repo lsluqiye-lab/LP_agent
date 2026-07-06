@@ -1,93 +1,93 @@
 {
-    "date": "2026-06-28",
+    "date": "2026-07-05",
     "watchlist": [
-        "ASML",
-        "JPM",
-        "MS",
-        "KO",
-        "CAT",
-        "TSM",
-        "LLY",
-        "GE",
         "UNH",
+        "SBUX",
+        "LLY",
+        "JPM",
+        "KO",
+        "WM",
+        "AAPL",
+        "GE",
+        "AMGN",
         "AMD",
-        "ARM",
-        "QQQ260706P680000"
+        "ASML",
+        "QQQ260713P701000"
     ],
     "watchlist_detail": {
-        "ASML": {
-            "score": 100.0,
+        "UNH": {
+            "score": 90.0,
             "rank": 1,
             "conviction": "Tier 1",
-            "reason": "持仓股且评分满分。AI基础设施需求爆发，EUV光刻机订单积压严重；荷兰加入Pax Silica联盟强化了其在高端半导体设备中的垄断地位。"
+            "reason": "持仓股。Q2财报（7月16日）前哨站，市场关注Medicare Advantage业务退出亏损郡县后的利润修复逻辑，监管压力已部分定价。"
         },
-        "JPM": {
-            "score": 100.0,
+        "SBUX": {
+            "score": 90.0,
             "rank": 2,
             "conviction": "Tier 1",
-            "reason": "持仓股且评分满分。7月1日即将启动500亿美元巨额回购，且通过压力测试后股息上调，管理层继任计划清晰，基本面极度稳健。"
-        },
-        "MS": {
-            "score": 100.0,
-            "rank": 3,
-            "conviction": "Tier 1",
-            "reason": "技术评分满分。受益于当前美联储加息预期升温带来的净利息收入改善，且作为AI板块轮动后的资金避风港，机构增持意愿强烈。"
-        },
-        "KO": {
-            "score": 100.0,
-            "rank": 4,
-            "conviction": "Tier 1",
-            "reason": "技术评分满分。200亿美元税务纠纷上诉进入关键期，若有积极进展将极大释放估值压力；数字化营销转型带动非碳酸饮料高增长。"
-        },
-        "CAT": {
-            "score": 100.0,
-            "rank": 5,
-            "conviction": "Tier 1",
-            "reason": "技术评分满分。中东地缘政治紧张推高油价，驱动全球能源及矿业基础设施投资，CAT作为行业龙头直接受益于此轮资本开支周期。"
-        },
-        "TSM": {
-            "score": 95.0,
-            "rank": 6,
-            "conviction": "Tier 1",
-            "reason": "AI核心代工厂，3nm节点商业化加速。7月16日财报前动能强劲，市场博弈其进入3万亿市值俱乐部，技术面呈现主升浪特征。"
+            "reason": "持仓股。Brian Niccol改革进入深水区，4月中国合资企业交易闭环后，市场预期 licensed model 将释放更高利润率。"
         },
         "LLY": {
             "score": 90.0,
-            "rank": 7,
+            "rank": 3,
             "conviction": "Tier 1",
-            "reason": "重大催化剂：7月1日Medicare GLP-1桥接计划正式启动，开放2000万潜在患者市场。Orforglipron口服版获批预期持续推高估值。"
+            "reason": "持仓股。口服GLP-1药物Foundayo上市后的首个完整季度数据披露前夕，Retatrutide Phase 3数据持续提供催化。"
+        },
+        "JPM": {
+            "score": 90.0,
+            "rank": 4,
+            "conviction": "Tier 1",
+            "reason": "持仓股。7月14日财报窗口期，Agentic AI在核心工作流的集成及CLARITY法案进展是金融科技溢价的主要来源。"
+        },
+        "KO": {
+            "score": 95.0,
+            "rank": 5,
+            "conviction": "Tier 1",
+            "reason": "技术评分最高。受惠于美国250周年庆典及FIFA世界杯在北美的举办，夏季消费需求爆发。当前处于Idiosyncratic Breakout形态。"
+        },
+        "WM": {
+            "score": 90.0,
+            "rank": 6,
+            "conviction": "Tier 1",
+            "reason": "板块趋势股。2026年30亿美元可持续增长战略达标年，20个RNG设施投入运营，世界杯环境服务合同提供额外业绩增量。"
+        },
+        "AAPL": {
+            "score": 85.0,
+            "rank": 7,
+            "conviction": "Tier 2",
+            "reason": "宏观风控评分75支持动能追逐。WWDC 2026后AI变现路径清晰，iPhone 18/Foldable预期支撑技术面突破。"
         },
         "GE": {
-            "score": 85.0,
+            "score": 80.0,
             "rank": 8,
             "conviction": "Tier 2",
-            "reason": "持仓股。拥有1900亿美元的巨额积压订单，中国航空市场订单恢复及混合动力引擎测试成功，提供长期增长确定性。"
+            "reason": "持仓股。RISE计划Open Fan引擎测试里程碑，新加坡MRO扩展（3亿美元投资）有效缓解积压订单压力。"
         },
-        "UNH": {
-            "score": 85.0,
+        "AMGN": {
+            "score": 80.0,
             "rank": 9,
             "conviction": "Tier 2",
-            "reason": "持仓股。公司主动缩减低利润的Medicare Advantage业务以提升毛利，Optum AI部门的整合正在显著降低理赔处理成本。"
+            "reason": "持仓股。肥胖症管线MariTide的竞争性临床数据更新预期，防御性医疗龙头的估值修复逻辑。"
         },
         "AMD": {
-            "score": 85.0,
+            "score": 80.0,
             "rank": 10,
             "conviction": "Tier 2",
-            "reason": "持仓股。7月22日“Advancing AI”大会是核心催化剂，MI450 GPU及Helios机架系统发布在即，市场正将其重新定价为AI基础设施平台。"
+            "reason": "持仓股。7月22日“Advancing AI”盛会前瞻，Helios平台及MI450系列是挑战NVDA市场份额的核心筹码。"
         },
-        "ARM": {
-            "score": 60.0,
+        "ASML": {
+            "score": 75.0,
             "rank": 11,
-            "conviction": "Tier 3",
-            "reason": "持仓股。虽估值极高，但符合FAVORABLE宏观环境下的Plan A动能法则。作为AI成本转嫁能力的代表，需严密监控其在SpaceX IPO后的流动性回抽表现。"
+            "conviction": "Tier 2",
+            "reason": "持仓股。7月15日财报风向标，High-NA EUV订单转化率及对华贸易政策博弈是关键扰动项，需密切监控。"
         },
-        "QQQ260706P680000": {
+        "QQQ260713P701000": {
             "score": 50.0,
             "rank": 12,
             "conviction": "Hedge",
-            "reason": "必选持仓对冲。距离到期日仅剩8天，对科技股波动极度敏感。在SpaceX IPO吸纳流动性及AI成本担忧升温背景下，提供关键的尾部风险保护。"
+            "reason": "强制对冲持仓。7月13日到期，精确覆盖7月14日CPI及ASML财报前的波动风险，宏观风险评分虽偏正面但波动率正在抬升。"
         }
     },
-    "reason": "1. 宏观环境处于FAVORABLE（75分），执行‘动态超买松绑法则’，保留ASML、TSM等高估值但具备统治力的AI龙头。2. 强制纳入所有持仓股，特别是即将迎来7月1日关键时点（JPM回购、LLY政策生效）的标的。3. 规避了未来5个交易日内的财报雷区，所有入选非持仓股（如MS, KO, CAT）的财报均在7月中旬以后。4. 行业分布聚焦于‘AI硬件-金融回馈-医药政策-工业基建’四大主线，确保组合在流动性切换中的弹性。",
-    "updated_at": "2026-06-28T08:01:55.001708-04:00"
+    "reason": "1. 强制入选：已包含全部 9 只必选持仓股。2. 财报规避：经核对，所选非持仓股（KO, WM, AAPL）在未来 5 个交易日内均无财报发布。3. 逻辑优化：鉴于宏观评分 75.0 处于 FAVORABLE 状态，启用‘方案 A’，引入技术面强势且具有 2026 夏季全球性催化剂（如世界杯、美国庆典）的标的 KO 和 WM。4. 风险对冲：保留 QQQ 虚值看跌期权以对冲 7 月中旬即将开启的密集财报季及 CPI 数据风险。",
+    "updated_at": "2026-07-05T08:02:02.719087-04:00"
 }

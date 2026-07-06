@@ -63,7 +63,7 @@
 
     <!-- Header Block -->
     <rect x="0" y="0" width="1060" height="60" fill="url(#title-grad)" />
-    <text x="30" y="38" fill="#FFFFFF" font-size="20" font-weight="900" letter-spacing="1.5">LP-AGENT v4.0 双轨自适应量化交易全景拓扑图</text>
+    <text x="30" y="38" fill="#FFFFFF" font-size="20" font-weight="900" letter-spacing="1.5">LP-AGENT v4.5.1 叙事博弈与深度博弈全景拓扑图</text>
     <rect x="800" y="16" width="230" height="28" rx="14" fill="#000000" fill-opacity="0.5" />
     <circle cx="818" cy="30" r="6" fill="#34D399" />
     <text x="832" y="34" fill="#34D399" font-size="11" font-weight="900">3D STEREOSCOPIC GRAPHIC</text>
@@ -81,6 +81,10 @@
       <!-- PreScreen -> Expert Matrix Trigger -->
       <path d="M 270,400 L 370,400" stroke="#FBBF24" stroke-width="2.5" marker-end="url(#arrow-gold)" />
       <text x="280" y="392" fill="#FBBF24" font-size="11" font-weight="700">触发活跃信号</text>
+
+      <!-- NME -> CIO Brain -->
+      <path d="M 795,150 L 795,320" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-blue)" />
+      <text x="805" y="240" fill="#38BDF8" font-size="11" font-weight="700">叙事偏移与直觉注入</text>
 
       <!-- Expert Briefings -> CIO ReAct Brain -->
       <path d="M 630,400 L 680,400" stroke="#C084FC" stroke-width="3" marker-end="url(#arrow-blue)" />
@@ -123,6 +127,18 @@
 
 
     <!-- ==================== STEREOSCOPIC NODES (THE CARDS WITH HIGH-END ICONS) ==================== -->
+
+    <!-- [PERCEPTION] Narrative Momentum Engine (v4.5) -->
+    <g filter="url(#shadow-premium)">
+      <rect x="680" y="80" width="240" height="70" rx="12" fill="url(#card-grad)" stroke="url(#border-cyan)" stroke-width="2" />
+      <!-- Megaphone / Broadcast Icon -->
+      <rect x="692" y="90" width="22" height="22" rx="4" fill="#06B6D4" fill-opacity="0.15" />
+      <path d="M 694,101 L 702,101 L 706,94 L 706,108 L 702,101" fill="none" stroke="#22D3EE" stroke-width="1.5" />
+      
+      <text x="722" y="99" fill="#F8FAFC" font-size="13" font-weight="900">叙事量化引擎 (NME)</text>
+      <text x="722" y="115" fill="#64748B" font-size="10" font-weight="700">全网宏观叙事密度探测</text>
+      <text x="722" y="129" fill="#22D3EE" font-size="10" font-weight="700">感知情绪偏移 / 识别风险先兆</text>
+    </g>
 
     <!-- [PERCEPTION] Qlib Quant Engine -->
     <g filter="url(#shadow-premium)">
@@ -215,9 +231,9 @@
       <path d="M 696,343 C 696,338 710,338 710,343" fill="none" stroke="#F87171" stroke-width="1.2" />
       <path d="M 699,346 C 699,350 707,350 707,346" fill="none" stroke="#F87171" stroke-width="1.2" />
       
-      <text x="722" y="342" fill="#F8FAFC" font-size="14" font-weight="900">CIO 战略决策主脑</text>
-      <text x="722" y="362" fill="#94A3B8" font-size="10" font-weight="700">Thought-Action-Observation 闭环</text>
-      <text x="722" y="378" fill="#F87171" font-size="10" font-weight="700">立体衍生品对冲CC/Put ── 动态仓位调整</text>
+      <text x="722" y="342" fill="#F8FAFC" font-size="14" font-weight="900">CIO 战略主脑 (ToT 深度博弈)</text>
+      <text x="722" y="362" fill="#94A3B8" font-size="10" font-weight="700">牛/熊/压力 三路并行推演协议</text>
+      <text x="722" y="378" fill="#F87171" font-size="10" font-weight="700">过滤诱多陷阱 ── 动态仓位对冲</text>
       <rect x="722" y="394" width="250" height="24" rx="4" fill="#000000" fill-opacity="0.5" />
       <text x="732" y="410" fill="#38BDF8" font-size="9.5" font-weight="800">10步战术高优先紧急唤醒硬控制规则</text>
     </g>

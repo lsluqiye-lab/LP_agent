@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v4.5.1] - 2026-07-06
+### Added
+- **深度思考树协议 (Tree-of-Thought, ToT)**: 为 CIO 引入多路径博弈推演机制。针对高信心或高冲突标的，强制执行 [BULL] / [BEAR] / [TAIL_RISK] 三路并行分析与 [SYNTHESIS] 合成决策，过滤诱多陷阱。
+- **ToT 触发逻辑**: 优化 Token 使用，仅在专家研报冲突或 Tier 1 标的时激活深度推演模式。
+
+## [v4.5.0] - 2026-07-06
+### Added
+- **叙事量化引擎 (Narrative Momentum Engine, NME)**: 引入 `NarrativeAnalyst` 专家，支持全网叙事密度、主题动能及情绪偏移的量化探测。
+- **CIO 叙事智能注入**: 升级 `STRATEGIC_SYSTEM_PROMPT` 至 v4.5.0，使 CIO 具备基于叙事共振（加仓）和叙事偏移（避险）的“直觉”决策能力。
+- **全链路集成**: 在 Phase 3 统筹中心正式集成 NME，并将叙事简报作为核心决策权重转发至 CIO。
+
 ## [v4.4.2] - 2026-07-06
 ### Added
 - **Orchestrator 认知增强**: 在决策前注入 `recently_weeded_out` 冷静期冲突提示，直接在专家研报环节拦截无效的 Whipsaw 回补尝试。

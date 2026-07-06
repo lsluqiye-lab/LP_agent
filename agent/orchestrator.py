@@ -7,12 +7,13 @@ import logging
 from typing import List, Dict
 from datetime import datetime
 
-from agent.schemas import DecisionBriefing, MacroBriefing, SectorBriefing
+from agent.schemas import DecisionBriefing, MacroBriefing, SectorBriefing, NarrativeBriefing
 from agent.fundamental_analyst import FundamentalAnalyst
 from agent.technical_analyst import TechnicalAnalyst
 from agent.sentiment_analyst import SentimentAnalyst
 from agent.sector_analyst import SectorAnalyst
 from agent.macro_analyst import MacroAnalyst
+from agent.narrative_analyst import NarrativeAnalyst
 from llm.base import BaseLLM
 from logger import setup_logger
 
@@ -32,6 +33,7 @@ class ExpertOrchestrator:
         self.s_analyst = SentimentAnalyst(llm)
         self.sec_analyst = SectorAnalyst(llm)
         self.m_analyst = MacroAnalyst(llm)
+        self.n_analyst = NarrativeAnalyst(llm)
         self.feishu_notifier = feishu_notifier
 
     async def get_sector_briefing(self) -> SectorBriefing:
@@ -42,7 +44,11 @@ class ExpertOrchestrator:
         """Runs the deep macro structural analysis."""
         return await self.m_analyst.analyze()
 
-    async def get_full_briefing(self, symbol: str, macro_briefing: MacroBriefing, sector_briefing: SectorBriefing) -> DecisionBriefing:
+    async def get_narrative_briefing(self) -> NarrativeBriefing:
+        """Runs the global narrative momentum analysis."""
+        return await self.n_analyst.analyze()
+
+    async def get_full_briefing(self, symbol: str, macro_briefing: MacroBriefing, sector_briefing: SectorBriefing, narrative_briefing: NarrativeBriefing = None) -> DecisionBriefing:
         """
         Runs all expert agents in parallel and assembles the results.
         """
@@ -104,12 +110,13 @@ class ExpertOrchestrator:
                 "symbol": symbol,
                 "timestamp": datetime.now().isoformat(),
                 "macro": macro_briefing,
+                "narrative": narrative_briefing or self._get_empty_narrative(),
                 "sector": sector_briefing,
                 "fundamental": fundamental_res,
                 "technical": technical_res,
                 "sentiment": sentiment_res,
                 "quant_metadata": quant_metadata,
-                "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res, history_summary),
+                "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res, history_summary, narrative_briefing),
                 "identified_certainties": self._detect_certainties(macro_briefing, fundamental_res, technical_res, sentiment_res),
                 "trading_history": history_summary
             }
@@ -118,8 +125,14 @@ class ExpertOrchestrator:
             try:
                 from agent.portfolio_manager import PortfolioManager
                 pm = PortfolioManager()
+                # 确保 score 是数值
+                try:
+                    safe_score = float(macro_briefing.get("score", 50))
+                except (ValueError, TypeError, AttributeError):
+                    safe_score = 50.0
+                
                 # 模拟一个 PM 报告来获取黑名单
-                pm_report = pm.analyze_portfolio([], {}, macro_briefing)
+                pm_report = pm.analyze_portfolio([], {}, {"score": safe_score})
                 for weed in pm_report.get("recently_weeded_out", []):
                     if weed["symbol"] == symbol:
                         cool_down_msg = f"🚨 止损冷静期拦截 ({weed['type']}): 该标的最近刚被止损/淘汰，目前处于保护禁买期。除非发生极罕见的、放量 2x 以上且收复 50% 跌幅的强力 V-Recovery，否则严禁买入！"
@@ -162,12 +175,18 @@ class ExpertOrchestrator:
             logger.error(f"Orchestration failed for {symbol}: {e}")
             raise
 
-    def _detect_conflicts(self, macro, fundamental, technical, sentiment, history_summary="") -> List[str]:
+    def _detect_conflicts(self, macro, fundamental, technical, sentiment, history_summary="", narrative: NarrativeBriefing = None) -> List[str]:
         """
         Heuristic-based preliminary conflict detection to prime the main agent.
         """
         conflicts = []
         
+        # 0. Narrative Conflict (v4.5 NME)
+        if narrative and narrative.get('narrative_shift_warning'):
+            warning = narrative['narrative_shift_warning']
+            if any(k in warning.lower() for k in ["风险", "转向", "激增", "危机", "bubble", "risk", "warning", "stress", "crash"]):
+                conflicts.append(f"⚠️ 叙事偏移警告：{warning}")
+
         # 0. High Frequency Warning (v4.4.2)
         if "频繁交易" in history_summary or "反复止损" in history_summary:
             conflicts.append("⚠️ 警报：检测到近期对该标的进行过高频反复交易。请审视是否陷入过度交易陷阱，当前应提高建仓门槛或直接跳过。")
@@ -209,6 +228,16 @@ class ExpertOrchestrator:
              certainties.append("✅ 基本面支撑：估值处于合理或低估区间。")
              
         return certainties
+
+    def _get_empty_narrative(self) -> NarrativeBriefing:
+        """Empty fallback for narrative briefing."""
+        return {
+            "headline": "无活跃叙事数据",
+            "top_narratives": [],
+            "narrative_shift_warning": "",
+            "sentiment_density": "Unknown",
+            "impact_on_strategy": "N/A"
+        }
 
     def _get_error_briefing(self, expert_name: str) -> Dict:
         """Fallback for failed analysis."""

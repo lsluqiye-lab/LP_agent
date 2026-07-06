@@ -44,6 +44,15 @@ class SentimentBriefing(TypedDict):
     key_news: List[str]  # e.g., ["发布新一代Blackwell GPU", "多家投行上调目标价"]
 
 
+class NarrativeBriefing(TypedDict):
+    """叙事量化分析"""
+    headline: str
+    top_narratives: List[dict]  # theme, intensity, delta, description
+    narrative_shift_warning: str
+    sentiment_density: str
+    impact_on_strategy: str
+
+
 class SectorBriefing(TypedDict):
     """板块与资金轮动分析"""
     summary: str  # e.g., "资金从科技向金融轮动，半导体高位滞涨"
@@ -62,6 +71,7 @@ class DecisionBriefing(TypedDict):
     
     # 专家分析模块
     macro: MacroBriefing
+    narrative: NarrativeBriefing
     sector: SectorBriefing
     technical: TechnicalBriefing
     fundamental: FundamentalBriefing

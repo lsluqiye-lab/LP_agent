@@ -330,11 +330,16 @@ async def phase3_map_experts(
     sector_briefing = await orchestrator.get_sector_briefing()
     logger.info(f"板块轮动总结: {sector_briefing.get('summary')}")
 
+    # 🆕 升级 v4.5: 获取叙事量化引擎简报 (Narrative Momentum Engine)
+    logger.info("[Phase 3] 获取叙事量化引擎研报 (Narrative Momentum Engine)...")
+    narrative_briefing = await orchestrator.get_narrative_briefing()
+    logger.info(f"叙事总纲: {narrative_briefing.get('headline')}")
+
     sem = asyncio.Semaphore(2) # 限制最高并发量，避免触发大模型限流和阻塞
     
     async def _analyze_with_sem(c):
         async with sem:
-            return await orchestrator.get_full_briefing(c["symbol"], macro_briefing, sector_briefing)
+            return await orchestrator.get_full_briefing(c["symbol"], macro_briefing, sector_briefing, narrative_briefing)
 
     tasks = [_analyze_with_sem(c) for c in candidates]
     briefings = await asyncio.gather(*tasks)

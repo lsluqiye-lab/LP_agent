@@ -1,338 +1,195 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 1060 860" style="background:#090C16; border-radius:20px; box-shadow:0 35px 70px rgba(0,0,0,0.7); font-family:'PingFang SC', 'Microsoft YaHei', 'Inter', sans-serif;">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1000" viewBox="0 0 1200 1000" style="background:#0F172A; font-family:'Inter', 'PingFang SC', sans-serif;">
     <defs>
-      <!-- Premium Glassmorphic Card Background Gradient -->
-      <linearGradient id="card-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#1E293B" stop-opacity="0.9" />
-        <stop offset="100%" stop-color="#0F172A" stop-opacity="0.98" />
+      <!-- Premium Gradients -->
+      <linearGradient id="header-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#1E40AF" />
+        <stop offset="100%" stop-color="#3B82F6" />
       </linearGradient>
       
-      <!-- Glow Gradients for Layer Borders -->
-      <linearGradient id="glow-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#38BDF8" />
-        <stop offset="100%" stop-color="#0EA5E9" />
-      </linearGradient>
-      <linearGradient id="glow-gold" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#FBBF24" />
-        <stop offset="100%" stop-color="#F59E0B" />
-      </linearGradient>
-      <linearGradient id="glow-red" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#F87171" />
-        <stop offset="100%" stop-color="#EF4444" />
-      </linearGradient>
-      <linearGradient id="glow-purple" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#C084FC" />
-        <stop offset="100%" stop-color="#8B5CF6" />
-      </linearGradient>
-      <linearGradient id="glow-emerald" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#34D399" />
-        <stop offset="100%" stop-color="#10B981" />
+      <linearGradient id="perception-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#0EA5E9" />
+        <stop offset="100%" stop-color="#0284C7" />
       </linearGradient>
       
-      <!-- Core Title Banner Gradient -->
-      <linearGradient id="title-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#1E3A8A" />
-        <stop offset="50%" stop-color="#2563EB" />
-        <stop offset="100%" stop-color="#1D4ED8" />
+      <linearGradient id="risk-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#F59E0B" />
+        <stop offset="100%" stop-color="#D97706" />
+      </linearGradient>
+      
+      <linearGradient id="brain-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#8B5CF6" />
+        <stop offset="100%" stop-color="#7C3AED" />
+      </linearGradient>
+      
+      <linearGradient id="execution-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#10B981" />
+        <stop offset="100%" stop-color="#059669" />
       </linearGradient>
 
-      <!-- Drop Shadows -->
-      <filter id="shadow-premium" x="-10%" y="-10%" width="120%" height="120%">
-        <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000000" flood-opacity="0.8"/>
+      <filter id="card-shadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.4"/>
       </filter>
-      
-      <!-- Marker Arrows -->
-      <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38BDF8" />
-      </marker>
-      <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#EF4444" />
-      </marker>
-      <marker id="arrow-emerald" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#10B981" />
-      </marker>
-      <marker id="arrow-gold" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#FBBF24" />
+
+      <!-- Markers -->
+      <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8" />
       </marker>
     </defs>
 
-    <!-- Deep Space Grid Background -->
-    <g stroke="#ffffff" stroke-opacity="0.02" stroke-width="1">
-      <path d="M 0,40 L 1060,40 M 0,80 L 1060,80 M 0,120 L 1060,120 M 0,160 L 1060,160 M 0,200 L 1060,200 M 0,240 L 1060,240 M 0,280 L 1060,280 M 0,320 L 1060,320 M 0,360 L 1060,360 M 0,400 L 1060,400 M 0,440 L 1060,440 M 0,480 L 1060,480 M 0,520 L 1060,520 M 0,560 L 1060,560 M 0,600 L 1060,600 M 0,640 L 1060,640 M 0,680 L 1060,680 M 0,720 L 1060,720 M 0,760 L 1060,760 M 0,800 L 1060,800 M 0,840 L 1060,840" />
-      <path d="M 100,0 L 100,860 M 200,0 L 200,860 M 300,0 L 300,860 M 400,0 L 400,860 M 500,0 L 500,860 M 600,0 L 600,860 M 700,0 L 700,860 M 800,0 L 800,860 M 900,0 L 900,860 M 1000,0 L 1000,860" />
+    <!-- Background Grid -->
+    <g stroke="#1E293B" stroke-width="1" stroke-dasharray="4 4">
+      <path d="M 0,100 L 1200,100 M 0,200 L 1200,200 M 0,300 L 1200,300 M 0,400 L 1200,400 M 0,500 L 1200,500 M 0,600 L 1200,600 M 0,700 L 1200,700 M 0,800 L 1200,800 M 0,900 L 1200,900" />
+      <path d="M 100,0 L 100,1000 M 200,0 L 200,1000 M 300,0 L 300,1000 M 400,0 L 400,1000 M 500,0 L 500,1000 M 600,0 L 600,1000 M 700,0 L 700,1000 M 800,0 L 800,1000 M 900,0 L 900,1000 M 1000,0 L 1000,1000 M 1100,0 L 1100,1000" />
     </g>
 
-    <!-- Header Block -->
-    <rect x="0" y="0" width="1060" height="60" fill="url(#title-grad)" />
-    <text x="30" y="38" fill="#FFFFFF" font-size="20" font-weight="900" letter-spacing="1.5">LP-AGENT v4.5.1 叙事博弈与深度博弈全景拓扑图</text>
-    <rect x="800" y="16" width="230" height="28" rx="14" fill="#000000" fill-opacity="0.5" />
-    <circle cx="818" cy="30" r="6" fill="#34D399" />
-    <text x="832" y="34" fill="#34D399" font-size="11" font-weight="900">3D STEREOSCOPIC GRAPHIC</text>
+    <!-- Header -->
+    <rect x="0" y="0" width="1200" height="70" fill="url(#header-grad)" />
+    <text x="40" y="45" fill="#FFFFFF" font-size="24" font-weight="900" letter-spacing="2">LP-AGENT v4.5.1 叙事博弈与多路径决策架构</text>
+    <text x="950" y="42" fill="#DBEAFE" font-size="12" font-weight="700">SMA-ToT HYBRID ENGINE</text>
 
-    <!-- ==================== FLOW CONNECTORS (THE WIRES) ==================== -->
-    <g fill="none" stroke-linecap="round">
-      <!-- Qlib -> PM Data Pipe -->
-      <path d="M 155,150 L 155,220" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-blue)" />
-      <text x="165" y="190" fill="#38BDF8" font-size="11" font-weight="700">阿尔法候选池</text>
-      
-      <!-- PM -> PreScreen Ingestion -->
-      <path d="M 155,300 L 155,360" stroke="#FBBF24" stroke-width="2.5" marker-end="url(#arrow-gold)" />
-      <text x="165" y="335" fill="#FBBF24" font-size="11" font-weight="700">风控评分与红线</text>
-
-      <!-- PreScreen -> Expert Matrix Trigger -->
-      <path d="M 270,400 L 370,400" stroke="#FBBF24" stroke-width="2.5" marker-end="url(#arrow-gold)" />
-      <text x="280" y="392" fill="#FBBF24" font-size="11" font-weight="700">触发活跃信号</text>
-
-      <!-- NME -> CIO Brain -->
-      <path d="M 795,150 L 795,320" stroke="#38BDF8" stroke-width="2.5" marker-end="url(#arrow-blue)" />
-      <text x="805" y="240" fill="#38BDF8" font-size="11" font-weight="700">叙事偏移与直觉注入</text>
-
-      <!-- Expert Briefings -> CIO ReAct Brain -->
-      <path d="M 630,400 L 680,400" stroke="#C084FC" stroke-width="3" marker-end="url(#arrow-blue)" />
-      <text x="632" y="390" fill="#C084FC" font-size="11" font-weight="700">专家研报</text>
-
-      <!-- WebSocket Watchdog -> CIO Emergency Wakeup (Bézier Curve) -->
-      <path d="M 610,115 C 720,115 815,150 815,270" stroke="#EF4444" stroke-width="2.5" marker-end="url(#arrow-red)" stroke-dasharray="6 4" />
-      <text x="700" y="135" fill="#EF4444" font-size="11" font-weight="800">🚨 WebSocket 瞬间异动唤醒</text>
-
-      <!-- 1-Min Watchdog -> CIO Regular Poll Wakeup (Bézier Curve) -->
-      <path d="M 610,215 C 690,215 770,230 795,270" stroke="#EF4444" stroke-width="2" marker-end="url(#arrow-red)" stroke-dasharray="6 4" />
-
-      <!-- CIO Decision -> BaseTradingEngine Interface -->
-      <path d="M 815,440 C 815,510 710,540 640,540" stroke="#C084FC" stroke-width="3" marker-end="url(#arrow-blue)" />
-      <text x="700" y="505" fill="#C084FC" font-size="11" font-weight="700">可插拔交易报文</text>
-
-      <!-- BaseTradingEngine -> PRR Guard (Loopback) -->
-      <path d="M 150,530 Q 80,530 80,545 Q 80,560 150,560" stroke="#10B981" stroke-width="2" marker-end="url(#arrow-emerald)" />
-      <text x="85" y="515" fill="#34D399" font-size="10" font-weight="700">PRR利润锁</text>
-
-      <!-- BaseTradingEngine -> Auto-Stop Aligner (Loopback) -->
-      <path d="M 850,530 Q 920,530 920,545 Q 920,560 850,560" stroke="#10B981" stroke-width="2" marker-end="url(#arrow-emerald)" />
-      <text x="865" y="515" fill="#34D399" font-size="10" font-weight="700">止损数量自愈</text>
-
-      <!-- BaseTradingEngine -> LongPort Channel -->
-      <path d="M 350,580 L 350,640" stroke="#8B5CF6" stroke-width="2.5" marker-end="url(#arrow-blue)" />
-      <text x="360" y="615" fill="#C084FC" font-size="11" font-weight="700">OpenAPI 实盘报单</text>
-
-      <!-- LongPort Execution -> Review Agent (Feedback Loop) -->
-      <path d="M 450,680 C 650,680 925,660 925,200" stroke="#10B981" stroke-width="2" marker-end="url(#arrow-emerald)" stroke-dasharray="5 3" />
-      <text x="680" y="670" fill="#34D399" font-size="11" font-weight="800">📊 盘后盈亏审计与核对反馈流</text>
-
-      <!-- Review Agent -> Memory Consolidation -->
-      <path d="M 925,150 L 925,220" stroke="#10B981" stroke-width="2.5" marker-end="url(#arrow-emerald)" />
-
-      <!-- Memory Lessons Injection -> CIO Brain (Bézier Loop) -->
-      <path d="M 925,290 L 925,340" stroke="#34D399" stroke-width="2.5" marker-end="url(#arrow-blue)" />
-      <text x="935" y="308" fill="#34D399" font-size="11" font-weight="700">战术规则注入</text>
+    <!-- ==================== TIER 1: PERCEPTION (INPUTS) ==================== -->
+    <text x="40" y="110" fill="#38BDF8" font-size="14" font-weight="800">TIER 1: 信号感知层 (PERCEPTION LAYER)</text>
+    
+    <!-- NME -->
+    <g transform="translate(100, 130)" filter="url(#card-shadow)">
+      <rect width="220" height="90" rx="12" fill="#1E293B" stroke="#0EA5E9" stroke-width="2" />
+      <text x="20" y="35" fill="#F8FAFC" font-size="15" font-weight="800">叙事量化引擎 (NME)</text>
+      <text x="20" y="58" fill="#94A3B8" font-size="11">全网叙事密度探测</text>
+      <text x="20" y="75" fill="#38BDF8" font-size="11" font-weight="700">感知情绪偏移 / 风险先兆</text>
     </g>
 
-
-    <!-- ==================== STEREOSCOPIC NODES (THE CARDS WITH HIGH-END ICONS) ==================== -->
-
-    <!-- [PERCEPTION] Narrative Momentum Engine (v4.5) -->
-    <g filter="url(#shadow-premium)">
-      <rect x="680" y="80" width="240" height="70" rx="12" fill="url(#card-grad)" stroke="url(#border-cyan)" stroke-width="2" />
-      <!-- Megaphone / Broadcast Icon -->
-      <rect x="692" y="90" width="22" height="22" rx="4" fill="#06B6D4" fill-opacity="0.15" />
-      <path d="M 694,101 L 702,101 L 706,94 L 706,108 L 702,101" fill="none" stroke="#22D3EE" stroke-width="1.5" />
-      
-      <text x="722" y="99" fill="#F8FAFC" font-size="13" font-weight="900">叙事量化引擎 (NME)</text>
-      <text x="722" y="115" fill="#64748B" font-size="10" font-weight="700">全网宏观叙事密度探测</text>
-      <text x="722" y="129" fill="#22D3EE" font-size="10" font-weight="700">感知情绪偏移 / 识别风险先兆</text>
+    <!-- Alpha Scanner -->
+    <g transform="translate(350, 130)" filter="url(#card-shadow)">
+      <rect width="220" height="90" rx="12" fill="#1E293B" stroke="#0EA5E9" stroke-width="2" />
+      <text x="20" y="35" fill="#F8FAFC" font-size="15" font-weight="800">Qlib 多因子中台</text>
+      <text x="20" y="58" fill="#94A3B8" font-size="11">Alpha158 机器选股</text>
+      <text x="20" y="75" fill="#38BDF8" font-size="11" font-weight="700">筛选主线行业与强势龙头</text>
     </g>
 
-    <!-- [PERCEPTION] Qlib Quant Engine -->
-    <g filter="url(#shadow-premium)">
-      <rect x="40" y="80" width="230" height="70" rx="12" fill="url(#card-grad)" stroke="url(#border-cyan)" stroke-width="1.8" />
-      <!-- Database Icon -->
-      <rect x="52" y="90" width="22" height="22" rx="4" fill="#06B6D4" fill-opacity="0.15" />
-      <ellipse cx="63" cy="97" rx="7" ry="2.5" fill="none" stroke="#22D3EE" stroke-width="1.5" />
-      <path d="M 56,97 L 56,103 A 7,2.5 0 0,0 70,103 L 70,97" fill="none" stroke="#22D3EE" stroke-width="1.5" />
-      <path d="M 56,103 L 56,109 A 7,2.5 0 0,0 70,109 L 70,103" fill="none" stroke="#22D3EE" stroke-width="1.5" />
-      
-      <text x="82" y="99" fill="#F8FAFC" font-size="13" font-weight="900">Qlib多因子中台</text>
-      <text x="82" y="115" fill="#64748B" font-size="10" font-weight="700">盘前 Alpha158 机器选股</text>
-      <text x="82" y="129" fill="#22D3EE" font-size="10" font-weight="700">自上而下 筛选强势龙头</text>
+    <!-- WebSocket Watchdog -->
+    <g transform="translate(600, 130)" filter="url(#card-shadow)">
+      <rect width="220" height="90" rx="12" fill="#1E293B" stroke="#F43F5E" stroke-width="2" />
+      <text x="20" y="35" fill="#F8FAFC" font-size="15" font-weight="800">WebSocket 高频雷达</text>
+      <text x="20" y="58" fill="#94A3B8" font-size="11">毫秒级长桥数据监听</text>
+      <text x="20" y="75" fill="#F43F5E" font-size="11" font-weight="700">极速防守 / 突破抢筹</text>
     </g>
 
-    <!-- [PERCEPTION] WebSocket Watchdog -->
-    <g filter="url(#shadow-premium)">
-      <rect x="370" y="80" width="240" height="70" rx="12" fill="url(#card-grad)" stroke="url(#border-cyan)" stroke-width="1.8" />
-      <!-- Lightning Bolt Icon -->
-      <rect x="382" y="90" width="22" height="22" rx="4" fill="#06B6D4" fill-opacity="0.15" />
-      <path d="M 393,92 L 387,101 L 392,101 L 391,110 L 398,100 L 393,100 Z" fill="#22D3EE" />
-      
-      <text x="412" y="99" fill="#F8FAFC" font-size="13" font-weight="900">WebSocket高频雷达</text>
-      <text x="412" y="115" fill="#64748B" font-size="10" font-weight="700">毫秒级长桥数据推送监听</text>
-      <text x="412" y="129" fill="#EF4444" font-size="10" font-weight="700">跌破成本 8% / 极速防守抢跑</text>
+    <!-- 1-Min Watchdog -->
+    <g transform="translate(850, 130)" filter="url(#card-shadow)">
+      <rect width="220" height="90" rx="12" fill="#1E293B" stroke="#0EA5E9" stroke-width="1.5" />
+      <text x="20" y="35" fill="#F8FAFC" font-size="15" font-weight="800">1分钟巡检器</text>
+      <text x="20" y="58" fill="#94A3B8" font-size="11">中频 K线离场巡检</text>
+      <text x="20" y="75" fill="#38BDF8" font-size="11" font-weight="700">动态宽容追踪止损 (ATR)</text>
     </g>
 
-    <!-- [PERCEPTION] 1-Min Cron Watchdog -->
-    <g filter="url(#shadow-premium)">
-      <rect x="370" y="180" width="240" height="70" rx="12" fill="url(#card-grad)" stroke="url(#border-cyan)" stroke-width="1.2" />
-      <!-- Pulse Heartbeat Icon -->
-      <rect x="382" y="190" width="22" height="22" rx="4" fill="#06B6D4" fill-opacity="0.15" />
-      <path d="M 384,201 L 388,201 L 390,194 L 392,208 L 394,198 L 396,201 L 402,201" fill="none" stroke="#22D3EE" stroke-width="1.8" />
-      
-      <text x="412" y="199" fill="#F8FAFC" font-size="13" font-weight="900">1分钟高频巡检器</text>
-      <text x="412" y="215" fill="#64748B" font-size="10" font-weight="700">中频 K 线趋势/离场巡检</text>
-      <text x="412" y="229" fill="#22D3EE" font-size="10" font-weight="700">基于 ATR 动态宽容追踪止损</text>
+    <!-- ==================== TIER 2: RISK & ORCHESTRATION ==================== -->
+    <text x="40" y="270" fill="#FBBF24" font-size="14" font-weight="800">TIER 2: 风控与统筹层 (RISK &amp; COORDINATION)</text>
+    
+    <!-- Macro Risk Manager -->
+    <g transform="translate(100, 290)" filter="url(#card-shadow)">
+      <rect width="320" height="80" rx="12" fill="#1E293B" stroke="#F59E0B" stroke-width="2" />
+      <text x="20" y="35" fill="#F8FAFC" font-size="16" font-weight="800">风控与仓位中枢</text>
+      <text x="20" y="60" fill="#FBBF24" font-size="12">宏观评分连续插值 ── 自适应敞口控制</text>
     </g>
 
-    <!-- [DECISION] Risk & Port Manager -->
-    <g filter="url(#shadow-premium)">
-      <rect x="40" y="220" width="230" height="80" rx="12" fill="url(#card-grad)" stroke="url(#border-gold)" stroke-width="1.8" />
-      <!-- Scale Icon -->
-      <rect x="52" y="232" width="22" height="22" rx="4" fill="#F59E0B" fill-opacity="0.15" />
-      <line x1="56" y1="247" x2="70" y2="247" stroke="#FBBF24" stroke-width="1.5" />
-      <line x1="63" y1="236" x2="63" y2="247" stroke="#FBBF24" stroke-width="1.5" />
-      <polygon points="56,242 63,238 70,242" fill="none" stroke="#FBBF24" stroke-width="1.5" />
-      
-      <text x="82" y="242" fill="#F8FAFC" font-size="13" font-weight="900">风控与仓位中枢</text>
-      <text x="82" y="258" fill="#64748B" font-size="10" font-weight="700">Macro 宏观环境连续插值</text>
-      <text x="82" y="272" fill="#FBBF24" font-size="10" font-weight="700">自适应单股/板块最大敞口</text>
+    <!-- Expert Orchestrator -->
+    <g transform="translate(450, 290)" filter="url(#card-shadow)">
+      <rect width="620" height="80" rx="12" fill="#1E293B" stroke="#A855F7" stroke-width="2" />
+      <text x="20" y="35" fill="#F8FAFC" font-size="16" font-weight="800">Expert Orchestrator (并行投研专家矩阵)</text>
+      <text x="20" y="60" fill="#94A3B8" font-size="12">技术(量价) | 基本面(PEG) | 舆情(Sentiment) | 叙事(NME) | 板块轮动</text>
     </g>
 
-    <!-- [DECISION] Pre-Screening Filter -->
-    <g filter="url(#shadow-premium)">
-      <rect x="40" y="360" width="230" height="80" rx="12" fill="url(#card-grad)" stroke="url(#border-gold)" stroke-width="1.8" />
-      <!-- Funnel Icon -->
-      <rect x="52" y="372" width="22" height="22" rx="4" fill="#F59E0B" fill-opacity="0.15" />
-      <polygon points="56,376 70,376 65,384 65,391 61,391 61,384" fill="none" stroke="#FBBF24" stroke-width="1.5" />
+    <!-- ==================== TIER 3: THE BRAIN (STRATEGY) ==================== -->
+    <text x="40" y="420" fill="#F43F5E" font-size="14" font-weight="800">TIER 3: 战略大脑 (STRATEGIC BRAIN)</text>
+    
+    <!-- CIO ToT Brain -->
+    <g transform="translate(100, 440)" filter="url(#card-shadow)">
+      <rect width="970" height="150" rx="16" fill="#1E293B" stroke="#F43F5E" stroke-width="3" />
+      <rect x="0" y="0" width="970" height="45" rx="16" fill="#F43F5E" fill-opacity="0.1" />
+      <text x="30" y="30" fill="#F87171" font-size="18" font-weight="900">CIO 战略主脑 - Tree-of-Thought (ToT) 深度博弈</text>
       
-      <text x="82" y="382" fill="#F8FAFC" font-size="13" font-weight="900">本地硬规则初筛</text>
-      <text x="82" y="398" fill="#64748B" font-size="10" font-weight="700">右侧突破/量比等多特征门限</text>
-      <text x="82" y="412" fill="#34D399" font-size="10" font-weight="700">支持 0 Token 挂机观望休眠</text>
+      <!-- Paths -->
+      <g transform="translate(30, 65)">
+        <rect width="280" height="60" rx="8" fill="#000000" fill-opacity="0.3" stroke="#34D399" stroke-width="1" />
+        <text x="15" y="25" fill="#34D399" font-size="13" font-weight="800">[PATH: BULL]</text>
+        <text x="15" y="45" fill="#94A3B8" font-size="11">支撑逻辑与叙事共振推演</text>
+      </g>
+      
+      <g transform="translate(330, 65)">
+        <rect width="280" height="60" rx="8" fill="#000000" fill-opacity="0.3" stroke="#FB7185" stroke-width="1" />
+        <text x="15" y="25" fill="#FB7185" font-size="13" font-weight="800">[PATH: BEAR]</text>
+        <text x="15" y="45" fill="#94A3B8" font-size="11">魔鬼代言人: 逻辑证伪与质疑</text>
+      </g>
+      
+      <g transform="translate(630, 65)">
+        <rect width="310" height="60" rx="8" fill="#000000" fill-opacity="0.3" stroke="#FBBF24" stroke-width="1" />
+        <text x="15" y="25" fill="#FBBF24" font-size="13" font-weight="800">[PATH: SYNTHESIS]</text>
+        <text x="15" y="45" fill="#94A3B8" font-size="11">博弈对撞: 合成最终胜率期望Action</text>
+      </g>
     </g>
 
-    <!-- [DECISION] Parallel Expert Matrix -->
-    <g filter="url(#shadow-premium)">
-      <rect x="370" y="350" width="260" height="100" rx="12" fill="url(#card-grad)" stroke="url(#border-purple)" stroke-width="1.8" />
-      <!-- Expert Matrix Dots Icon -->
-      <rect x="382" y="362" width="22" height="22" rx="4" fill="#8B5CF6" fill-opacity="0.15" />
-      <circle cx="389" cy="369" r="2" fill="#C084FC" />
-      <circle cx="397" cy="369" r="2" fill="#C084FC" />
-      <circle cx="389" cy="377" r="2" fill="#C084FC" />
-      <circle cx="397" cy="377" r="2" fill="#C084FC" />
-      <line x1="389" y1="369" x2="397" y2="377" stroke="#C084FC" stroke-width="0.8" />
-      <line x1="397" y1="369" x2="389" y2="377" stroke="#C084FC" stroke-width="0.8" />
-      
-      <text x="412" y="372" fill="#F8FAFC" font-size="13" font-weight="900">分布式投研专家矩阵</text>
-      <text x="412" y="390" fill="#94A3B8" font-size="10">技术专家: 多周期成交量与阻力判定</text>
-      <text x="412" y="404" fill="#94A3B8" font-size="10">基本面专家: PEG估值与财报暴雷防范</text>
-      <text x="412" y="418" fill="#94A3B8" font-size="10">舆情与 Qlib 阿尔法因子在线对齐</text>
+    <!-- ==================== TIER 4: EXECUTION (ADAPTERS) ==================== -->
+    <text x="40" y="640" fill="#10B981" font-size="14" font-weight="800">TIER 4: 物理执行层 (EXECUTION LAYER)</text>
+    
+    <!-- BaseTradingEngine -->
+    <g transform="translate(100, 660)" filter="url(#card-shadow)">
+      <rect width="970" height="80" rx="12" fill="#1E293B" stroke="#10B981" stroke-width="2" />
+      <text x="30" y="35" fill="#F8FAFC" font-size="16" font-weight="800">BaseTradingEngine 物理执行总线 (Broker Abstraction)</text>
+      <text x="30" y="60" fill="#34D399" font-size="12">1:100 OCC 期权折算 | 滑点补偿 | Covered Call 校验 | 现金备兑校验 | TRADING_DRY_RUN 阻断</text>
     </g>
 
-    <!-- [DECISION] CIO ReAct Strategic Brain -->
-    <g filter="url(#shadow-premium)">
-      <rect x="680" y="320" width="310" height="120" rx="12" fill="url(#card-grad)" stroke="url(#border-red)" stroke-width="2.2" />
-      <!-- Human Brain / Neural Network Icon -->
-      <rect x="692" y="332" width="22" height="22" rx="4" fill="#EF4444" fill-opacity="0.15" />
-      <circle cx="703" cy="343" r="4" fill="none" stroke="#F87171" stroke-width="1.2" />
-      <path d="M 696,343 C 696,338 710,338 710,343" fill="none" stroke="#F87171" stroke-width="1.2" />
-      <path d="M 699,346 C 699,350 707,350 707,346" fill="none" stroke="#F87171" stroke-width="1.2" />
-      
-      <text x="722" y="342" fill="#F8FAFC" font-size="14" font-weight="900">CIO 战略主脑 (ToT 深度博弈)</text>
-      <text x="722" y="362" fill="#94A3B8" font-size="10" font-weight="700">牛/熊/压力 三路并行推演协议</text>
-      <text x="722" y="378" fill="#F87171" font-size="10" font-weight="700">过滤诱多陷阱 ── 动态仓位对冲</text>
-      <rect x="722" y="394" width="250" height="24" rx="4" fill="#000000" fill-opacity="0.5" />
-      <text x="732" y="410" fill="#38BDF8" font-size="9.5" font-weight="800">10步战术高优先紧急唤醒硬控制规则</text>
+    <!-- Broker Adapters -->
+    <g transform="translate(100, 760)" filter="url(#card-shadow)">
+      <rect width="470" height="70" rx="12" fill="#1E293B" stroke="#A855F7" stroke-width="1.5" />
+      <text x="25" y="30" fill="#F8FAFC" font-size="14" font-weight="800">LongPort Adaptor (Live)</text>
+      <text x="25" y="52" fill="#94A3B8" font-size="11">OpenAPI 全品种交易对接</text>
+    </g>
+    
+    <g transform="translate(600, 760)" filter="url(#card-shadow)" opacity="0.6">
+      <rect width="470" height="70" rx="12" fill="#1E293B" stroke="#94A3B8" stroke-width="1.5" />
+      <text x="25" y="30" fill="#94A3B8" font-size="14" font-weight="800">uSMART Adaptor (Planned)</text>
+      <text x="25" y="52" fill="#64748B" font-size="11">Virtual Advanced Orders (LIT/TSLP) implementation</text>
     </g>
 
-    <!-- [ADAPTER] BaseTradingEngine Interface -->
-    <g filter="url(#shadow-premium)">
-      <rect x="150" y="500" width="700" height="80" rx="12" fill="url(#card-grad)" stroke="url(#border-purple)" stroke-width="2" />
-      <!-- Plugs/Decouple Icon -->
-      <rect x="162" y="512" width="22" height="22" rx="4" fill="#8B5CF6" fill-opacity="0.15" />
-      <rect x="167" y="521" width="6" height="6" fill="none" stroke="#C084FC" stroke-width="1.2" />
-      <rect x="175" y="521" width="6" height="6" fill="none" stroke="#C084FC" stroke-width="1.2" />
-      <line x1="170" y1="517" x2="170" y2="521" stroke="#C084FC" stroke-width="1.2" />
-      <line x1="178" y1="517" x2="178" y2="521" stroke="#C084FC" stroke-width="1.2" />
-      
-      <text x="192" y="522" fill="#F8FAFC" font-size="14" font-weight="800">BaseTradingEngine 物理执行总线</text>
-      <text x="192" y="538" fill="#64748B" font-size="10.5" font-weight="700">100% 行情与交易物理完全隔离，无感迁移任何美股券商接口</text>
-      <text x="192" y="554" fill="#C084FC" font-size="10" font-weight="700">Covered Call 正股底仓校验 ── Cash-secured Put 保证金锁定 ── 撤单冲突锁</text>
+    <!-- ==================== TIER 5: LEARNING (FEEDBACK) ==================== -->
+    <text x="40" y="880" fill="#818CF8" font-size="14" font-weight="800">TIER 5: 进化与反馈层 (LEARNING LOOP)</text>
+    
+    <g transform="translate(100, 900)" filter="url(#card-shadow)">
+      <rect width="470" height="70" rx="12" fill="#1E293B" stroke="#818CF8" stroke-width="2" />
+      <text x="25" y="30" fill="#F8FAFC" font-size="14" font-weight="800">Review Agent (复盘审计)</text>
+      <text x="25" y="52" fill="#94A3B8" font-size="11">打脸率 (Whipsaw) 检测 | 交易摩擦审计 | 策略自愈修正</text>
     </g>
 
-    <!-- [HEALING] PRR Profit Locking Guard -->
-    <g filter="url(#shadow-premium)">
-      <rect x="15" y="500" width="120" height="80" rx="12" fill="url(#layer-grad)" stroke="url(#border-emerald)" stroke-width="1.8" />
-      <!-- Secure Padlock Icon -->
-      <rect x="23" y="510" width="16" height="16" rx="3" fill="#10B981" fill-opacity="0.2" />
-      <rect x="26" y="519" width="10" height="6" rx="1.5" fill="none" stroke="#34D399" stroke-width="1.2" />
-      <path d="M 28,519 L 28,514 A 3,3 0 0,1 34,514 L 34,519" fill="none" stroke="#34D399" stroke-width="1.2" />
-      
-      <text x="45" y="522" fill="#F8FAFC" font-size="12" font-weight="800">PRR 锁利锁</text>
-      <text x="23" y="544" fill="#94A3B8" font-size="9">50%非线性利润分成</text>
-      <text x="23" y="556" fill="#34D399" font-size="9" font-weight="800">开盘自动收拢止损线</text>
-      <text x="23" y="568" fill="#34D399" font-size="9" font-weight="800">TSM:4.09%/ARM:6.53%</text>
+    <g transform="translate(600, 900)" filter="url(#card-shadow)">
+      <rect width="470" height="70" rx="12" fill="#1E293B" stroke="#34D399" stroke-width="2" />
+      <text x="25" y="30" fill="#F8FAFC" font-size="14" font-weight="800">Trading Memory (长期记忆)</text>
+      <text x="25" y="52" fill="#94A3B8" font-size="11">教训入库沉淀 | learned_rules 自动化注入决策链</text>
     </g>
 
-    <!-- [HEALING] auto_align_trailing_stops -->
-    <g filter="url(#shadow-premium)">
-      <rect x="865" y="500" width="180" height="80" rx="12" fill="url(#layer-grad)" stroke="url(#border-emerald)" stroke-width="1.8" />
-      <!-- Refresh/Sync Arrow Icon -->
-      <rect x="873" y="510" width="16" height="16" rx="3" fill="#10B981" fill-opacity="0.2" />
-      <path d="M 881,513 A 4,4 0 1,1 877,518 L 875,518" fill="none" stroke="#34D399" stroke-width="1.2" />
-      <polygon points="879,511 882,515 878,515" fill="#34D399" />
+    <!-- Connections (Simplified Clean Lines) -->
+    <g stroke="#94A3B8" stroke-width="1.5" fill="none" marker-end="url(#arrow)">
+      <!-- Tier 1 to Tier 2 -->
+      <path d="M 210,220 L 210,290" />
+      <path d="M 460,220 L 460,290" />
+      <path d="M 710,220 L 710,290" />
+      <path d="M 960,220 L 960,290" />
       
-      <text x="895" y="522" fill="#F8FAFC" font-size="12" font-weight="800">止损自动重合</text>
-      <text x="873" y="544" fill="#94A3B8" font-size="9">持仓与止损股数自动对齐</text>
-      <text x="873" y="556" fill="#34D399" font-size="9" font-weight="800">防止加仓后产生错配漏挂</text>
-      <text x="873" y="568" fill="#34D399" font-size="9" font-weight="800">保障100%全额实盘筹码安全</text>
-    </g>
-
-    <!-- [EXECUTION] LongPort Channel (Live Broker) -->
-    <g filter="url(#shadow-premium)">
-      <rect x="180" y="650" width="310" height="80" rx="12" fill="url(#card-grad)" stroke="url(#border-purple)" stroke-width="1.8" />
-      <!-- Bank/Brokerage Icon -->
-      <rect x="192" y="642" width="20" height="20" rx="4" fill="#8B5CF6" fill-opacity="0.2" />
-      <polygon points="202,644 194,650 210,650" fill="none" stroke="#C084FC" stroke-width="1.2" />
-      <rect x="197" y="651" width="3" height="8" fill="none" stroke="#C084FC" stroke-width="1.2" />
-      <rect x="205" y="651" width="3" height="8" fill="none" stroke="#C084FC" stroke-width="1.2" />
+      <!-- Tier 2 to Tier 3 -->
+      <path d="M 260,370 L 260,440" />
+      <path d="M 760,370 L 760,440" />
       
-      <text x="220" y="662" fill="#F8FAFC" font-size="14" font-weight="800">长桥物理适配单例 (Live)</text>
-      <text x="220" y="678" fill="#64748B" font-size="9.5" font-weight="700">高保真 OpenAPI 实盘交易适配器</text>
-      <text x="220" y="694" fill="#38BDF8" font-size="9.5" font-weight="700">1:100 OCC 标准期权折算与大滑点补偿机制</text>
-    </g>
-
-    <!-- [EXECUTION] uSMART Channel (Planned Broker) -->
-    <g filter="url(#shadow-premium)">
-      <rect x="520" y="650" width="310" height="80" rx="12" fill="url(#card-grad)" stroke="#1E293B" stroke-width="1" opacity="0.6" />
-      <!-- Bank Icon Disabled -->
-      <rect x="532" y="642" width="20" height="20" rx="4" fill="#334155" fill-opacity="0.4" />
-      <polygon points="542,644 534,650 550,650" fill="none" stroke="#94A3B8" stroke-width="1.2" />
+      <!-- Tier 3 to Tier 4 -->
+      <path d="M 585,590 L 585,660" />
       
-      <text x="560" y="662" fill="#94A3B8" font-size="14" font-weight="800">盈立物理适配单例 (规划中)</text>
-      <text x="560" y="678" fill="#64748B" font-size="9.5" font-weight="700">本地 1-min 内存级高频监控</text>
-      <text x="560" y="694" fill="#94A3B8" font-size="9.5" font-weight="700">自动降级实现本地高阶条件虚拟单</text>
-    </g>
-
-    <!-- [MEMORY] ReviewAgent -->
-    <g filter="url(#shadow-premium)">
-      <rect x="790" y="80" width="230" height="70" rx="12" fill="url(#layer-grad)" stroke="url(#border-violet)" stroke-width="1.5" />
-      <!-- Magnifying Glass Icon -->
-      <rect x="798" y="90" width="16" height="16" rx="3" fill="#6366F1" fill-opacity="0.2" />
-      <circle cx="805" cy="97" r="3" fill="none" stroke="#818CF8" stroke-width="1.2" />
-      <line x1="808" y1="100" x2="812" y2="104" stroke="#818CF8" stroke-width="1.5" />
+      <!-- Tier 4 to Adapters -->
+      <path d="M 335,740 L 335,760" />
+      <path d="M 835,740 L 835,760" />
       
-      <text x="822" y="101" fill="#F8FAFC" font-size="12" font-weight="800">收盘盈亏审计专家</text>
-      <text x="798" y="122" fill="#64748B" font-size="9">每日收盘自动盈亏核对与复盘审计</text>
-      <text x="798" y="134" fill="#818CF8" font-size="9" font-weight="800">动态纠偏，提取高质量战术教训</text>
-    </g>
-
-    <!-- [MEMORY] TradingMemory -->
-    <g filter="url(#shadow-premium)">
-      <rect x="790" y="210" width="230" height="80" rx="12" fill="url(#layer-grad)" stroke="url(#border-violet)" stroke-width="1.5" />
-      <!-- Memory Chip Icon -->
-      <rect x="798" y="220" width="16" height="16" rx="3" fill="#6366F1" fill-opacity="0.2" />
-      <rect x="801" y="223" width="10" height="10" fill="none" stroke="#818CF8" stroke-width="1.2" />
-      <line x1="800" y1="225" x2="801" y2="225" stroke="#818CF8" stroke-width="1.2" />
-      <line x1="800" y1="228" x2="801" y2="228" stroke="#818CF8" stroke-width="1.2" />
-      <line x1="800" y1="231" x2="801" y2="231" stroke="#818CF8" stroke-width="1.2" />
+      <!-- Execution to Review -->
+      <path d="M 335,830 L 335,900" />
       
-      <text x="822" y="231" fill="#F8FAFC" font-size="12" font-weight="800">长期交易记忆中枢</text>
-      <text x="798" y="252" fill="#64748B" font-size="9">长期防坑规则数据库 (114条核心库)</text>
-      <text x="798" y="264" fill="#34D399" font-size="9" font-weight="800">教训入库沉淀，次日自动回填选股</text>
+      <!-- Review to Memory -->
+      <path d="M 570,935 L 600,935" />
     </g>
 
 </svg>

@@ -1,12 +1,12 @@
-# LP-Agent v4.3: 证券交易自主智能体 (Multi-Broker Decoupled Core)
+# LP-Agent v4.5.1: 证券交易自主智能体 (Narrative & ToT Powered)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Status](https://img.shields.io/badge/Status-Trading-success.svg)](#)
 
-LP-Agent v4.3 是一款基于 **Strategic Multi-Agent (SMA)** 架构、全面重构为**“行情-交易物理解耦分离”**的高鲁棒性美股量化交易智能体。系统模拟专业对冲基金运行模式，由 **CIO (首席投资官)** 统筹五大专家矩阵，并结合 **Watchdog (毫秒级高频监控)** 与 **Long-term Memory (长效教训记忆)**。
+LP-Agent v4.5.1 是一款基于 **Strategic Multi-Agent (SMA)** 架构、由**“叙事量化引擎 (NME)”**与**“深度思考树 (ToT)”**驱动的高进化美股交易智能体。系统模拟专业对冲基金运行模式，由 **CIO (首席投资官)** 统筹六大专家矩阵，并具备感知全网情绪偏移的“直觉”与多路径博弈的“深度”。
 
-在 V4.3 架构中，长桥（LongPort）被定义为高阶数据行情引擎，而交易执行层通过 `BaseTradingEngine` 彻底重构为**“可拔插券商适配器 (Pluggable Broker Adaptor)”**，完美兼容三大立体期权武器、四大物理防御网以及零资金 DRY_RUN 沙盒系统。
+在 V4.5 架构中，系统实现了从“技术面被动响应”到“战略性主动博弈”的质变，通过 NME 感知叙事风向，利用 ToT 过滤诱多陷阱，确保在极端市场波动下的决策高质量。
 
 ---
 
@@ -22,10 +22,19 @@ LP-Agent v4.3 是一款基于 **Strategic Multi-Agent (SMA)** 架构、全面重
 
 ---
 
-## 🧠 系统核心升级亮点 (V4.3 Highlighting)
+## 🧠 系统核心升级亮点 (V4.5 Highlighting)
 
-### 1. 行情与交易物理隔离解耦 (Market-Trading Separation)
-以前的版本中，各下单工具深度绑定长桥 API 接口。在 V4.3 中，行情层数据（MACD、布林带、期权链到期日、资金流）**继续使用高精度、免费额度丰富的长桥作为数据源中心**。而交易端通过统一的接口 `BaseTradingEngine` 进行了物理上的完全切离。
+### 1. 叙事量化引擎 (Narrative Momentum Engine, NME) - NEW!
+系统新增了“叙事感知”维度，不再局限于个股新闻，而是量化全网宏观叙事密度：
+*   **叙事偏移探测**：实时识别“AI 泡沫论”、“流动性枯竭”、“降息交易”等宏观主题的讨论热度变化率。
+*   **直觉先兆**：叙事的转向往往领先于量价指标。NME 为 CIO 提供了一个“风险先兆”层，在技术面走坏前提前捕捉情绪拐点。
+
+### 2. 深度思考树协议 (Tree-of-Thought, ToT) - NEW!
+针对 **Tier 1 Leader** 或 **高冲突** 标的，CIO 废除了单向线性推理，升级为多路径博弈：
+*   **[PATH: BULL/BEAR/TAIL_RISK]**：强制模型同时构建“乐观支撑”、“质疑证伪”和“压力测试”三条路径。
+*   **审判员合成**：通过内部对撞，计算胜率期望值，从根本上过滤掉“开盘诱多”和“虚假突破”。
+
+### 3. 行情与交易物理隔离解耦 (Market-Trading Separation)
 
 ### 2. 策略质量审计系统 (Strategy Quality Audit)
 V4.3 引入了强制性的策略质量闭环：
@@ -50,46 +59,41 @@ CIO（主脑）不仅可以像以前一样做多、空仓，更被赋予了三�
 
 ---
 
-## 🚀 LP-Agent v4.0 完整生命周期时序
+## 🚀 LP-Agent v4.5 完整生命周期时序
 
 ```mermaid
 sequenceDiagram
     participant Time as 盘前/盘中时段
     participant Phase0 as Alpha Scanner (选股)
-    participant Quant as 因子行情引擎 (v4.0)
+    participant Quant as 因子行情引擎
+    participant NME as 叙事量化引擎 (v4.5)
     participant WD as 高频 Watchdog (防守)
-    participant Pre as Local Pre-Screening (初筛)
     participant Expert as 专家网络 (分析)
-    participant CIO as 主脑 CIO (决策)
-    participant Factory as Pluggable Adaptor (解耦交易)
-    participant Broker as LongPort (执行)
+    participant CIO as 主脑 CIO (ToT博弈)
+    participant Factory as Pluggable Adaptor
+    participant Broker as Multi-Broker Exec
 
     Note over Time, Broker: 🌅 美东时间 09:00 (盘前)
     Time->>Phase0: 唤醒盘前雷达
-    Phase0->>Quant: 拉取行业 Sector RS 排名并计算强势龙头
-    Quant-->>Phase0: 初筛技术得分前 15 的强势股 (TSLA 评分 92)
-    Phase0->>Phase0: 财报避雷 (剔除5天内财报股)
-    Phase0-->>Pre: 生成今日 Watchlist 并自动回填当前持仓股
+    Phase0->>Quant: 拉取 RS 排名并计算强势龙头
+    Phase0-->>Time: 生成今日 Watchlist 并自动回填持仓
 
     Note over Time, Broker: ⏰ 10:00 (早盘决策期)
-    Time->>Pre: 启动本地硬规则初筛
+    Time->>NME: 启动叙事感知 (Narrative Probing)
+    NME-->>CIO: 注入宏观叙事密度与偏移警告
     
-    alt 场景 A：持仓与监控股无任何异动 (温和平稳)
-        Pre-->>Time: 😴 判定为 Passive (Auto-HOLD)，挂机休眠，消耗 0 Token。
-    else 场景 B：出现交易触发门限 (如 TSM 财报前夜需要防守对冲)
-        Pre->>Expert: 🎯 唤醒 Active 门限，仅对 TSM 启动分析
-        Expert-->>CIO: 生成 TSM 的专家决策简报
-        CIO->>CIO: 检查发现 TSM 3 天内公布财报，决定使用 Protective Put 策略
-        CIO->>Factory: 发送买入 TSM260619P00150000.US 对冲指令
-        
-        Note over Factory, Broker: Pluggable Adapter 物理拦截与适配
-        Factory->>Factory: 1. 1:100折算 (购买100股 -> 自动换算为 1 张合约)<br/>2. 自动 Covered Call & 保证金物理硬拦截<br/>3. 注入期权大滑点与容错限价
-        Factory->>Broker: 最终安全报送 submit_order (支持 DRY_RUN 沙盒阻断)
-    end
+    Time->>Expert: 启动 Phase 3 并行研报
+    Expert-->>CIO: 生成多维技术/基本面简报
+    
+    Note over CIO: [ToT 深度思考树协议]
+    CIO->>CIO: 1. [PATH: BULL] 寻找支撑<br/>2. [PATH: BEAR] 逻辑证伪<br/>3. [PATH: SYNTHESIS] 最终合成
+    
+    CIO->>Factory: 下达博弈后的精准指令
+    Factory->>Broker: 物理适配与最终执行 (LongPort/uSMART)
 
     Note over Time, Broker: ⚡ 盘中高频 Watchdog 防守
-    Time->>WD: 每分钟心跳 (WebSocket 毫秒拦截)
-    WD->>Factory: 1. 价格跌破成本 2.0*ATR？是 -> 市价强平<br/>2. 期权浮盈超过 100%？是 -> 自动平仓 50% 锁定本金
+    Time->>WD: 每分钟心跳 (毫秒拦截)
+    WD->>Factory: 止损/止盈物理级自动触发
 ```
 
 ---

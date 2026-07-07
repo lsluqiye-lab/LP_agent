@@ -1239,7 +1239,7 @@ def main():
             logger.error(f"主循环出错: {e}", exc_info=True)
             time.sleep(60)
 
-    logger.info("LP-Agent v4.5.1 已退出")
+    logger.info("LP-Agent v4.5.2 已退出")
 
 if __name__ == "__main__":
     main()

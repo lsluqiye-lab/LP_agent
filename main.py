@@ -1,5 +1,5 @@
 """
-LP-Agent v4.5.1 主入口 (Strategic Multi-Agent)
+LP-Agent v4.5.2 主入口 (Strategic Multi-Agent)
 AI自动交易智能体 - 专家协作架构
 
 执行流程:
@@ -988,7 +988,7 @@ def main():
     logger = setup_logger("strategic_agent", config.log)
     
     logger.info("=" * 60)
-    logger.info("LP-Agent v4.5.1 (Watchdog + Strategic Brain) 启动")
+    logger.info("LP-Agent v4.5.2 (Watchdog + Strategic Brain) 启动")
     logger.info("=" * 60)
 
     try:

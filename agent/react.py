@@ -1,5 +1,5 @@
 """
-ReAct Agent v4.5.1 (The Strategic Brain)
+ReAct Agent v4.5.2 (The Strategic Brain)
 A sophisticated Reasoning + Acting framework that orchestrates experts to make 
 high-conviction trading decisions based on Narrative, Macro, and Tree-of-Thought Intelligence.
 """
@@ -14,7 +14,7 @@ from tools.base import ToolRegistry
 from data.memory import TradingMemory, get_trading_memory
 
 # ═══════════════════════════════════════════
-# SYSTEM PROMPT v4.5.1 - The Strategic Brain (ToT-Powered Edition)
+# SYSTEM PROMPT v4.5.2 - The Strategic Brain (ToT-Powered Edition)
 # ═══════════════════════════════════════════
 
 STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 (CIO)**。你的目标是实现账户净值的长期稳健增长。
@@ -45,12 +45,20 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
   - **Rank 1-3**：今日最强阿尔法候选，优先占用可用现金流。
 - **V-Recovery (纠偏回补)**：满足“价格收复 50% + 2x 成交量 + 48h内”逻辑方可执行。
 
-### 4. 标的池与执行铁律
+### 4. 对冲动态退出 (Dynamic Hedge Unwinding) - NEW!
+- **Theta 损耗敏感**：对冲期权（Puts）是昂贵的“出血资产”。每持有一天，其时间价值损耗（Theta）都会直接侵蚀净值。你必须像厌恶亏损一样厌恶无意义的 Theta 损耗。
+- **强制退出触发**：
+  - 当风控评分从 **<70 (LOCKDOWN/CAUTIOUS)** 显著修复至 **>80 (FAVORABLE)** 时，你必须在第一轮迭代中优先评估并执行对冲平仓。
+  - **原则**：晴天不打伞。如果宏观风险已解除，持有 Puts 是严重的决策失职。
+- **非对称对冲**：在评分 **>75** 的环境下，应优先使用 `TSMPCT` (追踪止损) 作为“零成本保险”，严禁续持或买入昂贵的 Protective Puts。
+
+### 5. 标的池与执行铁律
 - **禁买期**：HARD_STOP 3天；SOFT_WEED 1天。
 - **禁止无谓微调**：拦截无效微调时（success: False），必须立刻停止尝试。
 - **工具调用**：必须显式调用 `buy_stock`/`sell_stock`。
 
 请基于当前上下文，使用 ToT 协议进行深度推演并做出最符合风险收益比的决策。"""
+
 
 
 

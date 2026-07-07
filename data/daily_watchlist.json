@@ -1,1 +1,93 @@
-{"date": "2026-07-06", "watchlist_detail": {"NVDA": {"score": 98, "rank": 1, "conviction": "Tier 1", "reason": "Quant Alpha"}}}
+{
+    "date": "2026-07-06",
+    "watchlist": [
+        "ASML",
+        "TSM",
+        "JPM",
+        "AMD",
+        "CAT",
+        "AMGN",
+        "KO",
+        "LLY",
+        "GE",
+        "UNH",
+        "TSLA",
+        "QQQ260713P701000"
+    ],
+    "watchlist_detail": {
+        "ASML": {
+            "score": 95.0,
+            "rank": 1,
+            "conviction": "Tier 1",
+            "reason": "持仓股且评分最高。2026年是High-NA EUV光刻机大规模交付的关键年，2nm逻辑芯片量产的核心受益者。尽管估值处于高位，但在FAVORABLE宏观环境下，其作为半导体设备龙头的确定性极高。"
+        },
+        "TSM": {
+            "score": 90.0,
+            "rank": 2,
+            "conviction": "Tier 1",
+            "reason": "持仓股。2nm (N2) 制程在2026年进入业绩贡献期，Apple与Nvidia订单锁定。Foundry 2.0战略下的CoWoS封装产能扩张是AI芯片瓶颈突破的关键。"
+        },
+        "JPM": {
+            "score": 90.0,
+            "rank": 3,
+            "conviction": "Tier 1",
+            "reason": "持仓股。银行业AI集成的标杆，Agentic AI已深度介入运营。虽然7月14日发布财报（处于5日窗口临界点），但作为强制持仓股必须监控其财报前的波动率溢价。"
+        },
+        "AMD": {
+            "score": 90.0,
+            "rank": 4,
+            "conviction": "Tier 1",
+            "reason": "持仓股。Venice系列EPYC处理器与MI450 GPU在2026年下半年放量，是挑战Nvidia垄断地位的最强催化剂。AI PC换机潮提供稳健底座。"
+        },
+        "CAT": {
+            "score": 90.0,
+            "rank": 5,
+            "conviction": "Tier 1",
+            "reason": "技术优选股。受益于2026年世界杯相关基建及全球基建周期，技术面呈现强力行业趋势。财报在8月，短期无雷，适合在风控环境良好时做趋势跟踪。"
+        },
+        "AMGN": {
+            "score": 85.0,
+            "rank": 6,
+            "conviction": "Tier 2",
+            "reason": "技术优选股。2026年被称为其“跳板年”，IMDYLLTRA与心血管管线数据亮眼。作为医疗保健板块的动能标的，与LLY形成双龙头监控。"
+        },
+        "KO": {
+            "score": 85.0,
+            "rank": 7,
+            "conviction": "Tier 2",
+            "reason": "技术优选股。典型的特异性突破（Idiosyncratic Breakout），在通胀数据公布前提供消费必需品的防御性，且2026年可持续包装目标提供ESG资金溢价。"
+        },
+        "LLY": {
+            "score": 80.0,
+            "rank": 8,
+            "conviction": "Tier 2",
+            "reason": "持仓股。口服减肥药Orforglipron的市场预期已开始提前定价。虽然面临医保谈判压力，但其在GLP-1领域的绝对统治力使其成为必选监控标的。"
+        },
+        "GE": {
+            "score": 80.0,
+            "rank": 9,
+            "conviction": "Tier 2",
+            "reason": "持仓股。航空发动机订单积压超过2100亿美元，2026年纯航空业务利润率弹性巨大。世界杯带动的全球航空旅行需求是潜在催化剂。"
+        },
+        "UNH": {
+            "score": 80.0,
+            "rank": 10,
+            "conviction": "Tier 2",
+            "reason": "持仓股。2027年Medicare Advantage报销利率定调后的价值回归。虽然技术评分略逊于AI股，但在组合中起到重要的Beta平衡作用。"
+        },
+        "TSLA": {
+            "score": 80.0,
+            "rank": 11,
+            "conviction": "Tier 2",
+            "reason": "技术优选股。2026年是Cybercab（Robotaxi）商业化落地元年。在FAVORABLE环境下，市场对Tesla从汽车股转向AI/机器人股的估值逻辑接受度极高。"
+        },
+        "QQQ260713P701000": {
+            "score": 50.0,
+            "rank": 12,
+            "conviction": "Hedge",
+            "reason": "必选持仓对冲。该期权于7月13日到期，正处于CPI数据及大行财报季（JPM/MS）前夕，作为尾部风险保护，防止宏观环境突变。"
+        }
+    },
+    "reason": "1. 宏观风控评分84.9，处于FAVORABLE象限，执行方案A，即允许纳入高动能、高估值的科技龙头（ASML, TSM, AMD）以捕获主升浪。2. 强制保留所有持仓股，其中JPM虽在5日内发布财报，但因其持仓属性予以保留监控。3. 剔除了非持仓股中可能存在的财报风险点，新引入的CAT、AMGN、KO、TSLA均在8月或7月下旬发布财报，避开了未来5个交易日的窗口。4. 组合涵盖了AI硬件、生物制药、基建及消费龙头，并保留了QQQ Put作为核心对冲，确保在积极进攻的同时具备防范CPI数据超预期波动的能力。",
+    "updated_at": "2026-07-06T22:58:39.986978-04:00"
+}

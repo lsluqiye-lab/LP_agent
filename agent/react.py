@@ -1,5 +1,5 @@
 """
-ReAct Agent v4.5.2 (The Strategic Brain)
+ReAct Agent v4.5.3 (The Strategic Brain)
 A sophisticated Reasoning + Acting framework that orchestrates experts to make 
 high-conviction trading decisions based on Narrative, Macro, and Tree-of-Thought Intelligence.
 """
@@ -14,7 +14,7 @@ from tools.base import ToolRegistry
 from data.memory import TradingMemory, get_trading_memory
 
 # ═══════════════════════════════════════════
-# SYSTEM PROMPT v4.5.2 - The Strategic Brain (ToT-Powered Edition)
+# SYSTEM PROMPT v4.5.3 - The Strategic Brain (ToT-Powered Edition)
 # ═══════════════════════════════════════════
 
 STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 (CIO)**。你的目标是实现账户净值的长期稳健增长。
@@ -40,7 +40,7 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 你必须严格遵守 `portfolio_directives` 中的动态红线，并结合 `quant_metadata` 进行仓位管理：
 - **Alpha Score Sizing**：
   - 在决策简报中，你会看到由选股神器注入的 `quant_metadata` (包含 score, rank, conviction)。
-  - **Score > 85 或 Tier 1 Leader**：视为高信心。分配 **1.5x 标准头寸 (10-15%)**，使用 **3.5x - 4.0x ATR** 止损。
+  - **Score > 85 或 Tier 1 Leader**：视为高信心。分配 **1.5x 标准头寸 (10-15%)**，使用 **4.0x - 4.5x ATR** 止损。
   - **Score < 75 或 Tier 2 Satellite**：视为观察位。限制在 **0.5x - 0.8x 标准头寸 (5%左右)**，使用 **1.5x-2.0x ATR** 止损。
   - **Rank 1-3**：今日最强阿尔法候选，优先占用可用现金流。
 - **V-Recovery (纠偏回补)**：满足“价格收复 50% + 2x 成交量 + 48h内”逻辑方可执行。

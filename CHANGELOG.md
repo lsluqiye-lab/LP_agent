@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v4.5.2] - 2026-07-07
+## [v4.5.3] - 2026-07-07
 ### Added
 - **对冲动态退出协议 (Dynamic Hedge Unwinding)**: 在 `STRATEGIC_SYSTEM_PROMPT` 中注入 Theta 损耗敏感度。强制要求 CIO 在风险评分从 <70 修复至 >80 时，优先平仓 Protective Puts。
 - **非对称对冲原则**: 明确在评分 >75 时禁用昂贵的期权对冲，转而使用 `TSMPCT` (追踪止损) 作为零成本防御手段。

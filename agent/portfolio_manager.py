@@ -38,7 +38,7 @@ class PortfolioManager:
         
         # 3. 建议的 ATR 追踪止损乘数：从 score=0 时的 1.5x 线性过渡到 score=100 时的 3.5x
         # 熊市 (score < 50) 紧防守 (1.5x ~ 2.5x ATR)，牛市 (score >= 70) 宽容度大 (2.9x ~ 3.5x ATR) 让利润奔跑
-        recommended_atr_multiplier = round(1.5 + (score / 100.0) * 2.0, 2)
+        recommended_atr_multiplier = round(1.5 + (score / 100.0) * 3.0, 2)
         
         # 4. 保本平价单（Break-even Stop）策略：在震荡市或熊市 (score < 60) 中强制启动
         # 当个股浮盈达到 1.0 * ATR_pct (一般个股约 2.5% ~ 3.5%) 时，系统必须提拉止损线至成本线，保本锁死风险。
@@ -66,12 +66,12 @@ class PortfolioManager:
         directives["adaptive_buy_threshold"] = self._calculate_adaptive_threshold(macro_risk)
         
         # 2. 计算最近被淘汰/硬止损的持仓保护名单 (Weed-out Cooldown Logic)
-        # 硬性止损(Hard Stop): 3天冷静期，防止恐慌中反复操作。
+        # 硬性止损(Hard Stop): 5天冷静期，防止恐慌中反复操作。
         # 主动优胜劣汰(Weed Out): 1天观察期，允许在标的重新变强时以观察仓接回。
         recently_weeded = []
         try:
             # 统一扫描最近 3 天的日志
-            recent_logs = self.trade_logger.get_recent_logs(days=3)
+            recent_logs = self.trade_logger.get_recent_logs(days=5)
             now = datetime.now()
             
             for daily in recent_logs:
@@ -92,10 +92,10 @@ class PortfolioManager:
                     # 判定是否属于优胜劣汰
                     is_weed = "weed" in reason or "淘汰" in reason or "杂草" in reason
                     
-                    if is_stop_loss and days_ago <= 3:
+                    if is_stop_loss and days_ago <= 5:
                         # 硬止损 3 天内禁止买回（防止 Whipsaw）
                         if sym not in recently_weeded:
-                            recently_weeded.append({"symbol": sym, "type": "HARD_STOP", "days_left": 3 - days_ago})
+                            recently_weeded.append({"symbol": sym, "type": "HARD_STOP", "days_left": 5 - days_ago})
                     elif is_weed and days_ago <= 1:
                         # 主动淘汰 1 天内限制买回（仅限观察仓）
                         if not any(r["symbol"] == sym for r in recently_weeded):

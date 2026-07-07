@@ -692,14 +692,14 @@ class BuyStockTool(BaseTool):
                                 if order_type in str(o.get("order_type")):
                                     if order_type == "LO" and price and o.get("price"):
                                         diff_pct = abs(float(price) - float(o["price"])) / float(o["price"])
-                                        if diff_pct < 0.005:
+                                        if diff_pct < 0.008:
                                             is_match = True
-                                            match_reason = f"新旧买入限价差异仅为 {diff_pct*100:.2f}%，小于缓冲区 0.5%"
+                                            match_reason = f"新旧买入限价差异仅为 {diff_pct*100:.2f}%，小于缓冲区 0.8%"
                                     elif order_type in ["LIT", "MIT"] and trigger_price and o.get("trigger_price"):
                                         diff_pct = abs(float(trigger_price) - float(o["trigger_price"])) / float(o["trigger_price"])
-                                        if diff_pct < 0.005:
+                                        if diff_pct < 0.008:
                                             is_match = True
-                                            match_reason = f"新旧触发价差异仅为 {diff_pct*100:.2f}%，小于缓冲区 0.5%"
+                                            match_reason = f"新旧触发价差异仅为 {diff_pct*100:.2f}%，小于缓冲区 0.8%"
                                             
                                 if is_match:
                                     logging.info(f"🚫 [Hysteresis] 拦截对 {symbol} 的重复买单。原因: {match_reason}。保持现有挂单 {o['order_id']}。")
@@ -918,12 +918,12 @@ class SellStockTool(BaseTool):
                                 is_match = False
                                 match_reason = ""
                                 
-                                # 1. 比例单对比 (0.5% 绝对值缓冲区)
+                                # 1. 比例单对比 (0.8% 绝对值缓冲区)
                                 if order_type == "TSMPCT" and o.get("trailing_percent") is not None:
                                     diff = abs(float(trailing_percent) - float(o["trailing_percent"]))
-                                    if diff < 0.5:
+                                    if diff < 0.8:
                                         is_match = True
-                                        match_reason = f"新旧追踪比例差异仅为 {diff:.2f}%，小于迟滞缓冲区阈值 0.5%"
+                                        match_reason = f"新旧追踪比例差异仅为 {diff:.2f}%，小于迟滞缓冲区阈值 0.8%"
                                 
                                 # 2. 金额单对比 (1% 相对值缓冲区)
                                 elif order_type == "TSM" and o.get("trailing_amount") is not None:
@@ -932,12 +932,12 @@ class SellStockTool(BaseTool):
                                         is_match = True
                                         match_reason = f"新旧追踪金额差异仅为 {diff_pct*100:.2f}%，小于迟滞缓冲区阈值 1%"
 
-                                # 3. 触及单对比 (0.5% 相对值缓冲区)
+                                # 3. 触及单对比 (0.8% 相对值缓冲区)
                                 elif order_type in ["LIT", "MIT"] and o.get("trigger_price") is not None:
                                     diff_pct = abs(float(trigger_price) - float(o["trigger_price"])) / float(o["trigger_price"])
-                                    if diff_pct < 0.005:
+                                    if diff_pct < 0.008:
                                         is_match = True
-                                        match_reason = f"新旧触发价差异仅为 {diff_pct*100:.2f}%，小于迟滞缓冲区阈值 0.5%"
+                                        match_reason = f"新旧触发价差异仅为 {diff_pct*100:.2f}%，小于迟滞缓冲区阈值 0.8%"
 
                                 # 4. 跨类型模糊匹配 (防止在 TSMPCT 和 MIT 之间反复横跳)
                                 if not is_match:

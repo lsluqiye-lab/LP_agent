@@ -1,5 +1,5 @@
 """
-LP-Agent v4.5.3 主入口 (Strategic Multi-Agent)
+LP-Agent v4.5.5 主入口 (Strategic Multi-Agent)
 AI自动交易智能体 - 专家协作架构
 
 执行流程:
@@ -304,19 +304,19 @@ async def phase3_map_experts(
     orchestrator: ExpertOrchestrator,
     risk_result: dict,
     logger: logging.Logger,
-) -> str:
+) -> tuple[str, any]:
     """
     Phase 3: 调用专家团生成决策简报
     """
     if not candidates:
-        return "[]"
+        return "[]", None
 
     logger.info(f"[Phase 3] 开始并行专家分析: {len(candidates)} 只个股")
-    
+
     # 🆕 升级：不再仅使用浅层的 risk_result，而是调用 MacroAnalyst 进行深度本质分析
     logger.info("[Phase 3] 获取深度宏观结构化研报 (Macro Deep Analysis)...")
     macro_deep_report = await orchestrator.get_macro_deep_briefing()
-    
+
     macro_briefing = {
         "risk_level": risk_result["regime"].upper(),
         "score": risk_result["score"],
@@ -328,24 +328,23 @@ async def phase3_map_experts(
     # 获取全局的板块轮动简报
     logger.info("[Phase 3] 获取全局板块分析 (Sector Analysis)...")
     sector_briefing = await orchestrator.get_sector_briefing()
-    logger.info(f"板块轮动总结: {sector_briefing.get('summary')}")
+    logger.info(f"板块轮动总结: {sector_briefing.summary}")
 
     # 🆕 升级 v4.5: 获取叙事量化引擎简报 (Narrative Momentum Engine)
     logger.info("[Phase 3] 获取叙事量化引擎研报 (Narrative Momentum Engine)...")
     narrative_briefing = await orchestrator.get_narrative_briefing()
-    logger.info(f"叙事总纲: {narrative_briefing.get('headline')}")
+    logger.info(f"叙事总纲: {narrative_briefing.headline}")
 
     sem = asyncio.Semaphore(2) # 限制最高并发量，避免触发大模型限流和阻塞
-    
+
     async def _analyze_with_sem(c):
         async with sem:
             return await orchestrator.get_full_briefing(c["symbol"], macro_briefing, sector_briefing, narrative_briefing)
 
     tasks = [_analyze_with_sem(c) for c in candidates]
     briefings = await asyncio.gather(*tasks)
-    
-    return json.dumps(briefings, ensure_ascii=False, indent=2)
 
+    return json.dumps(briefings, ensure_ascii=False, indent=2), sector_briefing
 
 # ═══════════════════════════════════════════
 # Phase 4: Reduce 战略决策
@@ -521,7 +520,43 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
     # Phase 2: 风控
     risk_result = phase2_risk_scoring(collected_data, config, logger)
     
-    # 🆕 Phase 2.1: 投资组合管理 (Portfolio Management)
+    # 🆕 Phase 2.1: 投资组合管理 (初步 - 获取冷却名单)
+    pre_portfolio_directives = {}
+    try:
+        from agent.portfolio_manager import PortfolioManager
+        pm = PortfolioManager()
+        pos_raw = collected_data.get("get_positions", "{}")
+        current_pos = json.loads(pos_raw).get("positions", []) if isinstance(pos_raw, str) else pos_raw.get("positions", [])
+        acct_raw = collected_data.get("get_account_balance", "{}")
+        acct_bal = json.loads(acct_raw) if isinstance(acct_raw, str) else acct_raw
+        pre_portfolio_directives = pm.analyze_portfolio(current_pos, acct_bal, risk_result)
+    except Exception as e:
+        logger.error(f"初步 Portfolio Manager 执行异常: {e}")
+        
+    # Phase 2.5: 候选
+    candidates = phase2_5_extract_candidates(collected_data, risk_result, logger, pre_portfolio_directives)
+    
+    # 🆕 Phase 2.6: 本地硬规则预筛选 (Local Pre-Screening)
+    active_candidates, passive_candidates = pre_screen_candidates(candidates, risk_result, pre_portfolio_directives, collected_data, logger)
+    
+    # 门限唤醒控制：若无任何活跃候选股，则整个流程自动判定无交易动作并跳过
+    if not active_candidates:
+        logger.warning("😴 [Pre-Screening] 本轮没有触发任何主动交易门限！资产组合整体极其平稳。")
+        logger.info("[Pre-Screening] 系统决定保持观望，跳过专家研报及 CIO 决策。")
+        
+        if feishu_notifier:
+            today_str = datetime.now(pytz.timezone("US/Eastern")).strftime("%H:%M")
+            feishu_notifier.send_text(
+                f"🌅 【LP-Agent 正常巡检 | {today_str} ET】\n"
+                f"持仓与监控池极其稳健，未触发任何买卖或止损警报。\n"
+                f"🤖 主脑(CIO)自动保持观望状态。"
+            )
+        return morning_briefing_sent
+
+    # Phase 3: 专家 (Map) - 仅对活跃候选股进行专家分析
+    briefings_json, sector_briefing_obj = await phase3_map_experts(active_candidates, orchestrator, risk_result, logger)
+    
+    # 🆕 Phase 3.1: 投资组合管理 (深度 - 获取板块流向)
     portfolio_directives = {}
     try:
         from agent.portfolio_manager import PortfolioManager
@@ -530,33 +565,18 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
         current_pos = json.loads(pos_raw).get("positions", []) if isinstance(pos_raw, str) else pos_raw.get("positions", [])
         acct_raw = collected_data.get("get_account_balance", "{}")
         acct_bal = json.loads(acct_raw) if isinstance(acct_raw, str) else acct_raw
-        portfolio_directives = pm.analyze_portfolio(current_pos, acct_bal, risk_result)
-        logger.info(f"[Phase 2.1] Portfolio Directives: {portfolio_directives}")
+        
+        sb_dict = {
+            "summary": sector_briefing_obj.summary,
+            "strong_sectors": sector_briefing_obj.strong_sectors,
+            "weak_sectors": sector_briefing_obj.weak_sectors,
+            "risk_warning": sector_briefing_obj.risk_warning
+        } if sector_briefing_obj else None
+        
+        portfolio_directives = pm.analyze_portfolio(current_pos, acct_bal, risk_result, sector_briefing=sb_dict)
+        logger.info(f"[Phase 3.1] Full Portfolio Directives: {portfolio_directives}")
     except Exception as e:
-        logger.error(f"Portfolio Manager 执行异常: {e}")
-        
-    # Phase 2.5: 候选
-    candidates = phase2_5_extract_candidates(collected_data, risk_result, logger, portfolio_directives)
-    
-    # 🆕 Phase 2.6: 本地硬规则预筛选 (Local Pre-Screening)
-    active_candidates, passive_candidates = pre_screen_candidates(candidates, risk_result, portfolio_directives, collected_data, logger)
-    
-    # 门限唤醒控制：若无任何活跃候选股，则整个流程自动判定无交易动作并跳过
-    if not active_candidates:
-        logger.warning("😴 [Pre-Screening] 本轮没有触发任何主动交易（买入/卖出/加仓/止损收紧）门限！资产组合整体极其平稳。")
-        logger.info("[Pre-Screening] 系统决定保持观望，自动跳过大模型专家研报及 CIO ReAct 决策，本次巡检消耗 0 Token。")
-        
-        if feishu_notifier:
-            today_str = datetime.now(pytz.timezone("US/Eastern")).strftime("%H:%M")
-            feishu_notifier.send_text(
-                f"🌅 【LP-Agent 正常巡检 | {today_str} ET】\n"
-                f"当前持仓与监控池标的表现极其稳健，未触发任何买入、卖出、加仓或止损警报门限。\n"
-                f"🤖 主脑(CIO)自动保持观望状态，本次巡检耗费 **0 Token**！"
-            )
-        return morning_briefing_sent
-
-    # Phase 3: 专家 (Map) - 仅对活跃候选股进行专家分析，极大节约 Token！
-    briefings_json = await phase3_map_experts(active_candidates, orchestrator, risk_result, logger)
+        logger.error(f"深度 Portfolio Manager 执行异常: {e}")
     
     # 推送选股和专家分析到飞书 (开盘简报)
     if feishu_notifier and active_candidates and not morning_briefing_sent:
@@ -634,6 +654,10 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
     # 2. 依然进行宏观打分，避免逆势
     risk_result = phase2_risk_scoring(collected_data, config, logger)
     
+    # 3. 让专家对涉及异动的股票出具报告
+    logger.info(f"触发异动的标的: {[c['symbol'] for c in candidates]}，唤醒专家...")
+    briefings_json, sector_briefing_obj = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
+    
     # 2.1 获取组合指令 (可选，应对事件)
     portfolio_directives = {}
     try:
@@ -643,13 +667,17 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
         current_pos = json.loads(pos_raw).get("positions", []) if isinstance(pos_raw, str) else pos_raw.get("positions", [])
         acct_raw = collected_data.get("get_account_balance", "{}")
         acct_bal = json.loads(acct_raw) if isinstance(acct_raw, str) else acct_raw
-        portfolio_directives = pm.analyze_portfolio(current_pos, acct_bal, risk_result)
+        
+        sb_dict = {
+            "summary": sector_briefing_obj.summary,
+            "strong_sectors": sector_briefing_obj.strong_sectors,
+            "weak_sectors": sector_briefing_obj.weak_sectors,
+            "risk_warning": sector_briefing_obj.risk_warning
+        } if sector_briefing_obj else None
+        
+        portfolio_directives = pm.analyze_portfolio(current_pos, acct_bal, risk_result, sector_briefing=sb_dict)
     except Exception:
         pass
-
-    # 3. 让专家对涉及异动的股票出具报告
-    logger.info(f"触发异动的标的: {[c['symbol'] for c in candidates]}，唤醒专家...")
-    briefings_json = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
     
     # 4. CIO决策，传入特殊的 interrupt_events 参数
     logger.info("呼叫 CIO 进行事件应对决策...")
@@ -988,7 +1016,7 @@ def main():
     logger = setup_logger("strategic_agent", config.log)
     
     logger.info("=" * 60)
-    logger.info("LP-Agent v4.5.3 (Watchdog + Strategic Brain) 启动")
+    logger.info("LP-Agent v4.5.5 (Watchdog + Strategic Brain) 启动")
     logger.info("=" * 60)
 
     try:
@@ -1239,7 +1267,7 @@ def main():
             logger.error(f"主循环出错: {e}", exc_info=True)
             time.sleep(60)
 
-    logger.info("LP-Agent v4.5.3 已退出")
+    logger.info("LP-Agent v4.5.5 已退出")
 
 if __name__ == "__main__":
     main()

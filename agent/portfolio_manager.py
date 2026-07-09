@@ -19,7 +19,7 @@ class PortfolioManager:
     def __init__(self):
         self.trade_logger = get_trade_logger()
         
-    def analyze_portfolio(self, current_positions: List[Dict], account_balance: Dict, macro_risk: Dict) -> Dict:
+    def analyze_portfolio(self, current_positions: List[Dict], account_balance: Dict, macro_risk: Dict, sector_briefing: Dict = None) -> Dict:
         """
         进行组合级扫描，输出全局调仓指令和买入阈值
         """
@@ -53,24 +53,24 @@ class PortfolioManager:
                 "max_single_stock_exposure_pct": max_stock_limit,
                 "max_single_sector_exposure_pct": max_sector_limit,
                 "recommended_atr_trailing_multiplier": recommended_atr_multiplier,
+                "tier1_min_atr_multiplier": 3.5, # 🚨 核心补丁：Tier 1 领涨股强制 3.5x ATR 起步，防 Whipsaw
                 "is_breakeven_enforced_under_low_score": is_breakeven_enforced,
                 "breakeven_trigger_atr_multiplier": 1.0,
-                "description": f"当前处于 {regime.upper()} 状态 (score={score})。根据此状态，系统已启用自适应风控红线：单股持仓上限 {max_stock_limit}%，板块持仓上限 {max_sector_limit}%，追踪止损推荐使用 {recommended_atr_multiplier}x ATR (即 trailing_percent = {recommended_atr_multiplier} * 标的 ATR_pct)。保本平价单强制开启状态: {is_breakeven_enforced}。"
+                "description": f"当前处于 {regime.upper()} 状态 (score={score})。根据此状态，系统已启用自适应风控红线：单股持仓上限 {max_stock_limit}%，板块持仓上限 {max_sector_limit}%，追踪止损推荐使用 {recommended_atr_multiplier}x ATR。Tier 1 领涨股强制开启 3.5x ATR 宽容防线。保本平价单强制开启状态: {is_breakeven_enforced}。"
             },
-            "sector_limits": {},          # 板块限制 (例如: {"Tech": "已达上限，禁止新建仓"})
+            "sector_limits": {},          # 板块限制
             "weed_out_list": [],          # 建议主动淘汰的弱势持仓
             "recently_weeded_out": [],    # 最近被淘汰的弱势持仓保护禁买名单
+            "sector_flow_veto": [],       # 🚨 核心补丁：板块资金流出一票否决名单
         }
         
-        # 1. 计算胜率自适应阈值 (Adaptive Thresholds)
+        # 1. 计算胜率自适应阈值
         directives["adaptive_buy_threshold"] = self._calculate_adaptive_threshold(macro_risk)
         
         # 2. 计算最近被淘汰/硬止损的持仓保护名单 (Weed-out Cooldown Logic)
-        # 硬性止损(Hard Stop): 5天冷静期，防止恐慌中反复操作。
-        # 主动优胜劣汰(Weed Out): 1天观察期，允许在标的重新变强时以观察仓接回。
+        # 🚨 修正：硬止损(Hard Stop) 3天冷静期（物理锁死），防 Whipsaw。
         recently_weeded = []
         try:
-            # 统一扫描最近 3 天的日志
             recent_logs = self.trade_logger.get_recent_logs(days=5)
             now = datetime.now()
             
@@ -87,17 +87,13 @@ class PortfolioManager:
                     sym = t.get("symbol")
                     if not sym: continue
                     
-                    # 判定是否属于硬性止损/亏损割肉/扫损/跌破关键线止损
                     is_stop_loss = any(k in reason for k in ["hard stop", "割肉", "扫损", "跌破", "破位", "亏损"]) or ("止损" in reason and not any(k in reason for k in ["盈利", "止盈", "锁定利润"]))
-                    # 判定是否属于优胜劣汰
                     is_weed = "weed" in reason or "淘汰" in reason or "杂草" in reason
                     
-                    if is_stop_loss and days_ago <= 5:
-                        # 硬止损 3 天内禁止买回（防止 Whipsaw）
-                        if sym not in recently_weeded:
-                            recently_weeded.append({"symbol": sym, "type": "HARD_STOP", "days_left": 5 - days_ago})
+                    if is_stop_loss and days_ago <= 3:
+                        if sym not in [r["symbol"] for r in recently_weeded]:
+                            recently_weeded.append({"symbol": sym, "type": "HARD_STOP", "days_left": 3 - days_ago})
                     elif is_weed and days_ago <= 1:
-                        # 主动淘汰 1 天内限制买回（仅限观察仓）
                         if not any(r["symbol"] == sym for r in recently_weeded):
                             recently_weeded.append({"symbol": sym, "type": "SOFT_WEED", "days_left": 1 - days_ago})
                                 
@@ -107,13 +103,18 @@ class PortfolioManager:
             logger.error(f"[Portfolio Manager] 提取最近淘汰/止损记录失败: {e}")
         directives["recently_weeded_out"] = recently_weeded
 
+        # 3. 🚨 核心补丁：处理板块资金流向否决 (Sector Flow Veto)
+        if sector_briefing:
+            weak_sectors = sector_briefing.get("weak_sectors", [])
+            directives["sector_flow_veto"] = weak_sectors
+            if weak_sectors:
+                logger.warning(f"[Portfolio Manager] ⚠️ 侦测到资金流出板块: {weak_sectors}。已激活买入一票否决权。")
+
         if not current_positions:
             logger.info("[Portfolio Manager] 当前空仓，无需计算相对强度。")
             return directives
             
-        # 2. 板块集中度惩罚 (Sector Exposure Limits)
-        # 这里为了简化，我们先利用宏观风控和历史胜率来限制，由于持仓数据里目前没有直接写明 Sector，
-        # 我们可以在这里记录一个逻辑上的占位符，由 CIO 结合 Sector Briefing 一起判断。
+        # 4. 板块集中度惩罚
         directives["sector_limits"] = {
             "instruction": f"如果拟买入标的所属板块已经占总仓位的 {max_sector_limit}% 以上，触发相关性降级惩罚，拒绝买入。"
         }

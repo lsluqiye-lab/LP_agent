@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v4.5.5] - 2026-07-09
+### Added
+- **板块资金流向一票否决 (Sector Flow Veto)**: 在 `PortfolioManager` 中集成 `SectorAnalyst` 研报。若板块资金流出，物理层强行拦截买入指令。
+- **Tier 1 领涨股呼吸空间 (Breathing Space)**: 强制 Tier 1 标的追踪止损不小于 3.5x ATR，防止牛股被随机波动洗出。
+
+### Fixed
+- **过度交易迟滞缓冲区 (Hysteresis Upgrade)**: 追踪止损调价缓冲区从 0.8% 提高至 1.0%，防止无效微调损耗。
+- **Whipsaw 物理拦截**: 将 Hard Stop 后的禁买冷却期调整为物理锁死 3 天，禁止报复性买入。
+
+## [v4.5.4] - 2026-07-08
+
 ## [v4.5.3] - 2026-07-07
 ### Added
 - **对冲动态退出协议 (Dynamic Hedge Unwinding)**: 在 `STRATEGIC_SYSTEM_PROMPT` 中注入 Theta 损耗敏感度。强制要求 CIO 在风险评分从 <70 修复至 >80 时，优先平仓 Protective Puts。

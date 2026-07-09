@@ -76,7 +76,12 @@ class NarrativeAnalyst:
         try:
             json_match = re.search(r'(\{.*\})', response.content, re.DOTALL)
             if json_match:
-                return json.loads(json_match.group(1))
+                data = json.loads(json_match.group(1))
+                # 🆕 Robustness fix: Ensure narrative_shift_warning is always a string
+                warning = data.get('narrative_shift_warning', "")
+                if isinstance(warning, dict):
+                    data['narrative_shift_warning'] = json.dumps(warning, ensure_ascii=False)
+                return data
             else:
                 return {
                     "headline": "叙事量化分析异常",

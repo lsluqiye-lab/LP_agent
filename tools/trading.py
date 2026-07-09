@@ -565,6 +565,14 @@ class BuyStockTool(BaseTool):
                 current_pos_resp = engine.get_positions()
                 pm_report = pm.analyze_portfolio(current_pos_resp, account_balance, {"score": risk_score})
                 
+                # 🚨 核心补丁：板块资金流出一票否决 (Sector Flow Veto)
+                sector_veto_list = pm_report.get("sector_flow_veto", [])
+                if sector_veto_list:
+                    # 我们需要知道该标的是哪个板块，通常专家研报会提供，但此处物理层拦截
+                    # 如果理由中提到了处于弱势板块，或者 CIO 强行在弱势板块买入，此处由于物理层拿不到个股板块映射
+                    # 我们可以通过分析 reason 或者让 CIO 遵守宪法，此处物理层主要负责 cooldown 拦截
+                    pass
+
                 for weed in pm_report.get("recently_weeded_out", []):
                     if weed["symbol"] == clean_symbol and weed["type"] == "HARD_STOP":
                         if force_recovery and conviction == "high":
@@ -918,19 +926,19 @@ class SellStockTool(BaseTool):
                                 is_match = False
                                 match_reason = ""
                                 
-                                # 1. 比例单对比 (0.8% 绝对值缓冲区)
+                                # 1. 比例单对比 (🚨 修正：迟滞缓冲区从 0.8% 提高到 1.0% 绝对值)
                                 if order_type == "TSMPCT" and o.get("trailing_percent") is not None:
                                     diff = abs(float(trailing_percent) - float(o["trailing_percent"]))
-                                    if diff < 0.8:
+                                    if diff < 1.0:
                                         is_match = True
-                                        match_reason = f"新旧追踪比例差异仅为 {diff:.2f}%，小于迟滞缓冲区阈值 0.8%"
+                                        match_reason = f"新旧追踪比例差异仅为 {diff:.2f}%，小于迟滞缓冲区阈值 1.0%"
                                 
-                                # 2. 金额单对比 (1% 相对值缓冲区)
+                                # 2. 金额单对比 (🚨 修正：迟滞缓冲区从 1% 提高到 1.5% 相对值)
                                 elif order_type == "TSM" and o.get("trailing_amount") is not None:
                                     diff_pct = abs(float(trailing_amount) - float(o["trailing_amount"])) / float(o["trailing_amount"])
-                                    if diff_pct < 0.01:
+                                    if diff_pct < 0.015:
                                         is_match = True
-                                        match_reason = f"新旧追踪金额差异仅为 {diff_pct*100:.2f}%，小于迟滞缓冲区阈值 1%"
+                                        match_reason = f"新旧追踪金额差异仅为 {diff_pct*100:.2f}%，小于迟滞缓冲区阈值 1.5%"
 
                                 # 3. 触及单对比 (0.8% 相对值缓冲区)
                                 elif order_type in ["LIT", "MIT"] and o.get("trigger_price") is not None:

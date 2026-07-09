@@ -184,7 +184,7 @@ class ExpertOrchestrator:
         # 0. Narrative Conflict (v4.5 NME)
         if narrative and narrative.get('narrative_shift_warning'):
             warning = narrative['narrative_shift_warning']
-            if any(k in warning.lower() for k in ["风险", "转向", "激增", "危机", "bubble", "risk", "warning", "stress", "crash"]):
+            if any(k in str(warning).lower() for k in ["风险", "转向", "激增", "危机", "bubble", "risk", "warning", "stress", "crash"]):
                 conflicts.append(f"⚠️ 叙事偏移警告：{warning}")
 
         # 0. High Frequency Warning (v4.4.2)

@@ -335,7 +335,7 @@ class ReviewAgent:
 
         for sym, t_list in symbol_actions.items():
             # 统计追踪止损调价次数
-            ts_adjustments = [t for t in t_list if "trailing stop" in t.get("reason", "").lower() or "追踪止损" in t.get("reason", "").lower()]
+            ts_adjustments = [t for t in t_list if "trailing stop" in str(t.get("reason", "")).lower() or "追踪止损" in str(t.get("reason", "")).lower()]
             if len(ts_adjustments) >= 3:
                 results.append(f"{sym}: 今日频繁微调止损共 {len(ts_adjustments)} 次。建议 CIO 保持耐心，增加调价阈值以减少摩擦。")
 

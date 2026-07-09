@@ -1,10 +1,10 @@
-# LP-Agent v4.5.3: 证券交易自主智能体 (Narrative & ToT Powered)
+# LP-Agent v4.5.5: 证券交易自主智能体 (Narrative & ToT Powered)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Status](https://img.shields.io/badge/Status-Trading-success.svg)](#)
 
-LP-Agent v4.5.3 是一款基于 **Strategic Multi-Agent (SMA)** 架构、由**“叙事量化引擎 (NME)”**与**“深度思考树 (ToT)”**驱动的高进化美股交易智能体。系统模拟专业对冲基金运行模式，由 **CIO (首席投资官)** 统筹六大专家矩阵，并具备感知全网情绪偏移的“直觉”与多路径博弈的“深度”。
+LP-Agent v4.5.5 是一款基于 **Strategic Multi-Agent (SMA)** 架构、由**“叙事量化引擎 (NME)”**与**“深度思考树 (ToT)”**驱动的高进化美股交易智能体。系统模拟专业对冲基金运行模式，由 **CIO (首席投资官)** 统筹六大专家矩阵，并具备感知全网情绪偏移的“直觉”与多路径博弈的“深度”。
 
 在 V4.5 架构中，系统实现了从“技术面被动响应”到“战略性主动博弈”的质变，通过 NME 感知叙事风向，利用 ToT 过滤诱多陷阱，确保在极端市场波动下的决策高质量。
 

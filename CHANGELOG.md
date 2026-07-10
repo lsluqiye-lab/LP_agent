@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v4.5.6] - 2026-07-10
+### Fixed
+- **TypedDict 访问逻辑修复**: 彻底修复了 `main.py` 中由于 `SectorBriefing` 和 `NarrativeBriefing` 转换为 `TypedDict` 后引起的 `AttributeError` 崩溃。将所有对象属性访问（`.summary`）修改为字典键访问（`["summary"]`），确保事件驱动循环的稳定性。
+
 ## [v4.5.5] - 2026-07-09
 ### Added
 - **板块资金流向一票否决 (Sector Flow Veto)**: 在 `PortfolioManager` 中集成 `SectorAnalyst` 研报。若板块资金流出，物理层强行拦截买入指令。

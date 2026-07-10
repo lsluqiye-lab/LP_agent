@@ -1,5 +1,5 @@
 """
-LP-Agent v4.5.5 主入口 (Strategic Multi-Agent)
+LP-Agent v4.5.6 主入口 (Strategic Multi-Agent)
 AI自动交易智能体 - 专家协作架构
 
 执行流程:
@@ -328,12 +328,12 @@ async def phase3_map_experts(
     # 获取全局的板块轮动简报
     logger.info("[Phase 3] 获取全局板块分析 (Sector Analysis)...")
     sector_briefing = await orchestrator.get_sector_briefing()
-    logger.info(f"板块轮动总结: {sector_briefing.summary}")
+    logger.info(f"板块轮动总结: {sector_briefing['summary']}")
 
     # 🆕 升级 v4.5: 获取叙事量化引擎简报 (Narrative Momentum Engine)
     logger.info("[Phase 3] 获取叙事量化引擎研报 (Narrative Momentum Engine)...")
     narrative_briefing = await orchestrator.get_narrative_briefing()
-    logger.info(f"叙事总纲: {narrative_briefing.headline}")
+    logger.info(f"叙事总纲: {narrative_briefing['headline']}")
 
     sem = asyncio.Semaphore(2) # 限制最高并发量，避免触发大模型限流和阻塞
 
@@ -567,10 +567,10 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
         acct_bal = json.loads(acct_raw) if isinstance(acct_raw, str) else acct_raw
         
         sb_dict = {
-            "summary": sector_briefing_obj.summary,
-            "strong_sectors": sector_briefing_obj.strong_sectors,
-            "weak_sectors": sector_briefing_obj.weak_sectors,
-            "risk_warning": sector_briefing_obj.risk_warning
+            "summary": sector_briefing_obj["summary"],
+            "strong_sectors": sector_briefing_obj["strong_sectors"],
+            "weak_sectors": sector_briefing_obj["weak_sectors"],
+            "risk_warning": sector_briefing_obj["risk_warning"]
         } if sector_briefing_obj else None
         
         portfolio_directives = pm.analyze_portfolio(current_pos, acct_bal, risk_result, sector_briefing=sb_dict)
@@ -669,10 +669,10 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
         acct_bal = json.loads(acct_raw) if isinstance(acct_raw, str) else acct_raw
         
         sb_dict = {
-            "summary": sector_briefing_obj.summary,
-            "strong_sectors": sector_briefing_obj.strong_sectors,
-            "weak_sectors": sector_briefing_obj.weak_sectors,
-            "risk_warning": sector_briefing_obj.risk_warning
+            "summary": sector_briefing_obj["summary"],
+            "strong_sectors": sector_briefing_obj["strong_sectors"],
+            "weak_sectors": sector_briefing_obj["weak_sectors"],
+            "risk_warning": sector_briefing_obj["risk_warning"]
         } if sector_briefing_obj else None
         
         portfolio_directives = pm.analyze_portfolio(current_pos, acct_bal, risk_result, sector_briefing=sb_dict)
@@ -1016,7 +1016,7 @@ def main():
     logger = setup_logger("strategic_agent", config.log)
     
     logger.info("=" * 60)
-    logger.info("LP-Agent v4.5.5 (Watchdog + Strategic Brain) 启动")
+    logger.info("LP-Agent v4.5.6 (Watchdog + Strategic Brain) 启动")
     logger.info("=" * 60)
 
     try:
@@ -1267,7 +1267,7 @@ def main():
             logger.error(f"主循环出错: {e}", exc_info=True)
             time.sleep(60)
 
-    logger.info("LP-Agent v4.5.5 已退出")
+    logger.info("LP-Agent v4.5.6 已退出")
 
 if __name__ == "__main__":
     main()

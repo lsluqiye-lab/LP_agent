@@ -574,14 +574,21 @@ class BuyStockTool(BaseTool):
                     pass
 
                 for weed in pm_report.get("recently_weeded_out", []):
-                    if weed["symbol"] == clean_symbol and weed["type"] == "HARD_STOP":
-                        if force_recovery and conviction == "high":
-                            logging.info(f"🛡️ [V-Recovery] 检测到对 {symbol} 的强力回补指令且具备 High Conviction，豁免冷静期拦截执行买入。")
-                            reason += " [V-Recovery 纠偏回补]"
-                        else:
-                            error_msg = f"Whipsaw 拦截: {symbol} 在过去 {3 - weed['days_left']} 天内刚触发过硬止损(HARD_STOP)，目前仍处于 {weed['days_left']} 天的冷静保护期内。系统已硬性拦截该买入指令，防止在剧烈波动中左右挨打。若确认为 V 型反转，请使用 force_recovery=True 且 conviction='high' 强行回补。"
+                    if weed["symbol"] == clean_symbol:
+                        if weed["type"] == "INTRADAY_STOP":
+                            # 日内冷静期是绝对锁死，即便 force_recovery 也不允许
+                            error_msg = f"物理离场拦截: {symbol} 在 {weed.get('hours_left', 4)} 小时前刚执行过离场操作。根据宪法，严禁在同一交易时段(4h内)反复进出。请保持观察，等待情绪企稳。"
                             logging.warning(error_msg)
                             return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
+                            
+                        elif weed["type"] == "HARD_STOP":
+                            if force_recovery and conviction == "high":
+                                logging.info(f"🛡️ [V-Recovery] 检测到对 {symbol} 的强力回补指令且具备 High Conviction，豁免 3 天冷静期拦截执行买入。")
+                                reason += " [V-Recovery 纠偏回补]"
+                            else:
+                                error_msg = f"Whipsaw 拦截: {symbol} 正处于止损离场后的 {weed['days_left']} 天冷静保护期内。系统已硬性拦截该买入指令，防止左右挨打。若确认为 V 型反转且在 4h 观察期后，请使用 force_recovery=True 且 conviction='high' 强行回补。"
+                                logging.warning(error_msg)
+                                return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
 
                 # (B) 获取动态上限 (基于当前风险评分)
                 max_stock_limit_pct = 5.0 + (risk_score / 100.0) * 10.0 # 5% - 15%
@@ -926,12 +933,24 @@ class SellStockTool(BaseTool):
                                 is_match = False
                                 match_reason = ""
                                 
-                                # 1. 比例单对比 (🚨 修正：迟滞缓冲区从 0.8% 提高到 1.0% 绝对值)
+                                # 1. 比例单对比 (🚨 修正：从 1.0% 升级为动态迟滞缓冲区，防范高波动股)
                                 if order_type == "TSMPCT" and o.get("trailing_percent") is not None:
                                     diff = abs(float(trailing_percent) - float(o["trailing_percent"]))
-                                    if diff < 1.0:
+                                    
+                                    # 动态计算缓冲区阈值：max(1.5%, 0.5 * ATR_pct)
+                                    # 如果拿不到 ATR，默认使用 1.5% 绝对值
+                                    hysteresis_threshold = 1.5
+                                    try:
+                                        from tools.market_data import get_technical_analysis
+                                        ta = get_technical_analysis(clean_symbol)
+                                        atr_pct = float(ta.get("atr_pct", 3.0))
+                                        hysteresis_threshold = max(1.5, atr_pct * 0.5)
+                                    except:
+                                        pass
+                                        
+                                    if diff < hysteresis_threshold:
                                         is_match = True
-                                        match_reason = f"新旧追踪比例差异仅为 {diff:.2f}%，小于迟滞缓冲区阈值 1.0%"
+                                        match_reason = f"新旧追踪比例差异仅为 {diff:.2f}%，小于动态迟滞缓冲区阈值 {hysteresis_threshold:.2f}% (含 ATR 补偿)"
                                 
                                 # 2. 金额单对比 (🚨 修正：迟滞缓冲区从 1% 提高到 1.5% 相对值)
                                 elif order_type == "TSM" and o.get("trailing_amount") is not None:

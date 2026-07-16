@@ -5,9 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v4.5.6] - 2026-07-10
+## [v4.5.6] - 2026-07-16
 ### Fixed
-- **TypedDict 访问逻辑修复**: 彻底修复了 `main.py` 中由于 `SectorBriefing` 和 `NarrativeBriefing` 转换为 `TypedDict` 后引起的 `AttributeError` 崩溃。将所有对象属性访问（`.summary`）修改为字典键访问（`["summary"]`），确保事件驱动循环的稳定性。
+- **过度交易与左右挨打 (Whipsaw & Over-trading) 深度修复**:
+  - **日内 4 小时物理冷静期**: 在 `BuyStockTool` 中引入了绝对离场观察期。一旦触发 MO/LO 卖出离场，物理层将死锁 4 小时禁买，严禁在同一交易时段反复进出。
+  - **止损逻辑纠偏**: 修复了 `PortfolioManager` 将防御性挂单（TSMPCT/LIT）误判为硬止损的 Bug。现在仅 execution-based 卖出才会触发冷静期。
+  - **动态迟滞缓冲区 (Dynamic Hysteresis)**: 止损微调阈值升级为 `max(1.5%, 0.5 * ATR)`，减少高波动环境下的无效订单微调。
+  - **交易摩擦税认知注入**: 在 CIO 决策大脑中注入 0.5% 摩擦成本评估模型，强制要求每一笔交易必须具备远超损耗的确定性理由。
+  - **缺失依赖修复**: 补齐了 `PortfolioManager` 中缺失的 `pytz` 导入，确保时区处理稳定性。
 
 ## [v4.5.5] - 2026-07-09
 ### Added

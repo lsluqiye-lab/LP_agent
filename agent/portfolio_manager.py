@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Dict, List, Any
 from datetime import datetime
+import pytz
 
 from data.trade_logger import get_trade_logger
 
@@ -69,30 +70,60 @@ class PortfolioManager:
         
         # 2. 计算最近被淘汰/硬止损的持仓保护名单 (Weed-out Cooldown Logic)
         # 🚨 修正：硬止损(Hard Stop) 3天冷静期（物理锁死），防 Whipsaw。
+        # 🚨 新增：日内 4 小时绝对冷静期（物理锁死），即便开启 force_recovery 也要观察 4h。
         recently_weeded = []
         try:
             recent_logs = self.trade_logger.get_recent_logs(days=5)
-            now = datetime.now()
+            now = datetime.now(pytz.timezone("US/Eastern"))
+            now_unix = int(now.timestamp())
             
             for daily in recent_logs:
-                log_date = datetime.strptime(daily.get("date"), "%Y-%m-%d")
-                days_ago = (now - log_date).days
+                log_date_str = daily.get("date")
+                log_date = datetime.strptime(log_date_str, "%Y-%m-%d").date()
+                days_ago = (now.date() - log_date).days
                 
                 for t in daily.get("trades", []):
                     reason = str(t.get("reason", "")).lower()
                     side = str(t.get("side", "")).lower()
+                    order_type = str(t.get("order_type", "")).upper()
+                    
                     if "sell" not in side and "orderside.sell" not in side:
                         continue
                         
                     sym = t.get("symbol")
                     if not sym: continue
                     
-                    is_stop_loss = any(k in reason for k in ["hard stop", "割肉", "扫损", "跌破", "破位", "亏损"]) or ("止损" in reason and not any(k in reason for k in ["盈利", "止盈", "锁定利润"]))
-                    is_weed = "weed" in reason or "淘汰" in reason or "杂草" in reason
+                    # 只有市价单(MO)或限价单(LO)导致的卖出才被视为“离场”或“止损离场”
+                    is_execution_order = any(ot in order_type for ot in ["MO", "LO"])
                     
-                    if is_stop_loss and days_ago <= 3:
-                        if sym not in [r["symbol"] for r in recently_weeded]:
-                            recently_weeded.append({"symbol": sym, "type": "HARD_STOP", "days_left": 3 - days_ago})
+                    is_stop_loss = is_execution_order and (
+                        any(k in reason for k in ["hard stop", "割肉", "扫损", "跌破", "破位", "亏损"]) or 
+                        ("止损" in reason and not any(k in reason for k in ["盈利", "止盈", "锁定利润"]))
+                    )
+                    is_weed = is_execution_order and ("weed" in reason or "淘汰" in reason or "杂草" in reason)
+                    
+                    if is_stop_loss:
+                        trade_unix = t.get("timestamp", {}).get("unix", 0)
+                        hours_passed = (now_unix - trade_unix) / 3600
+                        
+                        # 4小时内日内冷静期
+                        if hours_passed < 4.0:
+                            if sym not in [r["symbol"] for r in recently_weeded]:
+                                recently_weeded.append({
+                                    "symbol": sym, 
+                                    "type": "INTRADAY_STOP", 
+                                    "hours_left": round(4.0 - hours_passed, 1),
+                                    "days_left": 3
+                                })
+                        # 3天内长冷静期
+                        elif days_ago <= 3:
+                            if sym not in [r["symbol"] for r in recently_weeded]:
+                                recently_weeded.append({
+                                    "symbol": sym, 
+                                    "type": "HARD_STOP", 
+                                    "days_left": 3 - days_ago
+                                })
+                                
                     elif is_weed and days_ago <= 1:
                         if not any(r["symbol"] == sym for r in recently_weeded):
                             recently_weeded.append({"symbol": sym, "type": "SOFT_WEED", "days_left": 1 - days_ago})

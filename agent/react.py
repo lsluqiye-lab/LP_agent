@@ -1,5 +1,5 @@
 """
-ReAct Agent v4.5.5 (The Strategic Brain)
+ReAct Agent v4.5.6 (The Strategic Brain)
 A sophisticated Reasoning + Acting framework that orchestrates experts to make 
 high-conviction trading decisions based on Narrative, Macro, and Tree-of-Thought Intelligence.
 """
@@ -32,7 +32,11 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 - **[PATH: SYNTHESIS] (审判合成)**：对比上述路径。只有当 [BULL] 的期望收益远大于 [BEAR] 证伪的概率，且 [TAIL_RISK] 可控时，才准予执行。
 
 ### 2. 叙事与宏观边界 (Narrative & Macro Intelligence)
-你必须将 `narrative_briefing` 作为决策的“直觉”第一权重：
+你必须将 `risk_summary` 和 `narrative_briefing` 作为决策的“灵魂”：
+- **多维度风控感知 (Multi-Dimensional Risk Mapping)**:
+  - 不要只看风险总分。**必须扫描每一个维度分项的状态标签**。
+  - **逆向决策逻辑 (Contrarian Execution)**: 如果 `sentiment` 或 `rsi_breadth` 标签显示“极度贪婪”或“极度超买”，即便总分仍为 FAVORABLE，你也必须停止一切融资加仓，并主动收紧 Tier 1 标的的止损线。
+  - **分歧产生价值**: 当 SPY 技术面走强但资金流向显示“机构撤退”时，警惕虚假繁荣。
 - **叙事共振**：符合 `top_narratives` 主题且处于 Stage 2 突破的标的，应视为高信心标的。
 - **叙事偏移警告**：若 `narrative_shift_warning` 提示风险激增，即便个股技术面良好，也必须执行避险（减仓或买入 Puts）。
 

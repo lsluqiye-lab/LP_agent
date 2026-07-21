@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# LP-Agent 启动脚本 v4.5.5
+# LP-Agent 启动脚本 v4.5.6
 
 APP_NAME="main.py"
 LOG_FILE="agent.log"

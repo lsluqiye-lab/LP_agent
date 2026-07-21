@@ -1,374 +1,387 @@
 {
-    "NVDA": {
-        "timestamp": "2026-07-07T10:59:10.576677",
+    "LLY": {
+        "timestamp": "2026-07-16T20:04:10.939536",
         "data": {
-            "valuation": "Undervalued",
-            "summary": "As of mid-2026, NVIDIA has transitioned from a speculative hyper-growth play into a 'relative value' leader. Despite a $4.7 trillion market cap and 80-95% YoY revenue growth, the stock trades at a forward P/E (~22x) nearly in line with the S&P 500. Its PEG ratio (0.27–0.65) suggests it is significantly undervalued relative to its earnings power compared to peers like AMD and Intel. While the company faces institutional rotation and 'custom silicon' threats from Big Tech, its massive buyback program ($119B total authorization), 25x dividend increase, and the successful ramp of Blackwell and Rubin architectures reinforce its dominant fundamental position.",
+            "valuation": "Fair Value",
+            "summary": "As of July 2026, Eli Lilly (LLY) is positioned as a high-growth outlier in the pharmaceutical sector, trading at a 'scarcity premium' justified by its dominant metabolic franchise. The company reported explosive Q1 2026 results with revenue up 56% and EPS up 156%, leading to a raised full-year revenue guidance of $82B–$85B. While its Forward P/E (~32x) and P/S (~15x) are significantly higher than peers like Novo Nordisk and Pfizer, a PEG ratio of 1.32–1.53 and DCF analysis suggesting a $1,644 intrinsic value indicate the stock is fairly valued relative to its double-digit growth and 47% operating margins. The successful launch of the oral GLP-1 Foundayo and a $55B manufacturing expansion serve as primary catalysts, though the company faces risks from high revenue concentration and intense pricing scrutiny.",
             "strengths": [
-                "Unrivaled software moat via the CUDA ecosystem with over 4 million developers.",
-                "Industry-leading 75% non-GAAP gross margins reflecting immense pricing power.",
-                "Aggressive 1-year product roadmap (Blackwell to Rubin) maintaining a performance lead over competitors.",
-                "Successful customer diversification, with non-hyperscale revenue (Sovereign AI/Enterprise) now reaching 50%.",
-                "Exceptional cash flow generation, supporting a $119 billion total share repurchase authorization."
+                "Clinical dominance in the $100B+ obesity and diabetes market via tirzepatide (Mounjaro/Zepbound).",
+                "Innovation leadership with the 2026 FDA approval of Foundayo, the first oral GLP-1 without food/water restrictions.",
+                "Superior financial profile featuring 83% gross margins and sector-leading 47% operating margins.",
+                "Massive $55B manufacturing investment creating a long-term supply chain moat against smaller competitors.",
+                "Strategic diversification into neuroscience (Kisunla for Alzheimer's) and psychiatry (AtaiBeckley acquisition)."
             ],
             "weaknesses": [
-                "High customer concentration, with Big Tech accounting for 40-50% of revenue while developing internal AI chips.",
-                "Extreme geographical manufacturing dependency on TSMC and vulnerability to Taiwan Strait tensions.",
-                "Ongoing US export restrictions resulting in zero Data Center compute revenue from China.",
-                "Significant insider selling ($410M in three months) and recent institutional trimming/rotation.",
-                "High Price-to-Sales ratio (18.9x–22.2x) leaves little room for execution errors."
-            ],
-            "institutional_ownership_trend": "Decreasing"
-        }
-    },
-    "JPM": {
-        "timestamp": "2026-07-07T20:05:22.715407",
-        "data": {
-            "valuation": "Overvalued",
-            "summary": "JPMorgan Chase (JPM) maintains its status as the dominant global 'universal bank' with record-breaking Q1 2026 performance, including a 23% ROTCE and $16.5 billion in net income. Despite its 'fortress balance sheet' and a massive $50 billion share buyback authorization, the stock is currently trading at a significant premium—roughly 27% above its 5-year average P/E ratio. While institutional support remains strong, the valuation appears to reflect a 'best-case scenario,' particularly as management recently trimmed full-year Net Interest Income (NII) guidance to $103 billion due to shifting interest rate dynamics and projected expenses rising to $105 billion.",
-            "strengths": [
-                "Unmatched scale and market leadership with over $4.9 trillion in assets and #1 rankings in retail deposits and investment banking fees.",
-                "Highly diversified 'All-Weather' business model across consumer, commercial, and asset management segments providing natural hedges.",
-                "Superior technology 'arms race' advantage with a $17-18 billion annual budget dedicated to AI and digital platforms.",
-                "Robust 'Fortress Balance Sheet' with a 14.5% CET1 ratio, significantly exceeding regulatory requirements and supporting massive capital returns.",
-                "Industry-leading operational efficiency, consistently delivering ROTCE well above the 17% 'through-the-cycle' target."
-            ],
-            "weaknesses": [
-                "Stretched valuation metrics (P/E, P/S, P/B, and PEG) all significantly exceed 5-year historical averages.",
-                "Heavy regulatory burden as a G-SIB, facing higher capital surcharges and 'Basel III Endgame' oversight.",
-                "Succession risk and 'key man risk' associated with the eventual retirement of CEO Jamie Dimon.",
-                "Rising cost base with 2026 expenses projected at $105 billion, putting pressure on margins if NII continues to soften.",
-                "Vulnerability to credit cycle normalization, specifically rising net charge-off rates in credit cards (expected at 3.4%)."
+                "Extreme revenue concentration, with over 60% of growth driven by a single drug class (tirzepatide).",
+                "Ongoing supply-demand gap that has ceded market share to the 'gray market' of compounded medications.",
+                "Significant regulatory and political risk from U.S. government price negotiations and 340B drug pricing disputes.",
+                "Growing legal liabilities related to GLP-1 side effects, including gastroparesis lawsuits.",
+                "Upcoming patent expirations for key legacy assets including Cyramza (2026) and Trulicity (2027)."
             ],
             "institutional_ownership_trend": "Increasing"
-        }
-    },
-    "LLY": {
-        "timestamp": "2026-07-07T20:05:22.929042",
-        "data": {
-            "valuation": "Overvalued",
-            "summary": "As of mid-2026, Eli Lilly (LLY) has transitioned into a $1 trillion 'metabolic juggernaut,' characterized by explosive growth in its GLP-1 franchise (Mounjaro, Zepbound) and the landmark approval of Foundayo, the first daily oral GLP-1 pill. While Q1 2026 results were exceptional—with revenue up 56% and a significant guidance raise—the stock trades at a 'tech-like' premium, including a P/S ratio (15.1x) nearly triple the industry average. Despite a massive manufacturing moat and a robust pipeline in Alzheimer's and oncology, the company faces significant concentration risk and a 'priced for perfection' valuation that leaves it vulnerable to regulatory pricing shifts and competitive entry.",
-            "strengths": [
-                "Dominance in the incretin market with a ~53% global GLP-1 market share.",
-                "Massive $50 billion manufacturing moat that has successfully 'de-bottlenecked' supply issues.",
-                "Pipeline leadership with Foundayo (oral GLP-1) and Kisunla (Alzheimer’s).",
-                "Industry-leading operating margins approaching 45-50% and gross margins of ~83%.",
-                "Direct-to-patient innovation via the LillyDirect platform, improving margins and access."
-            ],
-            "weaknesses": [
-                "Extreme revenue concentration, with 65% of total revenue tied to the GLP-1 franchise.",
-                "High 'growth premium' valuation (15.1x P/S) compared to peers like Novo Nordisk (4.3x P/S).",
-                "Regulatory headwinds from the Inflation Reduction Act (IRA) impacting drugs like Jardiance and Trulicity.",
-                "Ongoing patent cliffs, including the loss of exclusivity for Cyramza in 2026.",
-                "Geopolitical and supply chain vulnerabilities regarding reliance on global and Chinese suppliers."
-            ],
-            "institutional_ownership_trend": "Decreasing"
         }
     },
     "KO": {
-        "timestamp": "2026-07-07T20:06:16.319996",
-        "data": {
-            "valuation": "Undervalued",
-            "summary": "As of mid-2026, Coca-Cola (KO) exhibits strong fundamental health characterized by a successful transition to a high-margin, asset-light business model. Under new CEO Henrique Braun, the company has delivered robust Q1 2026 results with 18% EPS growth and expanded operating margins of 35%. While its P/E and P/S ratios remain at a premium compared to peers like PepsiCo, a PEG ratio of 0.96 indicates the stock is undervalued relative to its recent earnings performance. The company’s defensive profile is bolstered by its 64-year dividend growth streak and significant institutional backing, notably from Berkshire Hathaway.",
-            "strengths": [
-                "High-margin, asset-light business model resulting in superior operating margins (~31-35%)",
-                "Unrivaled brand equity and pricing power, maintaining volume despite inflationary pressures",
-                "Successful portfolio diversification into high-growth segments like fairlife, Topo Chico, and Zero Sugar",
-                "Extensive global distribution network and bottling system that creates a significant competitive moat",
-                "Exceptional dividend reliability with 64 consecutive years of increases"
-            ],
-            "weaknesses": [
-                "Heavy structural reliance on carbonated soft drinks (50% of revenue) facing long-term health-related decline",
-                "Increasing regulatory pressure from sugar taxes implemented in over 100 global jurisdictions",
-                "Significant environmental and ESG risks associated with plastic packaging production",
-                "High sensitivity to currency volatility due to vast international revenue generation",
-                "Large organizational scale that can lead to slower innovation cycles compared to niche competitors"
-            ],
-            "institutional_ownership_trend": "Stable"
-        }
-    },
-    "GE": {
-        "timestamp": "2026-07-07T20:06:21.902054",
+        "timestamp": "2026-07-16T20:09:17.071193",
         "data": {
             "valuation": "Overvalued",
-            "summary": "Now a pure-play aviation leader following its 2024 three-way split, GE Aerospace (GE) is characterized by a high-margin 'razor-and-blade' business model where 70% of revenue is derived from recurring services. The company enters mid-2026 with a massive $210 billion backlog and strong Q1 performance, including a 29% revenue increase and 87% order growth. However, the stock commands a significant 'GE Premium,' trading at a P/E of 43x–50x and a P/S of 7.2x–8.3x, which is substantially higher than the aerospace industry average. Analysts suggest the market has already priced in much of the expected recovery through 2026, leading to an elevated PEG ratio compared to peers like RTX and Rolls-Royce.",
+            "summary": "As of mid-2026, The Coca-Cola Company (KO) demonstrates robust operational performance with a successful pivot toward a 'Total Beverage' strategy and high-margin asset-light operations. Despite a strong Q1 2026 earnings beat (12% revenue growth) and raised full-year guidance, the stock is considered modestly overvalued, trading at approximately $83-$84—roughly 10-18% above DCF-derived fair value. The company is currently undergoing a leadership transition under new CEO Henrique Braun, focusing on digital transformation and AI integration, while institutional investors maintain a 'flight to safety' buying bias despite significant insider selling.",
             "strengths": [
-                "Dominant market position with engines powering three out of four commercial flights globally.",
-                "High-margin recurring revenue model with 70% of revenue coming from aftermarket services.",
-                "Massive $210 billion order backlog providing long-term revenue visibility.",
-                "Exclusive provider for the Boeing 737 MAX and a leading option for the Airbus A320neo via CFM International.",
-                "Strong capital return program, including aggressive share buybacks and a significantly increased dividend ($0.47/share)."
+                "Industry-leading operating margins (34.5%) supported by a capital-efficient franchise bottling model.",
+                "Unrivaled brand equity with 32 billion-dollar brands and a 94% global recognition rate.",
+                "Strong growth in 'Zero Sugar' (14% growth) and premium segments like Fairlife dairy.",
+                "Dividend King status with 64 consecutive years of increases and a 2.5%–2.9% yield.",
+                "Massive global distribution network spanning over 200 countries, creating a structural moat.",
+                "Strategic digital integration, including a $1.1 billion Microsoft AI partnership to optimize supply chain and marketing."
             ],
             "weaknesses": [
-                "Premium valuation multiples (P/E and P/S) significantly exceed industry averages.",
-                "High concentration risk as a pure-play entity exposed entirely to aviation industry volatility.",
-                "Ongoing supply chain and capacity constraints limiting the ability to meet record backlog demand.",
-                "Technical concerns regarding LEAP engine durability in harsh environments.",
-                "Sensitivity to macroeconomic headwinds, including high oil prices and slowing global flight departure growth."
-            ],
-            "institutional_ownership_trend": "Increasing"
-        }
-    },
-    "UNH": {
-        "timestamp": "2026-07-07T20:06:49.075601",
-        "data": {
-            "valuation": "Overvalued",
-            "summary": "As of July 2026, UnitedHealth Group (UNH) maintains a dominant market position, trading at a significant premium compared to its managed healthcare peers with a Forward P/E of 23.1x and a PEG ratio of 1.5. This 'Optum Premium' is driven by its high-margin services and data analytics business, which provides a buffer against insurance volatility. Despite a strong Q1 2026 performance where the company raised its EPS guidance to over $18.25, UNH faces persistent headwinds from rising Medical Care Ratios (MCR), intense DOJ antitrust scrutiny, and a strategic contraction in Medicare Advantage membership to prioritize profitability. Institutional sentiment remains bullish, characterized by significant net inflows and a 12.7% increase in long positions during early 2026.",
-            "strengths": [
-                "Unmatched scale with a ~33% share of the U.S. Accident & Health insurance market.",
-                "Highly successful vertical integration model (UnitedHealthcare and Optum) capturing profit across the entire care continuum.",
-                "Robust cash flow generation, projected to exceed $18 billion from operations in 2026.",
-                "Aggressive AI integration with a $1.5 billion investment targeted at driving $1 billion in annual operating cost reductions.",
-                "Resilient Optum segment which provides stable, high-margin revenue less sensitive to government reimbursement changes."
-            ],
-            "weaknesses": [
-                "Elevated valuation metrics, including a PEG ratio of 1.5, suggesting the stock is expensive relative to its growth profile.",
-                "Significant regulatory risks, including ongoing DOJ antitrust probes and challenges to acquisitions like Amedisys.",
-                "Margin pressures in Medicare Advantage due to rising medical utilization and tighter government reimbursement rates.",
-                "Systemic cybersecurity vulnerabilities highlighted by the 2024 Change Healthcare breach.",
-                "Geographic concentration risk due to a heavy reliance on U.S. healthcare policy and recent divestitures of international operations."
-            ],
-            "institutional_ownership_trend": "Increasing"
-        }
-    },
-    "AMGN": {
-        "timestamp": "2026-07-07T20:10:58.207547",
-        "data": {
-            "valuation": "Fair Value",
-            "summary": "Amgen is currently navigating a pivotal transition year in 2026, shifting focus from legacy biologics facing patent cliffs (Enbrel, Prolia) to a diversified portfolio of 14 blockbuster products and a high-stakes obesity pipeline (MariTide). Financials remain stable with a recent Q1 beat and raised FY2026 guidance, supported by strong volume growth in Repatha and rare disease assets from the Horizon acquisition. While its Forward P/E of ~16x represents a discount to the broader S&P 500, it is viewed as a traditional value play within biotech, balancing high debt levels and regulatory pricing pressures against significant institutional accumulation and manufacturing efficiencies.",
-            "strengths": [
-                "Diversified portfolio with 14 blockbuster products generating over $1 billion annually.",
-                "Strategic leadership in the biosimilars market with a target of $4 billion in sales by 2030.",
-                "High-potential obesity pipeline (MariTide) offering a competitive monthly dosing advantage over weekly alternatives.",
-                "Integration of high-margin rare disease assets (Tepezza, Krystexxa) providing a competitive moat.",
-                "Advanced 'Biomanufacturing 2.0' capabilities that lower the cost of goods sold (COGS) via modular facilities."
-            ],
-            "weaknesses": [
-                "Significant 'patent cliff' risks for legacy assets Enbrel and Prolia/Xgeva through 2026.",
-                "High debt burden exceeding $60 billion following the Horizon Therapeutics acquisition.",
-                "Vulnerability to U.S. Medicare price negotiations (IRA), specifically impacting Otezla and Enbrel.",
-                "High geographic concentration risk with over 70% of revenue derived from the U.S. market.",
-                "Intense competition in the cardiovascular space from twice-yearly dosing alternatives like Novartis’s Leqvio."
-            ],
-            "institutional_ownership_trend": "Increasing"
-        }
-    },
-    "TSLA": {
-        "timestamp": "2026-07-07T21:32:04.449039",
-        "data": {
-            "valuation": "Very Overvalued",
-            "summary": "As of July 2026, Tesla is undergoing a fundamental pivot from a pure-play automaker to an AI and robotics platform, carrying a massive 'tech premium' with a TTM P/E of ~350x. While Q2 2026 operational results showed a significant recovery with 480,126 deliveries (a 25% YoY increase) and a rebound in gross margins to 21.1%, the company's valuation remains disconnected from its automotive earnings. Investors are currently pricing in the success of 'moonshot' projects, including the Miami Robotaxi launch and the Optimus humanoid robot, despite a projected $25 billion CapEx spend that may lead to neutral or negative free cash flow for the remainder of 2026.",
-            "strengths": [
-                "Software and AI leadership with FSD and the launch of Robotaxi services in Miami, Austin, and California.",
-                "Rapidly scaling energy storage business, reaching a record 13.5 GWh deployment in Q2 2026.",
-                "Superior vertical integration leading to a 15% reduction in production costs over two years.",
-                "Dominance of the Supercharger network, established as the universal utility via the NACS (SAE J3400) standard.",
-                "Strong operational recovery in 2026, evidenced by thinning inventory and a significant Q2 delivery beat."
-            ],
-            "weaknesses": [
-                "Extreme valuation metrics, including a forward PEG ratio of 11.6x, suggesting the stock is overvalued even with growth projections.",
-                "Intense market share pressure from Chinese competitors like BYD, which has surpassed Tesla in total EV/Hybrid volume.",
-                "Aging core product lineup (Model 3/Y) and the prioritization of Cybercab over a traditional $25,000 mass-market model.",
-                "Significant 'Key Man' risk and brand polarization linked to CEO Elon Musk's public standing.",
-                "High capital intensity with $25B+ annual CapEx required for AI infrastructure (Dojo) and new hardware (AI5)."
-            ],
-            "institutional_ownership_trend": "Increasing"
-        }
-    },
-    "ASML": {
-        "timestamp": "2026-07-07T21:36:06.776472",
-        "data": {
-            "valuation": "Overvalued",
-            "summary": "As of July 2026, ASML maintains a strategic monopoly as the sole provider of EUV lithography, positioning it as a critical 'chokepoint' for the global AI infrastructure rally. While the company recently raised its 2026 revenue guidance to €36B–€40B and shows strong institutional accumulation (up 10.8% in the recent quarter), its valuation metrics are historically stretched. A TTM P/E of ~63.3x sits significantly above its 10-year median of 38x, and a PEG ratio of 2.71 suggests the stock is expensive relative to its 22% growth rate. However, ASML currently trades at a decade-low valuation premium relative to U.S. peers like Applied Materials and Lam Research, appearing 'cheaper' than them on a growth-adjusted (PEG) basis. Key performance drivers include the High-NA EUV rollout, while primary risks involve tightening China export controls and high customer concentration.",
-            "strengths": [
-                "Absolute monopoly in Extreme Ultraviolet (EUV) lithography, essential for advanced AI and smartphone chips.",
-                "Technological lead with High-NA EUV systems (priced at €350M–€400M) enabling 2nm and 1.4nm nodes.",
-                "Critical 'picks and shovels' play for generative AI infrastructure build-out.",
-                "Deep customer integration with TSMC, Samsung, and Intel, creating high switching costs.",
-                "High-margin recurring revenue from servicing a complex and growing installed base of machines.",
-                "Strong financial performance with raised 2026 revenue guidance and 53% gross margins."
-            ],
-            "weaknesses": [
-                "Significant geopolitical risk, with 20% of 2026 revenue tied to China and facing tightening export/service restrictions.",
-                "Extreme customer concentration, where revenue is heavily dependent on the Capex cycles of only three major firms.",
-                "High PEG ratio (2.71) indicates the stock is expensive relative to its projected 22% earnings growth.",
-                "Extreme supply chain complexity (100,000+ parts) makes the company vulnerable to component shortages.",
-                "Vulnerability to adoption delays of High-NA EUV technology by major foundries."
-            ],
-            "institutional_ownership_trend": "Increasing"
-        }
-    },
-    "AMD": {
-        "timestamp": "2026-07-07T22:00:04.287090",
-        "data": {
-            "valuation": "Fair Value",
-            "summary": "As of July 2026, AMD has successfully completed its transformation into a data center and AI powerhouse, evidenced by its record 46.2% revenue share in server CPUs and surpassing Intel in data center revenue. While trailing P/E metrics (170x+) suggest a premium valuation, forward-looking multiples (59x–75x) and a PEG ratio centered around 1.0 indicate the stock is fairly valued relative to its projected 30–40% growth. The investment thesis is currently driven by the 'Forward Story' of the MI450 accelerator and 2nm 'Venice' EPYC processors, supported by massive institutional inflows and strategic equity-linked partnerships with Meta and OpenAI.",
-            "strengths": [
-                "Dominant position in high-margin server CPUs, reaching a record 46.2% revenue share and surpassing Intel.",
-                "Strategic vertical integration via the ZT Systems acquisition, enabling competitive rack-scale AI system sales.",
-                "Technological leadership with the 6th Gen EPYC 'Venice' processors, the industry's first 2nm HPC product.",
-                "Deep customer alignment through performance-based warrants with major hyperscalers like Meta and OpenAI.",
-                "Superior cost efficiency and yield management through pioneering chiplet-based architectures."
-            ],
-            "weaknesses": [
-                "Software ecosystem maturity (ROCm) continues to trail NVIDIA’s CUDA, leading to developer lock-in for competitors.",
-                "Significant gross margin gap relative to NVIDIA (55-57% vs. >80%), partly due to performance-per-dollar pricing strategies.",
-                "High supply chain dependency on TSMC for advanced 2nm and 3nm manufacturing capacity.",
-                "Increasing long-term threat from hyperscaler-developed custom ASICs (TPUs, Trainium, MTIA).",
-                "Cyclical volatility in the gaming segment, with projected 20% revenue declines in the second half of 2026."
-            ],
-            "institutional_ownership_trend": "Increasing"
-        }
-    },
-    "TSM": {
-        "timestamp": "2026-07-07T22:00:25.537770",
-        "data": {
-            "valuation": "Overvalued",
-            "summary": "TSM is currently positioned as the essential 'toll booth' for the global AI infrastructure boom, evidenced by its near-monopoly on advanced nodes (3nm/2nm) and CoWoS packaging. Financially, the company is at a peak, with FY2026 revenue growth guidance raised to over 30% and record-breaking gross margins of 66.2%. However, from a fundamental valuation perspective, the stock is trading at a 70% premium to its 10-year historical P/E median and is estimated by some analysts to be 47% above its intrinsic fair value. While its PEG ratio (0.67-0.80 TTM) suggests growth justifies the price, the combination of historical highs, institutional trimming, and significant geopolitical/expansion risks suggests the stock is currently priced at a premium.",
-            "strengths": [
-                "Dominant market share of over 90% in advanced nodes (7nm and below) and 70-72% of the total foundry market.",
-                "Technological leadership with 3nm in high-volume production and 2nm on track for 2026-2027, maintaining an 18-month lead over rivals.",
-                "Critical monopoly on CoWoS advanced packaging, a vital component for all major AI accelerators (NVIDIA, AMD, Broadcom).",
-                "Exceptional profitability with operating margins of 58.1% and a massive $52-$56 billion CapEx moat.",
-                "Strong pricing power driven by 'insatiable' AI demand, allowing for a significant upgrade in full-year revenue guidance."
-            ],
-            "weaknesses": [
-                "Extreme geopolitical concentration, with the vast majority of leading-edge capacity remaining in the sensitive Taiwan Strait region.",
-                "Higher operational costs for overseas expansion, with US-based manufacturing estimated to be 30-50% more expensive than Taiwan.",
-                "Short-term margin dilution (2-3%) expected from the ramp-up of Arizona and German fabs due to talent shortages and cultural management clashes.",
-                "High customer concentration risk, with the top two clients (Apple and NVIDIA) accounting for 36% of total revenue.",
-                "Infrastructure constraints in Taiwan, specifically regarding the high electricity and water requirements for advanced chipmaking."
-            ],
-            "institutional_ownership_trend": "Decreasing"
-        }
-    },
-    "CAT": {
-        "timestamp": "2026-07-07T22:00:50.989295",
-        "data": {
-            "valuation": "Very Overvalued",
-            "summary": "As of July 2026, Caterpillar (CAT) has undergone a structural re-rating, transitioning from a cyclical industrial to an 'AI infrastructure' proxy. While the company is delivering record earnings, a $63 billion backlog, and massive growth in its Energy & Transportation segment due to data center demand, its valuation metrics are at historic extremes. Trading at ~48x TTM P/E (versus an 18x historical average) and significantly above DCF-based fair value ($510-$535), the stock faces high-profile bearish pressure from investors like Michael Burry who cite a disconnect from traditional industrial cycles. Despite strong operational performance, the premium relies heavily on sustained AI-related multiples amidst rising tariff costs and geopolitical headwinds.",
-            "strengths": [
-                "Unmatched global dealer network of 150+ independent dealers across 190 countries.",
-                "Dominant market position in construction and mining with a 10-15% brand price premium.",
-                "Mission-critical provider for AI data center power infrastructure (reciprocating engines and microgrids).",
-                "Record $63 billion backlog providing significant revenue visibility through 2027.",
-                "High-margin aftermarket services, which now account for over 40% of total revenue."
-            ],
-            "weaknesses": [
-                "Extreme valuation with a P/S ratio at a 30-year high (5.27x) and P/E nearly triple historical norms.",
-                "Significant margin pressure from tariffs and raw material inflation, projected at $2.2B–$2.4B for 2026.",
-                "Lagging behind competitors like Volvo and Komatsu in the rollout of battery-electric equipment.",
-                "Eroding market share in China due to the domestic property crisis and aggressive local competition.",
-                "High financial leverage with a debt-to-equity ratio of approximately 2.0."
-            ],
-            "institutional_ownership_trend": "Stable"
-        }
-    },
-    "ISRG": {
-        "timestamp": "2026-07-08T20:04:13.996730",
-        "data": {
-            "valuation": "Fair Value",
-            "summary": "As of July 2026, Intuitive Surgical (ISRG) maintains a dominant 60-70% share of the robotic-assisted surgery market. The company recently delivered a 'beat and raise' Q1 2026 performance, driven by the successful rollout of the da Vinci 5 (dV5) system and 17% procedure growth. While ISRG trades at a significant premium to peers like Medtronic and Stryker, its valuation has moderated to a TTM P/E of ~51.7x following a 2026 price correction. With 86% of revenue now recurring and a massive installed base of over 11,300 systems, the company's 'razor-and-blade' model remains a core fundamental strength despite rising competition from J&J and Medtronic.",
-            "strengths": [
-                "Market dominance with a 60–70% global share in robotic-assisted surgery.",
-                "High earnings visibility with 86% recurring revenue from instruments, accessories, and services.",
-                "Successful launch of da Vinci 5, which accounts for 85% of recent U.S. placements.",
-                "Industry-leading operating margins (31%) and a pristine balance sheet with no long-term debt.",
-                "Significant competitive moat created by high switching costs and a massive global installed base."
-            ],
-            "weaknesses": [
-                "High valuation multiples (P/S of 10.7x–14.3x) compared to the industry average of 4.8x.",
-                "Intensifying competition from major players like Medtronic (Hugo) and Johnson & Johnson (Ottava).",
-                "Pricing pressure and slower recovery in key international markets, specifically China and Japan.",
-                "High capital intensity of systems ($0.5M–$2.5M) makes revenue vulnerable to hospital budget constraints.",
-                "Product concentration risk with the majority of revenue tied specifically to the da Vinci platform."
-            ],
-            "institutional_ownership_trend": "Increasing"
-        }
-    },
-    "WM": {
-        "timestamp": "2026-07-08T20:08:58.906954",
-        "data": {
-            "valuation": "Fair Value",
-            "summary": "As of mid-2026, Waste Management (WM) maintains its position as the 'gold standard' in the North American environmental services sector, commanding a 24% market share. The company is characterized by a massive infrastructure moat, particularly its landfill network, which functions as a natural monopoly. Recent Q1 2026 results show strong operational execution with a 29.8% EBITDA margin and a significant beat on adjusted EPS. WM is currently undergoing a strategic pivot toward high-margin sustainability projects, specifically Renewable Natural Gas (RNG) and automated recycling facilities, while expanding into medical waste via the Stericycle acquisition. While the stock trades at a premium P/E relative to the broader market, its valuation is consistent with historical medians and reflects a 'safety premium' for its recession-resistant cash flows and aggressive $3.5 billion capital return program.",
-            "strengths": [
-                "Unmatched infrastructure moat consisting of over 250 landfills and 300 transfer stations, creating high barriers to entry.",
-                "Strong pricing power and disciplined cost management, allowing for margin expansion even during inflationary periods.",
-                "Leadership in Renewable Natural Gas (RNG), with projects expected to contribute $800 million in annual EBITDA by 2027.",
-                "Successful integration of AI and automation in recycling and logistics, reducing operating expenses as a percentage of revenue.",
-                "Robust free cash flow generation, projected at $3.8 billion for 2026, supporting a 14.5% dividend increase."
-            ],
-            "weaknesses": [
-                "High capital expenditure (CapEx) requirements for fleet maintenance and long-term sustainability transitions.",
-                "Sensitivity to commodity price volatility, which can significantly impact recycling segment margins.",
-                "Increasing regulatory risks and compliance costs associated with PFAS ('forever chemicals') and emissions standards.",
-                "Labor dependency and wage inflation pressures for its large workforce of drivers and technicians.",
-                "Long-term structural risk from 'zero waste' initiatives potentially reducing profitable landfill volumes."
+                "High concentration in carbonated soft drinks, which face slower growth compared to functional beverages.",
+                "Lack of snack/food diversification relative to primary competitors like PepsiCo.",
+                "Significant exposure to currency volatility and geopolitical risks, with 65% of revenue generated outside the U.S.",
+                "Increasing regulatory pressure from global sugar taxes and mandatory health warning labels.",
+                "Environmental vulnerabilities related to plastic pollution and water scarcity in key growth markets.",
+                "Notable insider selling in 2026, with high-level executives divesting millions as the stock reached valuation ceilings."
             ],
             "institutional_ownership_trend": "Increasing"
         }
     },
     "AAPL": {
-        "timestamp": "2026-07-08T21:30:01.830407",
+        "timestamp": "2026-07-16T20:09:20.020204",
         "data": {
             "valuation": "Overvalued",
-            "summary": "As of July 2026, Apple demonstrates robust financial health with record Q2 2026 revenue of $111.2B (+17% YoY) and a massive $100B buyback authorization. However, the stock trades at a significant premium with a P/E of ~37.5x, well above its 5-year median and most 'Magnificent Seven' peers. While the Services segment ($110B run rate) and new entry-level hardware like the MacBook Neo provide growth levers, the company faces headwinds from AI execution delays (Siri 2.0), regulatory friction in the EU, and rising component costs. A pending leadership transition from Tim Cook to John Ternus adds a layer of execution risk despite a currently stable market reaction.",
+            "summary": "As of July 2026, Apple is trading at a significant premium with a trailing P/E of 38.1x, well above its 10-year historical mean. While the company maintains a robust 'safety' premium and reported record-breaking Q2 2026 results (Revenue $111.2B, up 17%), it is currently valued roughly 22% above its estimated intrinsic value. The narrative is defined by a major leadership transition—John Ternus succeeding Tim Cook as CEO in September 2026—and a strategic pivot toward 'Apple Intelligence' and high-margin Services to mitigate hardware cyclicality and stagnation in the Chinese market.",
             "strengths": [
-                "Unparalleled ecosystem moat with over 2.5 billion active devices and a 92% iPhone retention rate.",
-                "High-margin Services growth reaching a $110B annual revenue run rate, providing predictable cash flow.",
-                "Vertical integration through custom M5 silicon and AI-focused ASICs, optimizing performance and privacy.",
-                "Formidable balance sheet with $158B in cash and a strategic $600B American Manufacturing Program to mitigate geopolitical risk.",
-                "Successful expansion into entry-level markets via the MacBook Neo, utilizing repurposed silicon to capture new users."
+                "Formidable ecosystem lock-in with a 90% customer retention rate and 2.5 billion active devices.",
+                "High-margin Services segment contributing 28% of total revenue with 76% gross margins.",
+                "Unparalleled financial firepower with $160 billion in cash and a $100 billion share repurchase authorization.",
+                "Vertical integration through custom M-series and A-series silicon providing performance advantages.",
+                "Successful supply chain diversification, shifting 25% of iPhone production to India by 2026."
             ],
             "weaknesses": [
-                "Premium valuation (37x P/E and 1.3-3.0 PEG) suggests the stock is expensive relative to projected earnings growth.",
-                "Regulatory challenges, specifically the EU Digital Markets Act, which has blocked the rollout of Apple Intelligence.",
-                "AI execution lag, with Siri 2.0 facing engineering hurdles and delays compared to competitors like Google and OpenAI.",
-                "Margin pressure from rising memory (DRAM/NAND) costs and supply constraints on high-end Mac models.",
-                "Key person risk associated with the upcoming transition of long-time CEO Tim Cook."
+                "Heavy revenue concentration in the iPhone (50% of total revenue), making the firm sensitive to hardware upgrade cycles.",
+                "Intensifying regulatory pressure from the EU’s Digital Markets Act and global antitrust scrutiny.",
+                "Market share stagnation in Greater China due to rising nationalism and competition from Huawei.",
+                "Perceived lag in generative AI development compared to cloud-heavy peers like Google and Microsoft.",
+                "Margin compression risks due to significantly higher memory costs (DRAM/NAND) and rising operating expenses."
+            ],
+            "institutional_ownership_trend": "Decreasing"
+        }
+    },
+    "V": {
+        "timestamp": "2026-07-16T20:22:56.148807",
+        "data": {
+            "valuation": "Fair Value",
+            "summary": "As of mid-2026, Visa (V) maintains its dominant global payment position with a 'toll-booth' business model that continues to deliver strong growth, evidenced by a 17% revenue increase in Q2 2026. While the company trades at a premium P/E of ~30.7x, this is consistent with its historical average and reflects high-margin operations (60-68% operating margins) and an asset-light structure that avoids credit risk. Management has raised FY2026 guidance to low-teens growth and initiated a massive $20 billion share repurchase program. However, the stock faces significant regulatory pressure from the DOJ and international competition from real-time payment systems, leading to a notable exit by high-profile investors like Berkshire Hathaway.",
+            "strengths": [
+                "Unrivaled global scale with a massive network effect processing $17 trillion annually across 5 billion credentials.",
+                "High-margin, asset-light model that generates 50% net margins without exposure to credit risk or interest rate volatility.",
+                "Successful diversification into high-growth 'New Flows' such as B2B, Visa Direct, and Value-Added Services (VAS).",
+                "Strong shareholder returns via a record $20 billion multi-year share repurchase program and consistent dividends."
+            ],
+            "weaknesses": [
+                "Persistent regulatory and legal headwinds, including DOJ scrutiny of debit market dominance and interchange fee caps.",
+                "Rising competition from alternative domestic payment rails like UPI (India) and Pix (Brazil) that bypass card networks.",
+                "High sensitivity to macroeconomic shifts and global consumer discretionary spending levels.",
+                "Disintermediation risk from 'Big Tech' wallets and the potential for legacy infrastructure to be outpaced by agile fintech or blockchain solutions."
+            ],
+            "institutional_ownership_trend": "Decreasing"
+        }
+    },
+    "WM": {
+        "timestamp": "2026-07-16T20:38:53.298069",
+        "data": {
+            "valuation": "Fair Value",
+            "summary": "As of mid-2026, Waste Management (WM) maintains its position as the defensive leader of the North American waste sector, trading at a 'quality premium' with a TTM P/E of ~34x. While slightly expensive relative to its 10-year historical median, its valuation is consistent with peers like Republic Services. Recent Q1 2026 results demonstrated strong pricing power and margin expansion (31.3% EBITDA margin) despite minor volume headwinds. The company is currently in a transition phase, heavily investing in Renewable Natural Gas (RNG) and the integration of Stericycle to diversify into medical waste, with analysts projecting a significant Free Cash Flow CAGR through 2028 as these projects scale.",
+            "strengths": [
+                "Unmatched physical moat consisting of the largest network of landfills and transfer stations in North America.",
+                "Significant pricing power and route density driven by a dominant 24% market share.",
+                "Leadership in the circular economy through multi-billion dollar investments in Renewable Natural Gas (RNG) and automated recycling.",
+                "Vertical integration that allows for margin capture at every stage of the waste lifecycle.",
+                "Defensive, recession-resistant cash flows with a targeted 2026 Free Cash Flow of $3.0B to $3.2B."
+            ],
+            "weaknesses": [
+                "High regulatory risk and potential environmental liabilities related to PFAS ('forever chemicals') and groundwater contamination.",
+                "Exposure to persistent labor challenges and wage inflation for CDL-certified drivers and technicians.",
+                "Long-term 'landfill drag' as corporate sustainability goals shift toward waste diversion and zero-waste initiatives.",
+                "Execution and integration risks involving Stericycle’s complex ERP systems and operational culture."
+            ],
+            "institutional_ownership_trend": "Stable"
+        }
+    },
+    "CMG": {
+        "timestamp": "2026-07-16T21:00:56.736780",
+        "data": {
+            "valuation": "Undervalued",
+            "summary": "As of July 2026, Chipotle is in a stabilization phase under new CEO Scott Boatwright following a challenging 2025. While the company faces margin compression from labor and food inflation, its valuation has moderated significantly to a P/E of ~33x—nearly 50% below its 10-year median. Management is pivoting to a 'Recipe for Growth' strategy, leaning heavily on 'Chipotlanes' and international expansion into Mexico and Asia to offset cooling domestic same-store sales. While Q1 2026 earnings showed a decline in EPS, the company maintains best-in-class unit economics and high digital engagement.",
+            "strengths": [
+                "High digital sales penetration, accounting for nearly 39% of total revenue.",
+                "Superior unit economics with restaurant-level operating margins of 23-24% and a 49% ROE.",
+                "Aggressive rollout of 'Chipotlanes' (digital drive-thrus), which generate higher volumes and better returns.",
+                "Strong brand equity and 'Food with Integrity' positioning that attracts a resilient high-income demographic.",
+                "Operational efficiency and high throughput capabilities supported by new high-efficiency kitchen equipment."
+            ],
+            "weaknesses": [
+                "Margin compression due to rising labor, beef, and freight costs outpacing pricing power.",
+                "Stagnant comparable-store sales growth, projected to be flat to low-single digits for 2026.",
+                "Leadership execution risk following the departure of long-time CEO Brian Niccol and CFO Jack Hartung.",
+                "Labor vulnerabilities, including ongoing union activity and past child labor/overtime legal disputes.",
+                "Supply chain fragility inherent in a fresh-ingredient model compared to traditional QSR peers."
+            ],
+            "institutional_ownership_trend": "Decreasing"
+        }
+    },
+    "AMD": {
+        "timestamp": "2026-07-16T21:32:21.563645",
+        "data": {
+            "valuation": "Fair Value",
+            "summary": "As of July 2026, AMD has successfully transitioned into a primary AI infrastructure provider, with its Data Center segment now accounting for over 56% of total revenue. While trailing valuation multiples (TTM P/E ~180x) appear inflated, the market is pricing in a massive earnings ramp-up driven by the MI450/Helios AI accelerators and EPYC server CPUs. With a Forward PEG ratio ranging from 0.70 to 1.26, analysts view the stock as fairly valued relative to its projected 40-70% EPS growth. Financial performance is robust, characterized by a 'beat and raise' Q1 2026 and record free cash flow, though the stock remains sensitive to AI capital expenditure volatility and NVIDIA's dominant market position.",
+            "strengths": [
+                "Leadership in chiplet-based architecture providing superior manufacturing yields and cost-to-performance ratios.",
+                "Strong market share gains in the Data Center segment with EPYC CPUs outperforming Intel in energy efficiency.",
+                "Strategic high-volume AI GPU partnerships with hyperscalers like Meta and OpenAI.",
+                "Successful diversification through M&A, specifically Xilinx (FPGA) and ZT Systems (rack-scale AI design).",
+                "Superior memory capacity and bandwidth in Instinct accelerators, critical for large language model (LLM) performance."
+            ],
+            "weaknesses": [
+                "Significant software ecosystem gap where NVIDIA’s CUDA remains the entrenched industry standard over AMD’s ROCm.",
+                "Dominant competitive pressure from NVIDIA, which maintains 80-90% of the AI accelerator market and higher gross margins.",
+                "High supply chain concentration risk due to total reliance on TSMC for advanced node manufacturing.",
+                "Stagnant and cyclical revenue in the Gaming segment, particularly in semi-custom console chips.",
+                "Valuation sensitivity; high forward multiples leave the stock vulnerable to sharp pullbacks on any guidance misses."
             ],
             "institutional_ownership_trend": "Increasing"
         }
     },
-    "SPGI": {
-        "timestamp": "2026-07-08T21:34:24.402788",
+    "ASML": {
+        "timestamp": "2026-07-16T21:32:22.398203",
         "data": {
-            "valuation": "Undervalued",
-            "summary": "As of July 2026, S&P Global (SPGI) has successfully transitioned into a leaner, higher-margin financial data and analytics firm following the spin-off of its Mobility division. The company maintains an oligopolistic moat in credit ratings and indices, with a highly resilient revenue model characterized by 76-80% recurring subscription and asset-based fees. While the stock trades at a discount to its 5-year historical P/E median (21x-22x forward vs. 35x-40x historical) and peers like Moody's, its strong Q1 2026 performance—featuring 10% revenue growth and 51.8% operating margins—suggests significant potential for a valuation re-rating. Management is currently focused on AI monetization, with customers reportedly paying 35-45% premiums for AI-integrated services.",
+            "valuation": "Overvalued",
+            "summary": "ASML maintains a strategic monopoly on Extreme Ultraviolet (EUV) lithography, making it the indispensable 'chokepoint' for the global AI semiconductor supercycle. As of July 2026, the company has demonstrated robust financial health, significantly raising its full-year revenue guidance to €43B–€45B following a strong Q2 beat. However, its valuation is currently 'rich,' with a TTM P/E of 56x–61x sitting well above its 10-year median of 36x. While institutional demand remains high due to the High-NA EUV rollout and a €38.8B backlog, the stock faces significant valuation overhangs from geopolitical export restrictions to China and extreme customer concentration among the 'Big Three' chipmakers.",
             "strengths": [
-                "Oligopolistic market dominance in credit ratings (~40% share) and global benchmarks like the S&P 500.",
-                "Highly attractive financial profile with ~50% operating margins and 76-80% recurring revenue.",
-                "Dividend Aristocrat status with over 50 consecutive years of dividend increases and aggressive share buybacks.",
-                "Proprietary data advantage following the IHS Markit merger, now being leveraged for AI-native solutions via Kensho.",
-                "Strategic simplification through the July 2026 Mobility spin-off, focusing on high-margin core segments."
+                "Absolute global monopoly on EUV lithography machines essential for advanced AI chips",
+                "Massive €38.8B order backlog providing clear revenue visibility through 2027/2028",
+                "Technological leadership in High-NA EUV, creating a multi-decade barrier to entry",
+                "Strong high-margin recurring revenue from 'Installed Base Management' (20-25% of sales)",
+                "Deep strategic co-investment and alignment with TSMC, Samsung, and Intel"
             ],
             "weaknesses": [
-                "High sensitivity to global debt issuance cycles, which can lead to volatility in the Ratings segment.",
-                "Intense regulatory and legal scrutiny from global bodies (SEC, ESMA) and new compliance burdens like the EU AI Act.",
-                "Long-term threat of technological disruption from AI-driven fintech challengers and established rivals like Bloomberg.",
-                "Leadership transition risks following the departure of key executives in the Market Intelligence and Legal divisions."
+                "High geopolitical risk and revenue impact from tightening China export restrictions",
+                "Extreme customer concentration (TSMC, Samsung, and Intel account for the vast majority of sales)",
+                "Fragile supply chain with over 100,000 parts and single-sourced critical components like Zeiss mirrors",
+                "Premium valuation with a PEG ratio (2.6–3.4) suggesting the stock is expensive relative to projected growth",
+                "Potential long-term threat from alternative technologies like Canon’s Nanoimprint Lithography"
             ],
             "institutional_ownership_trend": "Increasing"
+        }
+    },
+    "GE": {
+        "timestamp": "2026-07-16T21:32:52.991051",
+        "data": {
+            "valuation": "Overvalued",
+            "summary": "GE Aerospace has successfully transitioned into a pure-play aviation leader, characterized by a 'beat and raise' Q2 2026 performance and a massive $210 billion+ backlog. While the company demonstrates exceptional fundamental strength through its 'razor-and-blades' service model and high free cash flow conversion, it is currently 'priced for perfection.' Trading at a TTM P/E of 44.38x—nearly double the industrial sector average—the stock commands a significant premium over peers like RTX and Safran. Recent market reactions suggest that despite raised guidance, investors are wary of margin pressures and supply chain delinquencies.",
+            "strengths": [
+                "Massive global installed base of approximately 80,000 engines, creating a significant competitive moat.",
+                "High-margin aftermarket services and spare parts account for roughly 70% of total revenue.",
+                "Record backlog exceeding $210 billion provides multi-year revenue visibility and 'toll-booth' business stability.",
+                "Strong technological leadership with the LEAP engine and the next-generation RISE program for sustainable aviation.",
+                "Robust free cash flow conversion, with 2026 projections raised to the $8.9B–$9.2B range."
+            ],
+            "weaknesses": [
+                "Significant valuation premium (44x P/E) compared to peers like RTX (35x) and Safran (19x).",
+                "Persistent supply chain constraints and 'gated' production due to material and labor shortages at tier-one suppliers.",
+                "Margin compression (130 bps contraction in Q2 2026) driven by the high costs of scaling new LEAP engine production.",
+                "Heavy dependency on the delivery schedules and production stability of airframers Boeing and Airbus.",
+                "Rising spare parts delinquencies, which increased 20% sequentially in mid-2026."
+            ],
+            "institutional_ownership_trend": "Increasing"
+        }
+    },
+    "GS": {
+        "timestamp": "2026-07-16T21:37:12.747909",
+        "data": {
+            "valuation": "Undervalued",
+            "summary": "As of July 2026, Goldman Sachs is exhibiting exceptional fundamental strength, highlighted by a record-breaking Q2 2026 performance with a 45.9% EPS beat and a sector-leading ROTE of 25.5%. While the trailing P/E of 18.6x is near a 5-year high, the PEG ratio of 0.76 suggests the stock is undervalued relative to its accelerating earnings growth (projected at 38% for FY2026). The firm has successfully pivoted back to its core institutional strengths while scaling its Asset & Wealth Management division to over $4 trillion in AUS. Despite its cyclical nature and lack of a retail deposit moat, aggressive share buybacks and a dominant position in the 'AI infrastructure supercycle' provide a robust growth narrative that has attracted significant institutional net inflows.",
+            "strengths": [
+                "Unrivaled M&A leadership, maintaining the #1 global advisor spot for 23 consecutive years with massive deal volume leads.",
+                "Record-breaking Global Markets performance, particularly in Equities trading which hit an all-time record of $7.42 billion in Q2 2026.",
+                "Successful strategic pivot to 'durable' revenue, with Assets Under Supervision (AUS) surpassing $4 trillion and a scaled alternatives platform.",
+                "Superior profitability metrics, with a 25.5% Return on Tangible Common Equity (ROTE) significantly outpacing peers like JPM and MS.",
+                "Strong capital return profile, including an 11% dividend increase and $4 billion in quarterly share repurchases."
+            ],
+            "weaknesses": [
+                "High revenue volatility and cyclicality due to heavy reliance on capital markets activity compared to universal banks.",
+                "Lack of a stable retail deposit moat, increasing sensitivity to funding costs and interest rate fluctuations.",
+                "Residual financial and strategic 'scar tissue' from the failed consumer banking expansion, with Platform Solutions still operating at a loss.",
+                "Rising operating expenses, specifically compensation and benefits which are projected to grow by 22% in 2026.",
+                "Ongoing regulatory and compliance burdens, including expiring 1MDB-related relief requiring expensive internal controls."
+            ],
+            "institutional_ownership_trend": "Increasing"
+        }
+    },
+    "MS": {
+        "timestamp": "2026-07-16T21:37:22.152195",
+        "data": {
+            "valuation": "Overvalued",
+            "summary": "As of mid-July 2026, MS is trading at a significant premium, with a TTM P/E of 20.6x compared to its five-year median of 15.5x. While the market rewards the company for its high-margin Wealth Management stability and aggressive transition into an 'AI-first' enterprise, the PEG ratio of 1.82 suggests the stock is rich relative to its growth rate. Financial performance remains strong, with record-breaking Q2 earnings ($3.46 EPS) and a surge in Cloud/AI revenue (Azure growing at 39%). However, massive projected AI capital expenditures of $190B for 2026 and heavy insider selling (28 sales, 0 purchases) signal potential near-term caution despite bullish price targets in the $250–$262 range.",
+            "strengths": [
+                "High-margin Wealth Management stability with $10 trillion in client assets providing a buffer against volatility.",
+                "Dominant Enterprise Ecosystem with over 450 million paid commercial seats and successful AI integration (Copilot).",
+                "Strong Cloud momentum with Azure growing at 39% and an AI business surpassing a $37 billion annual revenue run rate.",
+                "Robust strategic alliance with Mitsubishi UFJ (MUFG), which holds a stable 24.12% anchor stake.",
+                "Financial fortress status characterized by massive free cash flow and a rare AAA credit rating."
+            ],
+            "weaknesses": [
+                "Elevated valuation multiples, trading at one of its highest P/E ratios in the last decade.",
+                "Strategic dependency on OpenAI, representing a 'single point of failure' for the company's AI roadmap.",
+                "Significant insider selling by top executives over the past six months despite record financial results.",
+                "Ongoing regulatory and antitrust headwinds regarding cloud licensing and software bundling practices.",
+                "Stagnation in the gaming and hardware divisions, with Xbox hardware sales declining up to 32%."
+            ],
+            "institutional_ownership_trend": "Increasing"
+        }
+    },
+    "META": {
+        "timestamp": "2026-07-16T21:37:46.292713",
+        "data": {
+            "valuation": "Undervalued",
+            "summary": "As of mid-2026, Meta is positioned as a 'Growth at a Reasonable Price' (GARP) stock, trading at a forward P/E of approximately 21x, which is significantly lower than its 10-year historical mean of 30.5x and cheaper than mega-cap peers like Apple and Amazon. The company's core advertising business remains highly profitable, driven by AI-enhanced targeting and the successful monetization of Reels and WhatsApp. However, the company has entered an unprecedented capital expenditure cycle, with 2026 CapEx projected at $125B–$145B to support AI infrastructure and custom silicon. While institutional ownership remains stable, there is a clear divide between investors bullish on Meta's 'Superintelligence' pivot and those concerned about the massive cash burn in Reality Labs and high infrastructure costs.",
+            "strengths": [
+                "Unmatched global scale with 3.58 billion daily active people, creating a nearly insurmountable network effect.",
+                "AI-driven advertising dominance through Advantage+ and Lattice, leading to a projected 26.8% global digital ad market share.",
+                "Strategic leadership in open-source AI (Llama), which commoditizes rival technologies and lowers long-term R&D costs.",
+                "Vertical integration with custom AI chips (MTIA), reducing reliance on third-party providers like Nvidia and lowering inference costs.",
+                "Successful hardware pivot with Ray-Ban Meta smart glasses, providing a wearable platform for capturing real-world data."
+            ],
+            "weaknesses": [
+                "Substantial financial drag from Reality Labs, with cumulative losses exceeding $83 billion and ongoing quarterly losses of ~$4 billion.",
+                "Extreme revenue concentration, with 97–98% of total revenue tied to the cyclical digital advertising market.",
+                "Platform dependency on Apple (iOS) and Google (Android), leaving the company vulnerable to OS-level privacy changes.",
+                "Persistent regulatory and antitrust headwinds, including ongoing lawsuits in the U.S. and EU regarding child safety and data handling.",
+                "Massive CapEx requirements ($125B–$145B) that pressure profit margins and create uncertainty regarding near-term ROI."
+            ],
+            "institutional_ownership_trend": "Stable"
+        }
+    },
+    "CVX": {
+        "timestamp": "2026-07-17T20:06:54.299804",
+        "data": {
+            "valuation": "Overvalued",
+            "summary": "As of mid-2026, Chevron (CVX) is characterized as a 'Quality at a Premium' play, trading at the highest PEG ratio (1.44) and TTM P/E (31.9x) among its 'Big Oil' peers. While its forward P/E (14x-16x) suggests an earnings recovery, it remains more expensive than ExxonMobil and significantly more so than European rivals. The company's fundamental narrative is dominated by its aggressive upstream expansion—specifically the record production in the Permian Basin and the integration of the $53 billion Hess acquisition. Despite a strong Q1 2026 earnings beat and record production of 3.86 MBOED, the company faces pressure in its downstream segment and significant 'smart money' divestment, most notably a 35% stake reduction by Berkshire Hathaway.",
+            "strengths": [
+                "Premier upstream asset base with record production in the Permian Basin (1M boe/d) and high-margin growth in Guyana.",
+                "Superior financial discipline, maintaining the lowest debt-to-equity ratio among peers and a dividend breakeven below $50 Brent.",
+                "39-year 'Dividend Aristocrat' status with record shareholder returns ($27B in 2024).",
+                "Pragmatic energy transition strategy focusing on high-return 'molecules' (CCUS, Hydrogen) and long-term AI data center power deals."
+            ],
+            "weaknesses": [
+                "Highest valuation relative to projected growth (PEG 1.44) in the peer group.",
+                "Significant execution and cultural risk associated with integrating the massive $53B Hess Corporation acquisition.",
+                "Persistent downstream margin compression due to global refining overcapacity and long-term EV adoption trends.",
+                "Higher earnings volatility compared to diversified peers due to an 'upstream-heavy' portfolio sensitive to Brent/WTI price swings."
+            ],
+            "institutional_ownership_trend": "Decreasing"
         }
     },
     "SBUX": {
-        "timestamp": "2026-07-09T03:20:40.944219",
+        "timestamp": "2026-07-17T20:56:12.675382",
         "data": {
             "valuation": "Overvalued",
-            "summary": "As of July 2026, Starbucks is executing a high-stakes 'Back to Starbucks' turnaround under CEO Brian Niccol. While Q2 FY2026 results showed a strong recovery with 9% revenue growth and 6.2% global comparable sales, the stock is trading at a significant premium. With a TTM P/E of 79.6x and a PEG ratio of 3.0x, the market has priced in aggressive growth expectations, leaving little margin for error. Strategic moves, such as the sale of a 60% stake in its China operations, have improved the risk profile, but the company remains pressured by high labor costs and intense competition from high-efficiency rivals like Dutch Bros.",
+            "summary": "As of July 2026, Starbucks is executing a high-conviction 'Back to Starbucks' turnaround strategy under CEO Brian Niccol. Following a strong Q2 2026 earnings beat (EPS of $0.50 vs. $0.44 expected) and raised full-year guidance, the stock is trading at a significant 'turnaround premium' with a trailing P/E of ~81x. While operational metrics like U.S. comparable store sales (+7.1%) are improving, the valuation remains stretched compared to mature peers like McDonald's and Yum! Brands. A pivotal strategic shift in 2026 saw the company de-risk its China operations by transitioning to a licensed model, retaining only a 40% stake, which has been well-received by institutional investors.",
             "strengths": [
-                "Unrivaled brand equity and premium pricing power",
-                "Dominant global footprint with over 41,000 stores across 90 countries",
-                "Industry-leading digital ecosystem with 35.5 million active U.S. Rewards members",
-                "Strategic de-risking of the China market through a 60% stake sale to Boyu Capital",
-                "Strong turnaround momentum with North American comparable sales up 7.1% in Q2 FY2026"
+                "Dominant digital ecosystem with over 35 million Starbucks Rewards members driving 60% of U.S. revenue.",
+                "Successful product innovation pivot, with cold beverages now accounting for 75% of total sales.",
+                "Strategic de-risking of the Chinese market through a joint venture with Boyu Capital, reducing direct financial and geopolitical exposure.",
+                "Global scale and brand equity that allows for premium pricing and a diversified revenue stream through the Global Coffee Alliance with Nestlé."
             ],
             "weaknesses": [
-                "Premium valuation metrics (TTM P/E ~80x) significantly above historical averages",
-                "High operational complexity and service bottlenecks due to drink customization",
-                "Persistent labor friction and unionization pressures increasing operational costs",
-                "Intense competition from low-cost/high-efficiency rivals like Dutch Bros and Luckin Coffee",
-                "High PEG ratio (3.0x) suggesting the stock is overvalued relative to its growth rate"
+                "Historically high valuation metrics (Trailing P/E of 80.9x) that price in a near-perfect execution of the turnaround plan.",
+                "Operational friction caused by high customization and mobile order volume, leading to throughput bottlenecks and 'transactional' brand dilution.",
+                "Ongoing labor relations challenges and unionization pressures which continue to drive up operating costs and pose reputational risks.",
+                "Premium pricing vulnerability as price-sensitive consumers migrate to value-oriented competitors like Dutch Bros and Luckin Coffee."
+            ],
+            "institutional_ownership_trend": "Stable"
+        }
+    },
+    "UNH": {
+        "timestamp": "2026-07-17T21:20:56.623007",
+        "data": {
+            "valuation": "Overvalued",
+            "summary": "As of July 2026, UnitedHealth Group (UNH) has transitioned from a 'broken story' in 2025 to a high-growth recovery play, evidenced by a massive Q2 2026 earnings beat ($6.38 EPS vs. $4.91 estimate) and a significant guidance raise. The company is successfully leveraging its 'Optum Premium'—a vertical integration model that combines insurance with healthcare services—to maintain higher margins than pure-play peers. While the deployment of AI is stripping out billions in administrative costs and the Medical Care Ratio (MCR) has improved to 86.7%, the stock trades at a premium with a TTM P/E of ~32x and a PEG ratio of 2.3, suggesting the market is pricing in aggressive growth and its 'safe haven' status.",
+            "strengths": [
+                "Vertical Integration: The dual Payer-Provider model (UnitedHealthcare and Optum) allows UNH to capture profit at every stage of the patient journey.",
+                "Data and AI Moat: Optum Insight uses massive datasets and AI to automate authorizations and documentation, significantly reducing structural costs.",
+                "Diversified Revenue: High-margin services through OptumRx and Optum Health offset insurance margin pressures and regulatory shifts in Medicare.",
+                "Strong Financial Position: Robust cash flow generation ($24B projected for 2026) supports a $5B share repurchase target and consistent dividend growth.",
+                "Market Leadership: Dominant position in the lucrative Medicare Advantage market and a network of 90,000 physicians."
+            ],
+            "weaknesses": [
+                "Regulatory and Antitrust Risk: Multiple DOJ probes into vertical integration and data-sharing practices pose a long-term threat of a forced breakup.",
+                "Commercial Cost Pressures: Medical cost trends in the commercial segment remain elevated at over 11%, delaying full margin recovery until at least 2027.",
+                "Cybersecurity Vulnerability: The 2024 Change Healthcare attack highlighted a 'single point of failure' in UNH’s centralized infrastructure.",
+                "Reputational Liability: Ongoing lawsuits and public backlash regarding the use of AI algorithms to deny care to elderly patients.",
+                "Geographic Concentration: With 85% of revenue tied to the U.S., the company is highly sensitive to federal policy changes and Medicare reimbursement cuts."
+            ],
+            "institutional_ownership_trend": "Increasing"
+        }
+    },
+    "JPM": {
+        "timestamp": "2026-07-17T21:33:36.948156",
+        "data": {
+            "valuation": "Fair Value",
+            "summary": "JPMorgan Chase (JPM) continues to be the 'gold standard' of U.S. banking, recently reporting a record-breaking $21.2 billion quarterly profit in 2026 and an industry-leading 29% ROTCE. While the stock trades at a 'quality premium' compared to retail peers like Bank of America and Wells Fargo, its valuation metrics (P/E of ~14.9x and PEG of ~1.6) are considered full but justified by its fortress balance sheet and scale. However, institutional sentiment is mixed with a slight downward bias as major holders take profits at all-time highs, and management warns of 'tectonic' macroeconomic risks and rising credit loss provisions.",
+            "strengths": [
+                "Unmatched scale and diversification across Consumer, Investment Banking, and Asset Management segments.",
+                "Industry-leading technology investment, spending $17B–$20B annually with a focus on AI integration.",
+                "Fortress balance sheet with a high CET1 ratio (approx. 15.3%) allowing for opportunistic acquisitions.",
+                "Consistent #1 ranking in global investment banking fees and dominant U.S. retail deposit share."
+            ],
+            "weaknesses": [
+                "Significant succession risk and 'key man' dependency on long-term CEO Jamie Dimon.",
+                "Regulatory 'success tax' including higher G-SIB capital requirements that can drag on ROE.",
+                "Rising operational complexity and non-interest expenses, guided near $92B+.",
+                "Increased exposure to credit cycles, evidenced by rising provisions for credit losses in card services."
+            ],
+            "institutional_ownership_trend": "Decreasing"
+        }
+    },
+    "AMGN": {
+        "timestamp": "2026-07-17T21:37:40.298986",
+        "data": {
+            "valuation": "Undervalued",
+            "summary": "Amgen is currently in a 'springboard' transition year, moving from legacy blockbuster products toward a diversified portfolio of rare disease, oncology, and cardiometabolic therapies. The company delivered a 'beat and raise' Q1 2026, increasing full-year revenue and EPS guidance. While trailing P/E multiples are slightly above historical medians, the stock appears undervalued on a forward-looking basis and significantly below its estimated DCF intrinsic value of $460–$660. Investor focus remains heavily centered on the Phase 3 progress of MariTide and the integration of Horizon Therapeutics assets to offset looming patent cliffs.",
+            "strengths": [
+                "Diversified portfolio with 14+ blockbuster products generating over $1B annually.",
+                "Strategic leadership in the biosimilar market, providing a hedge against its own patent losses.",
+                "Successful integration of high-margin rare disease assets (Tepezza, Krystexxa) from the Horizon acquisition.",
+                "High-potential obesity candidate (MariTide) offering a potentially superior monthly or bi-monthly dosing schedule.",
+                "World-class biologics manufacturing scale and 'next-generation' modular facilities."
+            ],
+            "weaknesses": [
+                "Significant patent cliff exposure, specifically for the denosumab franchise (Prolia/Xgeva) which accounts for ~20% of sales.",
+                "High debt burden of approximately $60B following the Horizon acquisition, limiting near-term M&A flexibility.",
+                "Exposure to U.S. pricing risks and the Inflation Reduction Act (IRA), exemplified by the Medicare price negotiations for Otezla.",
+                "Concentration risk regarding the success of MariTide; failure in Phase 3 would leave a gap in the long-term growth strategy.",
+                "Ongoing multi-billion dollar tax dispute with the IRS regarding Puerto Rico operations."
+            ],
+            "institutional_ownership_trend": "Increasing"
+        }
+    },
+    "XOM": {
+        "timestamp": "2026-07-20T21:35:38.689373",
+        "data": {
+            "valuation": "Fair Value",
+            "summary": "ExxonMobil (XOM) is exhibiting strong operational momentum as of mid-2026, characterized by a projected $5 billion sequential earnings increase for Q2 2026 and a successful integration of Pioneer Natural Resources. While the stock trades at a premium to European peers with a TTM P/E of 24.85, its Forward P/E of 12.24 and PEG ratio of 1.14 suggest the valuation is well-supported by expected earnings growth and high-margin production. The company remains a favorite for institutional investors rotating into value and energy, supported by an aggressive $20 billion annual share buyback program and a fortress balance sheet.",
+            "strengths": [
+                "World-class vertical integration and scale providing a natural earnings hedge across the energy value chain.",
+                "Ownership of high-margin, low-cost 'advantaged' assets in Guyana (breakeven <$35/bbl) and the Permian Basin.",
+                "Strong financial discipline, including a low 18.3% debt-to-equity ratio and a target of $20 billion in structural cost savings by 2030.",
+                "Strategic positioning in transition technologies that leverage core engineering strengths, such as Carbon Capture (CCS) and Lithium extraction."
+            ],
+            "weaknesses": [
+                "High sensitivity to commodity price volatility (Brent/WTI) which remains the primary driver of the bottom line.",
+                "Significant legal and reputational risks stemming from ongoing climate-related litigation and ESG pressures.",
+                "Geographic concentration risk, with a disproportionate amount of future growth tied specifically to Guyana and the Permian Basin.",
+                "Cyclical vulnerability in the Chemical segment, which is highly dependent on global GDP and manufacturing health."
             ],
             "institutional_ownership_trend": "Increasing"
         }

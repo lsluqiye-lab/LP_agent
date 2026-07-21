@@ -155,6 +155,7 @@ class TradeLogger:
         order_id: str,
         reason: str,
         risk_score: float,
+        indicators: Optional[dict] = None,
     ):
         """
         记录一次实际交易执行
@@ -168,6 +169,7 @@ class TradeLogger:
             order_id: 订单ID
             reason: 交易理由
             risk_score: 执行时的风控评分
+            indicators: 执行时的技术指标快照
         """
         daily = self._load_daily_log()
         daily["trades"].append({
@@ -180,6 +182,7 @@ class TradeLogger:
             "order_id": order_id,
             "reason": reason,
             "risk_score": round(risk_score, 1),
+            "indicators": indicators,
         })
         self._save_daily_log(daily)
         logger.info(f"交易记录: {side} {quantity}股 {symbol} @ {price or '市价'}")

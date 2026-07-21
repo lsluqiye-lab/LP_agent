@@ -23,13 +23,17 @@ from notification.feishu import FeishuNotifier
 logger = logging.getLogger("ReviewAgent")
 
 
-REVIEW_SYSTEM_PROMPT = """你是一个专业的交易复盘分析师。你的任务是对AI交易智能体的当日表现进行客观、结构化的复盘。
+REVIEW_SYSTEM_PROMPT = """你是一个专业的交易复盘分析师。你的任务是对AI交易智能体的表现进行客观、结构化的深度复盘。
+
+## 复盘核心素材
+1. **执行快照 (Indicators Snapshot)**：每笔交易执行时的 RSI、ATR、MACD、SMA 等技术环境已记录在日志中。
+2. **后交易轨迹 (Trajectory Audit)**：系统自动回溯了过去7天卖出后的股价表现，识别“卖早了”或“卖得好”。
 
 ## 复盘原则
-1. **客观记录**：如实记录今日所有决策和交易，不美化不回避
-2. **因果分析**：每笔交易/每个决策，分析"为什么做了这个决定"以及"结果如何"
-3. **Bear-Case反思**：检查今天是否有被忽略的风险信号
-4. **可操作建议**：给出具体的、可以在明天执行的改进建议
+1. **技术归因**：分析交易时的技术指标是否支持决策？例如，卖出时 RSI 是否真的超买？买入时是否处于 Stage 2？
+2. **轨迹反思**：针对“卖早了”的标的，分析当时的止损单是否设得过紧？是否被日内噪音洗出？
+3. **因果分析**：每笔交易分析"为什么做了这个决定"以及"结果如何"。
+4. **Bear-Case反思**：检查今天是否有被忽略的风险信号。
 
 ## 输出格式（严格按此结构）
 
@@ -39,31 +43,21 @@ REVIEW_SYSTEM_PROMPT = """你是一个专业的交易复盘分析师。你的任
 - 总决策次数 / 通过审批 / 被拒绝
 - 总交易次数 (买入X笔 / 卖出X笔)
 
-### 二、持仓变动
-- 新建仓：标的、数量、价格、理由
-- 卖出：标的、数量、价格、理由、盈亏
-- 维持持有：标的、当前盈亏、原因
+### 二、后交易轨迹深度反思 (Trajectory Review)
+- 对“卖早了”的标的进行技术归因（检查当时的 Indicators）。
+- 对“卖得好”的标的总结避险经验。
+- 给出减少 Whipsaw（左右挨打）的具体对策。
 
-### 三、决策质量评估
-对每个重要决策：
-- 决策内容
-- Bear Case 是否充分？是否遗漏了什么？
-- 事后看，这个决策是否正确？
-- 如果重来，应该怎么做？
+### 三、持仓变动与决策质量
+- 新建仓/卖出/持有：结合执行时的技术快照，评估决策的科学性。
+- 如果重来，在技术参数上应该如何优化？
 
-### 四、风控系统评估
-- 风控评分是否准确反映了市场状态？
-- 是否有应该阻止但放行的交易？
-- 是否有不应该阻止但被拒绝的机会？
+### 四、风控与明日关注
+- 风控评分准确度评估。
+- 明日重点关注标的（接近关键位）及宏观事件。
 
-### 五、明日关注
-- 需要重点监控的持仓（接近止损/止盈线）
-- 需要关注的标的池机会
-- 需要关注的宏观事件/数据
-
-### 六、改进建议
-- 具体的、可执行的建议（1-3条）
-- 参数调整建议（如果有的话）
+### 五、改进建议 (可操作)
+- 具体的参数调整建议（如：针对某标的放大 ATR 乘数，或增加调价缓冲区）。
 
 请用中文回复，保持简洁专业。
 """
@@ -200,6 +194,13 @@ class ReviewAgent:
                         improvement="增加调价缓冲区(Hysteresis)，避免无谓撤改单。"
                     )
 
+        # 2. 执行后交易轨迹审计 (Trajectory Audit)
+        trajectory_results = self._perform_trajectory_audit()
+        if trajectory_results:
+            parts.append("\n## 后交易轨迹审计 (Trajectory Audit - 过去7天卖出回溯)")
+            for item in trajectory_results:
+                parts.append(f"- {item}")
+
         # 2. 过去3天的交易回顾（用于打脸分析）
         past_logs = self.trade_logger.get_recent_logs(days=3)
         parts.append("\n## 过去3日交易回顾 (用于策略审计)")
@@ -315,6 +316,75 @@ class ReviewAgent:
             self.log.info("复盘报告已推送飞书")
         except Exception as e:
             self.log.error(f"飞书推送失败: {e}")
+
+    def _perform_trajectory_audit(self) -> list:
+        """
+        后交易轨迹审计：回溯过去7天的卖出操作，观察卖出后的股价走势。
+        识别：
+        1. 卖早了 (Premature Exit): 卖出后股价继续大幅上涨 > 3%
+        2. 卖得好 (Good Exit): 卖出后股价大幅下跌 > 3%
+        """
+        results = []
+        try:
+            from tools.trading import GetQuoteTool
+            quote_tool = GetQuoteTool()
+            
+            # 获取过去7天的日志
+            past_logs = self.trade_logger.get_recent_logs(days=7)
+            sell_records = []
+            
+            for log in past_logs:
+                for t in log.get("trades", []):
+                    if t.get("side") == "Sell":
+                        sell_records.append({
+                            "symbol": t["symbol"],
+                            "sell_price": t.get("price"),
+                            "date": log.get("date"),
+                            "reason": t.get("reason", "N/A")
+                        })
+            
+            if not sell_records:
+                return results
+
+            # 批量获取现价以节省 API
+            symbols = list(set([r["symbol"] for r in sell_records]))
+            current_prices = {}
+            for sym in symbols:
+                try:
+                    quote_json = quote_tool.execute(symbol=sym)
+                    data = json.loads(quote_json)
+                    if "last_done" in data:
+                        current_prices[sym] = float(data["last_done"])
+                except:
+                    continue
+            
+            for record in sell_records:
+                sym = record["symbol"]
+                sell_price = record["sell_price"]
+                if not sell_price or sym not in current_prices:
+                    continue
+                
+                sell_price = float(sell_price)
+                curr_price = current_prices[sym]
+                change_pct = (curr_price - sell_price) / sell_price * 100
+                
+                if change_pct > 3.0:
+                    results.append(f"{sym}: 卖早了! (卖出价 ${sell_price:.2f}, 当前 ${curr_price:.2f}, 卖后涨幅 {change_pct:.2f}%)。理由: {record['reason']}")
+                    # 记录到审计日志
+                    self.trade_logger.log_audit(
+                        audit_type="WHIPSAW",
+                        symbol=sym,
+                        event="PREMATURE_EXIT_DETECTED",
+                        metrics={"sell_price": sell_price, "current_price": curr_price, "missed_profit_pct": round(change_pct, 2)},
+                        improvement="考虑适度放大 ATR 追踪止损倍数，或在 Stage 2 强势期增加耐心。"
+                    )
+                elif change_pct < -3.0:
+                    results.append(f"{sym}: 卖得好! (卖出价 ${sell_price:.2f}, 当前 ${curr_price:.2f}, 避开跌幅 {abs(change_pct):.2f}%)")
+                
+        except Exception as e:
+            self.log.error(f"执行轨迹审计失败: {e}")
+            
+        return results
 
     def _perform_quantitative_audit(self, trades: list) -> list:
         """

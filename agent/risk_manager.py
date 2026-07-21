@@ -327,6 +327,7 @@ class MacroRiskManager:
 
         基于标的池扫描数据中的RSI分布
         多数股票RSI在40-70之间 = 健康
+        🚨 升级：增加超买疲劳扣分逻辑。当整体 RSI 过高时，分值应下降，提醒风险。
         """
         scan = data.get("watchlist_scan", [])
         if not scan:
@@ -335,6 +336,7 @@ class MacroRiskManager:
         healthy = 0
         overbought = 0
         oversold = 0
+        extreme_overbought = 0
         total = 0
 
         for item in scan:
@@ -342,10 +344,12 @@ class MacroRiskManager:
             if rsi is None:
                 continue
             total += 1
-            if 35 <= rsi <= 75:
+            if 35 <= rsi <= 70:
                 healthy += 1
-            elif rsi > 75:
+            elif rsi > 70:
                 overbought += 1
+                if rsi > 80:
+                    extreme_overbought += 1
             else:
                 oversold += 1
 
@@ -353,11 +357,19 @@ class MacroRiskManager:
             return 50.0
 
         healthy_pct = healthy / total
-        oversold_pct = oversold / total
+        extreme_pct = extreme_overbought / total
 
-        # 80%以上健康=90分，逐步递减
+        # 基础分：健康占比越多，分越高
         score = healthy_pct * 100
-        # 超卖占比高额外扣分
+        
+        # 🚨 负反馈逻辑：如果超过 30% 的标的进入极度超买 (RSI > 80)，说明处于情绪末端
+        if extreme_pct > 0.3:
+            penalty = (extreme_pct - 0.3) * 200 # 每多 10% 极度超买，额外扣 20 分
+            score -= penalty
+            logger.warning(f"检测到极端超买疲劳: 极度超买占比 {extreme_pct:.1%}, 触发扣分 {penalty:.1f}")
+
+        # 超卖占比高额外扣分 (保持原逻辑)
+        oversold_pct = oversold / total
         score -= oversold_pct * 30
 
         return max(0, min(100, score))
@@ -396,8 +408,7 @@ class MacroRiskManager:
         市场情绪评分
 
         LongPort sentiment: 0-100
-        低=恐惧(可能见底)，高=贪婪(风险高)
-        我们想要中性偏贪婪
+        🚨 升级：强化逆向思维逻辑。中性偏贪婪是好事，但极度贪婪(Euphoria)是危险信号。
         """
         temp_data = data.get("market_temperature", {})
         if not temp_data or "error" in temp_data:
@@ -416,8 +427,10 @@ class MacroRiskManager:
             return 60.0  # 偏贪婪，略降
         elif sentiment < 20:
             return 30.0  # 极度恐惧
-        elif sentiment > 85:
-            return 25.0  # 极度贪婪
+        elif sentiment > 80:
+            # 🚨 极端贪婪扣分：从 80 分开始，每升 1 点，分值下降 5 分（逆向思维）
+            score = 60.0 - (sentiment - 80) * 5
+            return max(10, score)
         else:
             return 50.0
 
@@ -467,9 +480,9 @@ class MacroRiskManager:
         # 情绪修正：如果情绪极度贪婪(分项分低)，额外压低乘数
         sentiment_score = self._last_components.get("sentiment", 50) if self._last_components else 50
         sentiment_penalty = 0.0
-        if sentiment_score <= 25: # 对应 sentiment > 85
-            sentiment_penalty = 0.2
-            logger.warning("检测到极端贪婪情绪，将强制下调仓位上限 20% 以防高位接盘")
+        if sentiment_score <= 30: # 对应 sentiment > 86
+            sentiment_penalty = 0.25
+            logger.warning("检测到极端贪婪情绪 (Euphoria)，将强制下调仓位上限 25% 以防高位接盘")
 
         if regime == RiskRegime.LOCKDOWN:
             return {
@@ -479,7 +492,7 @@ class MacroRiskManager:
                 "max_single_position_pct": 0,
                 "max_total_position_pct": cfg.base_total_position_pct * 0.3,
                 "position_multiplier": 0.0,
-                "message": f"LOCKDOWN (score={score}): 禁止一切新建仓，考虑减仓至30%以下",
+                "message": f"LOCKDOWN (score={score}): 极端风险或极度泡沫，禁止一切新建仓，强制减仓至30%以下",
             }
         elif regime == RiskRegime.CAUTIOUS:
             multiplier = (score - 30) / 20 * 0.3  # 30-50分 → 0-0.3倍
@@ -491,7 +504,7 @@ class MacroRiskManager:
                 "max_single_position_pct": cfg.base_max_position_pct * multiplier,
                 "max_total_position_pct": cfg.base_total_position_pct * 0.5,
                 "position_multiplier": round(multiplier, 2),
-                "message": f"CAUTIOUS (score={score}): 仅允许减仓或持有，总仓位限制50%",
+                "message": f"CAUTIOUS (score={score}): 风险释放中或处于高位派发期，禁止新建仓，总仓位上限50%",
             }
         elif regime == RiskRegime.NORMAL:
             multiplier = 0.3 + (score - 50) / 20 * 0.5  # 50-70分 → 0.3-0.8倍
@@ -503,12 +516,12 @@ class MacroRiskManager:
                 "max_single_position_pct": round(cfg.base_max_position_pct * multiplier, 3),
                 "max_total_position_pct": round(cfg.base_total_position_pct * (0.5 + multiplier * 0.3), 3),
                 "position_multiplier": round(multiplier, 2),
-                "message": f"NORMAL (score={score}): 可正常交易，仓位按 {multiplier:.0%} 执行",
+                "message": f"NORMAL (score={score}): 中性环境，仓位按 {multiplier:.0%} 执行",
             }
         else:  # FAVORABLE
             multiplier = 0.8 + (score - 70) / 30 * 0.2  # 70-100分 → 0.8-1.0倍
             multiplier = min(multiplier, 1.0)
-            multiplier = max(0.5, multiplier - sentiment_penalty)
+            multiplier = max(0.4, multiplier - sentiment_penalty) # 即使 favorable，如果贪婪严重也要减速
             return {
                 "allow_new_buy": True,
                 "allow_add_position": True,
@@ -516,7 +529,7 @@ class MacroRiskManager:
                 "max_single_position_pct": round(cfg.base_max_position_pct * multiplier, 3),
                 "max_total_position_pct": round(cfg.base_total_position_pct * multiplier, 3),
                 "position_multiplier": round(multiplier, 2),
-                "message": f"FAVORABLE (score={score}): 环境良好，但已考虑情绪过热修正，仓位按 {multiplier:.0%} 执行",
+                "message": f"FAVORABLE (score={score}): 环境良好，但需警惕高位情绪过热，仓位按 {multiplier:.0%} 执行",
             }
 
     # ═══════════════════════════════════════
@@ -624,6 +637,44 @@ class MacroRiskManager:
             "adjusted_amount_pct": round(adjusted, 4),
         }
 
+    def _get_qualitative_label(self, component: str, score: float) -> str:
+        """为分项分提供定性描述（Mapping）"""
+        labels = {
+            "market_temperature": [
+                (80, "舒适上升期 (Sweet Spot)"), (60, "良性降温/整理 (Healthy Consolidation)"), 
+                (40, "情绪低迷 (Depressed)"), (0, "恐慌抛售 (Panic Selling)")
+            ],
+            "spy_technical": [
+                (80, "强力多头趋势 (Strong Bullish)"), (60, "震荡上行 (Choppy Upward)"), 
+                (40, "趋势转弱 (Weakening)"), (0, "空头趋势 (Bearish Market)")
+            ],
+            "rsi_breadth": [
+                (85, "极度超买/警惕回调 (Extreme Overbought)"), (65, "健康扩散 (Healthy Breadth)"), 
+                (40, "超卖反弹机会 (Oversold Relief)"), (0, "持续阴跌 (Bleeding)")
+            ],
+            "capital_flow": [
+                (80, "机构强力扫货 (Institutional Accumulation)"), (60, "资金稳定流入 (Steady Inflow)"), 
+                (40, "资金观望 (Wait & See)"), (0, "主力资金大撤退 (Major Outflow)")
+            ],
+            "sentiment": [
+                (85, "极度贪婪/反向指标 (Extreme Greed/Contrarian)"), (65, "乐观期待 (Optimism)"), 
+                (40, "悲观疑虑 (Pessimism)"), (0, "绝望恐慌 (Despair)")
+            ],
+            "volatility": [
+                (80, "低波动稳定期 (Low Volatility)"), (60, "温和波动 (Moderate Vol)"), 
+                (40, "风险飙升 (Spiking Risk)"), (0, "极端动荡 (Extreme Turbulence)")
+            ],
+            "crash_detection": [
+                (95, "安全 (Safe)"), (80, "轻微回撤 (Minor Pullback)"), 
+                (40, "坠落预警 (Falling Warning)"), (0, "崩盘状态 (Crash Mode)")
+            ]
+        }
+        
+        for threshold, label in labels.get(component, []):
+            if score >= threshold:
+                return label
+        return "未知/异常 (Unknown)"
+
     def get_risk_summary(self) -> str:
         """获取风控摘要文本，用于注入 LLM 上下文"""
         if self._last_score is None:
@@ -633,20 +684,25 @@ class MacroRiskManager:
         components = self._last_components or {}
 
         lines = [
-            f"风控评分: {self._last_score}/100 ({self._last_regime.upper()})",
-            f"  市场温度: {components.get('market_temperature', 'N/A')}",
-            f"  SPY技术面: {components.get('spy_technical', 'N/A')}",
-            f"  RSI广度: {components.get('rsi_breadth', 'N/A')}",
-            f"  资金流向: {components.get('capital_flow', 'N/A')}",
-            f"  市场情绪: {components.get('sentiment', 'N/A')}",
-            f"  波动率: {components.get('volatility', 'N/A')}",
-            f"约束: {constraints['message']}",
-            f"  允许新建仓: {constraints['allow_new_buy']}",
-            f"  仓位倍率: {constraints['position_multiplier']}",
-            f"  单笔上限: {constraints['max_single_position_pct']:.1%}",
-            f"  总仓位上限: {constraints['max_total_position_pct']:.1%}",
+            f"风控总分: {self._last_score}/100 ({self._last_regime.upper()})",
+            "### 维度分项详解 (Multi-Dimensional Mapping):",
         ]
+        
+        for key, val in components.items():
+            label = self._get_qualitative_label(key, val)
+            lines.append(f"  - {key:20}: {val:5.1f} | 状态: {label}")
+            
+        lines.extend([
+            "### 决策约束与逻辑映射:",
+            f"  - 核心指令: {constraints['message']}",
+            f"  - 允许新建仓: {'✅ 是' if constraints['allow_new_buy'] else '❌ 否 (仅允许减仓)'}",
+            f"  - 仓位倍率: {constraints['position_multiplier']:.2f} (1.0 为满额，0.5 为减半)",
+            f"  - 单笔上限: {constraints['max_single_position_pct']:.1%}",
+            f"  - 总仓位上限: {constraints['max_total_position_pct']:.1%}",
+            "\n💡 CIO 提示: 风险总分并非越高越好。当[市场情绪]或[RSI广度]分值因“极度贪婪/超买”而下降时，你应该意识到市场已进入博傻末端，即便总分仍为 FAVORABLE，也必须大幅收紧止损并停止融资买入。"
+        ])
         return "\n".join(lines)
+
 
 
 # 全局单例

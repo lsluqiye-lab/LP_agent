@@ -57,11 +57,41 @@ def plot_trade_signal(ticker: str, trade_type: str, price: float, reason: str = 
         
         # 构造标记
         apds = []
-        # 可以增加均线
+        # 1. 均线
         df['MA20'] = df['Close'].rolling(window=20).mean()
         df['MA50'] = df['Close'].rolling(window=50).mean()
-        apds.append(mpf.make_addplot(df['MA20'], color='orange', width=0.7))
-        apds.append(mpf.make_addplot(df['MA50'], color='blue', width=0.7))
+        apds.append(mpf.make_addplot(df['MA20'], color='orange', width=0.7, panel=0))
+        apds.append(mpf.make_addplot(df['MA50'], color='blue', width=0.7, panel=0))
+
+        # 2. RSI (新面板)
+        try:
+            from tools.market_data import calc_rsi_series
+            df['RSI'] = calc_rsi_series(df['Close'].tolist(), 14)[-len(df):]
+            apds.append(mpf.make_addplot(df['RSI'], panel=1, color='purple', ylabel='RSI'))
+            # RSI 阈值线
+            apds.append(mpf.make_addplot([70]*len(df), panel=1, color='red', width=0.5, linestyle='--'))
+            apds.append(mpf.make_addplot([30]*len(df), panel=1, color='green', width=0.5, linestyle='--'))
+        except:
+            pass
+
+        # 3. ATR (新面板)
+        try:
+            from tools.market_data import calc_atr
+            # 简单计算 ATR 序列
+            tr_list = []
+            for i in range(1, len(df)):
+                tr = max(df['High'].iloc[i] - df['Low'].iloc[i],
+                         abs(df['High'].iloc[i] - df['Close'].iloc[i-1]),
+                         abs(df['Low'].iloc[i] - df['Close'].iloc[i-1]))
+                tr_list.append(tr)
+            atr_series = [tr_list[0]] * 14 # 填充初始值
+            for i in range(13, len(tr_list)):
+                atr_val = sum(tr_list[i-13:i+1]) / 14
+                atr_series.append(atr_val)
+            df['ATR'] = atr_series[-len(df):]
+            apds.append(mpf.make_addplot(df['ATR'], panel=2, color='gray', ylabel='ATR'))
+        except:
+            pass
 
         # 保存目录
         os.makedirs("data/plots", exist_ok=True)
@@ -69,13 +99,12 @@ def plot_trade_signal(ticker: str, trade_type: str, price: float, reason: str = 
         filename = f"data/plots/{ticker}_{trade_type}_{timestamp}.png"
         
         # 绘图
-        # 增加交易点标注
         color = 'red' if trade_type.upper() == 'BUY' else 'green'
         marker = '^' if trade_type.upper() == 'BUY' else 'v'
         
         title = f"{ticker} {trade_type} @ {price}\n{reason[:50]}..."
         
-        # 配置中文字体样式
+        # 配置样式
         my_style = mpf.make_mpf_style(base_mpf_style='charles', rc={'font.family': font_name})
         
         mpf.plot(df, type='candle', style=my_style,
@@ -83,6 +112,7 @@ def plot_trade_signal(ticker: str, trade_type: str, price: float, reason: str = 
                  ylabel='Price',
                  addplot=apds,
                  volume=True,
+                 panel_ratios=(4, 1, 1), # 设置面板高度比例
                  savefig=filename)
         
         return filename

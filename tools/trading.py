@@ -742,6 +742,15 @@ class BuyStockTool(BaseTool):
             )
 
             # 记录交易日志
+            try:
+                from tools.market_data import GetTechnicalAnalysisTool
+                ta_tool = GetTechnicalAnalysisTool()
+                ta_data_str = ta_tool.execute(symbol=cut_symbol(symbol))
+                ta_snapshot = json.loads(ta_data_str)
+            except Exception as e:
+                logging.warning(f"Failed to capture TA snapshot for logging: {e}")
+                ta_snapshot = None
+
             trade_logger.log_trade(
                 symbol=cut_symbol(symbol),
                 side="Buy",
@@ -751,6 +760,7 @@ class BuyStockTool(BaseTool):
                 order_id=resp["order_id"],
                 reason=reason,
                 risk_score=risk_score,
+                indicators=ta_snapshot,
             )
 
             status_msg = "已成交 (FILLING/MO)" if order_type == "MO" else "已挂单 (PENDING/WAITING)"
@@ -1024,6 +1034,16 @@ class SellStockTool(BaseTool):
             trade_logger = get_trade_logger()
             latest_risk = trade_logger.get_latest_risk_score()
             risk_score = latest_risk["score"] if latest_risk else 0
+            
+            try:
+                from tools.market_data import GetTechnicalAnalysisTool
+                ta_tool = GetTechnicalAnalysisTool()
+                ta_data_str = ta_tool.execute(symbol=cut_symbol(full_symbol))
+                ta_snapshot = json.loads(ta_data_str)
+            except Exception as e:
+                logging.warning(f"Failed to capture TA snapshot for logging: {e}")
+                ta_snapshot = None
+
             trade_logger.log_trade(
                 symbol=cut_symbol(full_symbol),
                 side="Sell",
@@ -1033,6 +1053,7 @@ class SellStockTool(BaseTool):
                 order_id=resp["order_id"],
                 reason=reason,
                 risk_score=risk_score,
+                indicators=ta_snapshot,
             )
 
             status_msg = "已成交 (FILLING/MO)" if order_type == "MO" else "已挂单 (PENDING/WAITING)"

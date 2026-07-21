@@ -5,7 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v4.5.6] - 2026-07-16
+## [v4.5.6] - 2026-07-17
+### Added
+- **执行快照感知 (Execution Snapshot)**：在 `buy_stock` 和 `sell_stock` 执行瞬间自动抓取完整的技术指标快照并存入日志。
+- **后交易轨迹审计 (Trajectory Audit)**：`ReviewAgent` 新增回溯机制，自动评估过去 7 天卖出决策的质量（识别卖早了或卖得好）。
+- **指标增强可视化**：升级 `visualizer.py`，支持 RSI、ATR 子图和多面板 K 线复盘图。
+
 ### Fixed
 - **过度交易与左右挨打 (Whipsaw & Over-trading) 深度修复**:
   - **日内 4 小时物理冷静期**: 在 `BuyStockTool` 中引入了绝对离场观察期。一旦触发 MO/LO 卖出离场，物理层将死锁 4 小时禁买，严禁在同一交易时段反复进出。

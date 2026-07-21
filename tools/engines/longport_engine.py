@@ -406,17 +406,47 @@ class LongPortTradingEngine(BaseTradingEngine):
         return cleaned
 
     def get_account_balance(self) -> Dict[str, Any]:
-        """获取账户资金余额、可用购买力与总资产"""
-        acc = self._trade_ctx.account_balance("USD")
-        if not acc:
+        """
+        获取账户资金余额、可用购买力与总资产。
+        🚨 升级：实现多币种自动汇总 (Consolidated Balance)。
+        由于用户可能持有 HKD/SGD 闲置资金但 USD 账户为负，导致系统误判为融资。
+        本逻辑会自动将所有币种余额按实时/预设汇率折算为 USD，提供真实的“全局现金”视图。
+        """
+        # 获取所有币种的余额信息
+        acc_infos = self._trade_ctx.account_balance()
+        if not acc_infos:
             raise RuntimeError("无法获取 LongPort 账户余额数据")
             
-        # 兼容多币种汇总
+        # 预设基础汇率（LongPort API 响应中通常不直接提供实时汇率，此处使用保守估计或从 QuoteContext 获取）
+        # 实际生产中建议通过 quote_ctx.realtime_quotes(['USDHKD', 'USDSGD']) 获取
+        EXCHANGE_RATES = {
+            "USD": 1.0,
+            "HKD": 0.128,  # 1 HKD ~ 0.128 USD
+            "SGD": 0.745,  # 1 SGD ~ 0.745 USD
+            "CNH": 0.138,
+            "JPY": 0.0065
+        }
+        
+        total_cash_usd = 0.0
+        total_buying_power_usd = 0.0
+        total_net_assets_usd = 0.0
+        
+        for acc in acc_infos:
+            currency = acc.currency
+            rate = EXCHANGE_RATES.get(currency, 1.0)
+            
+            # 使用 total_cash (包含结算中现金) 计算全局水位
+            total_cash_usd += float(acc.total_cash) * rate
+            total_buying_power_usd += float(acc.buy_power) * rate
+            total_net_assets_usd += float(acc.net_assets) * rate
+            
+        logging.info(f"💰 [Consolidation] 多币种汇总完成: 全局现金 ${total_cash_usd:,.2f} USD, 全局购买力 ${total_buying_power_usd:,.2f} USD")
+        
         return {
-            "cash": float(acc[0].total_cash) if acc else 0.0,
-            "buying_power": float(acc[0].buy_power) if acc else 0.0,
-            "net_assets": float(acc[0].net_assets) if acc else 0.0,
-            "raw_balance": acc
+            "cash": total_cash_usd,
+            "buying_power": total_buying_power_usd,
+            "net_assets": total_net_assets_usd,
+            "raw_balance": acc_infos
         }
 
     def get_today_orders(self) -> List[Dict[str, Any]]:

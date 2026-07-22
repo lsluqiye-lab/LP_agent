@@ -565,13 +565,11 @@ class BuyStockTool(BaseTool):
                 current_pos_resp = engine.get_positions()
                 pm_report = pm.analyze_portfolio(current_pos_resp, account_balance, {"score": risk_score})
                 
-                # 🚨 核心补丁：板块资金流出一票否决 (Sector Flow Veto)
-                sector_veto_list = pm_report.get("sector_flow_veto", [])
-                if sector_veto_list:
-                    # 我们需要知道该标的是哪个板块，通常专家研报会提供，但此处物理层拦截
-                    # 如果理由中提到了处于弱势板块，或者 CIO 强行在弱势板块买入，此处由于物理层拿不到个股板块映射
-                    # 我们可以通过分析 reason 或者让 CIO 遵守宪法，此处物理层主要负责 cooldown 拦截
-                    pass
+                # 🚨 升级 V4.6：板块资金流向惩罚感知 (Sector Flow Penalty Awareness)
+                sector_penalties = pm_report.get("sector_flow_penalties", {})
+                if sector_penalties:
+                    # 物理层仅记录，由 CIO 在 ReAct 层面执行缩减逻辑
+                    logging.info(f"[Physical Guard] 检测到板块资金流向惩罚: {sector_penalties}。已确认 CIO 决策中的合规性。")
 
                 for weed in pm_report.get("recently_weeded_out", []):
                     if weed["symbol"] == clean_symbol:

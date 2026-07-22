@@ -1226,6 +1226,105 @@ class SearchHedgingOptionTool(BaseTool):
         except Exception as e:
             return json.dumps({"error": str(e)}, ensure_ascii=False)
 
+# ═══════════════════════════════════════════
+# 工具7: 主线与热点探测器 (Main-Line Detector)
+# ═══════════════════════════════════════════
+
+class GetMainLineLeadersTool(BaseTool):
+    """
+    识别当前市场主线与领涨龙头
+    扫描标的池及关联板块，找出涨幅前三与资金净流入前三的标的
+    """
+
+    name = "get_main_line_leaders"
+    description = (
+        "识别当前市场的主线板块与领涨标的。"
+        "返回涨幅榜 Top 3、资金净流入榜 Top 3 以及各板块的平均热度。"
+        "用于辅助 CIO 识别市场当前最赚钱的“主线”位置。"
+    )
+    parameters = []
+
+    def execute(self, **kwargs) -> str:
+        try:
+            ctx = get_quote_ctx()
+            scan_results = []
+            
+            # 1. 批量获取实时报价与基本面
+            all_syms = [modify_symbol(s) for s in WATCHLIST]
+            # 包含大盘指数以便对比
+            all_syms.extend(["SPY.US", "QQQ.US"])
+            
+            quotes = ctx.quote(all_syms)
+            
+            # 2. 批量获取资金流向
+            # 注意：capital_distribution 暂时不支持批量，只能循环获取（限制并发或次数）
+            leaders_by_gain = []
+            leaders_by_inflow = []
+            sector_heat = {}
+
+            for q in quotes:
+                symbol = cut_symbol(q.symbol)
+                change_pct = float(q.last_done) / float(q.open) - 1 if float(q.open) > 0 else 0
+                
+                res = {
+                    "symbol": symbol,
+                    "change_pct": round(change_pct * 100, 2),
+                    "price": float(q.last_done),
+                    "volume": int(q.volume),
+                    "turnover_rate": float(q.turnover_rate) if hasattr(q, 'turnover_rate') else 0
+                }
+                
+                if symbol not in ["SPY", "QQQ"]:
+                    leaders_by_gain.append(res)
+                    
+                    # 板块归类计算热度
+                    from agent.risk_manager import SECTOR_MAP
+                    sector = SECTOR_MAP.get(symbol, "Other")
+                    if sector not in sector_heat:
+                        sector_heat[sector] = {"count": 0, "sum_change": 0, "symbols": []}
+                    sector_heat[sector]["count"] += 1
+                    sector_heat[sector]["sum_change"] += res["change_pct"]
+                    sector_heat[sector]["symbols"].append(symbol)
+
+            # 排序涨幅
+            leaders_by_gain.sort(key=lambda x: x["change_pct"], reverse=True)
+
+            # 3. 寻找资金流向领袖 (由于频率限制，只取前 5 名进行深度探测)
+            top_gainers = leaders_by_gain[:5]
+            for g in top_gainers:
+                try:
+                    dist = ctx.capital_distribution(modify_symbol(g["symbol"]))
+                    if dist:
+                        net_large = float(dist.capital_in.large) - float(dist.capital_out.large)
+                        g["net_large_inflow"] = round(net_large, 2)
+                        leaders_by_inflow.append(g)
+                except:
+                    continue
+            
+            leaders_by_inflow.sort(key=lambda x: x.get("net_large_inflow", 0), reverse=True)
+
+            # 4. 计算板块热度
+            formatted_sector_heat = []
+            for s, v in sector_heat.items():
+                avg_gain = round(v["sum_change"] / v["count"], 2)
+                formatted_sector_heat.append({
+                    "sector": s,
+                    "avg_gain_pct": avg_gain,
+                    "constituents": v["symbols"]
+                })
+            formatted_sector_heat.sort(key=lambda x: x["avg_gain_pct"], reverse=True)
+
+            return json.dumps({
+                "market_main_line": formatted_sector_heat[0]["sector"] if formatted_sector_heat else "Unknown",
+                "top_gainers": leaders_by_gain[:3],
+                "top_inflow_leaders": leaders_by_inflow[:3],
+                "sector_momentum": formatted_sector_heat[:5],
+                "summary": f"当前市场最强主线为 {formatted_sector_heat[0]['sector'] if formatted_sector_heat else 'N/A'} 板块，平均涨幅 {formatted_sector_heat[0]['avg_gain_pct'] if formatted_sector_heat else 0}%。"
+            }, ensure_ascii=False)
+
+        except Exception as e:
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
+
 def create_market_data_tools() -> list[BaseTool]:
     """创建所有行情数据工具"""
     return [
@@ -1236,4 +1335,5 @@ def create_market_data_tools() -> list[BaseTool]:
         GetFundamentalsTool(),
         GetMarketOverviewTool(),
         SearchHedgingOptionTool(),
+        GetMainLineLeadersTool(),
     ]

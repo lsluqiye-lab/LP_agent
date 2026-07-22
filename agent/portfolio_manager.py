@@ -62,13 +62,42 @@ class PortfolioManager:
             "sector_limits": {},          # 板块限制
             "weed_out_list": [],          # 建议主动淘汰的弱势持仓
             "recently_weeded_out": [],    # 最近被淘汰的弱势持仓保护禁买名单
-            "sector_flow_veto": [],       # 🚨 核心补丁：板块资金流出一票否决名单
+            "sector_flow_penalties": {},  # 🚨 升级 V4.6：板块资金流向惩罚（取代一票否决）
+            "hedge_circuit_breaker": False, # 🚨 升级 V4.6：对冲熔断开关
+            "main_line_bias": None,        # 🚨 升级 V4.6：主线偏好引导
         }
         
         # 1. 计算胜率自适应阈值
         directives["adaptive_buy_threshold"] = self._calculate_adaptive_threshold(macro_risk)
         
-        # 2. 计算最近被淘汰/硬止损的持仓保护名单 (Weed-out Cooldown Logic)
+        # 2. 🚨 升级 V4.6：处理板块资金流向惩罚与主线引导
+        if sector_briefing:
+            weak_sectors = sector_briefing.get("weak_sectors", [])
+            # 将“一票否决”改为“软性惩罚”：减半头寸
+            directives["sector_flow_penalties"] = {s: 0.5 for s in weak_sectors}
+            
+            # 主线引导：如果是最强主线板块，给予 1.2x 仓位权重加成
+            main_line = sector_briefing.get("market_main_line")
+            if main_line and main_line != "Unknown":
+                directives["main_line_bias"] = {
+                    "sector": main_line,
+                    "multiplier": 1.2,
+                    "reason": f"当前市场主线明确为 {main_line}，允许在风险可控的前提下适度超配。"
+                }
+            
+            if weak_sectors:
+                logger.warning(f"[Portfolio Manager] ⚠️ 侦测到资金流出板块: {weak_sectors}。已激活减半仓位惩罚逻辑。")
+
+        # 3. 🚨 升级 V4.6：对冲熔断逻辑 (Hedge Circuit Breaker)
+        # 如果 crash_detection 分值极高 (100) 且市场温度极高 (100)，说明大盘正在暴力反弹
+        crash_score = macro_risk.get("components", {}).get("crash_detection", 100)
+        market_temp = macro_risk.get("components", {}).get("market_temperature", 50)
+        
+        if crash_score >= 95 and market_temp >= 90:
+            directives["hedge_circuit_breaker"] = True
+            logger.info("[Portfolio Manager] 🔥 检测到暴力大反弹信号，已激活对冲熔断建议 (Hedge Circuit Breaker)。")
+
+        # 4. 计算最近被淘汰/硬止损的持仓保护名单 (Weed-out Cooldown Logic)
         # 🚨 修正：硬止损(Hard Stop) 3天冷静期（物理锁死），防 Whipsaw。
         # 🚨 新增：日内 4 小时绝对冷静期（物理锁死），即便开启 force_recovery 也要观察 4h。
         recently_weeded = []
@@ -133,13 +162,6 @@ class PortfolioManager:
         except Exception as e:
             logger.error(f"[Portfolio Manager] 提取最近淘汰/止损记录失败: {e}")
         directives["recently_weeded_out"] = recently_weeded
-
-        # 3. 🚨 核心补丁：处理板块资金流向否决 (Sector Flow Veto)
-        if sector_briefing:
-            weak_sectors = sector_briefing.get("weak_sectors", [])
-            directives["sector_flow_veto"] = weak_sectors
-            if weak_sectors:
-                logger.warning(f"[Portfolio Manager] ⚠️ 侦测到资金流出板块: {weak_sectors}。已激活买入一票否决权。")
 
         if not current_positions:
             logger.info("[Portfolio Manager] 当前空仓，无需计算相对强度。")

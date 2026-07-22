@@ -1,93 +1,93 @@
 {
-    "date": "2026-07-20",
+    "date": "2026-07-21",
     "watchlist": [
-        "UNH",
-        "XOM",
-        "AMGN",
-        "SBUX",
-        "CVX",
-        "LLY",
-        "WM",
         "V",
         "AAPL",
-        "QQQ260731P690000",
-        "QQQ260731P674000",
-        "QQQ260730P690000"
+        "XOM",
+        "CVX",
+        "UNH",
+        "AMGN",
+        "WM",
+        "JPM",
+        "LLY",
+        "AMD",
+        "PLTR",
+        "MA"
     ],
     "watchlist_detail": {
-        "UNH": {
-            "score": 100.0,
+        "V": {
+            "score": 90.0,
             "rank": 1,
             "conviction": "Tier 1",
-            "reason": "技术评分满分，刚发布超预期财报（EPS $6.38）并上调全年指引，处于财报后动能喷发期，避开了财报不确定性且受益于避险资金流向医疗保健板块。"
+            "reason": "持仓股且评分最高。2026年催化剂明确：AI代理商业化落地及稳定币结算量突破70亿美元，正从支付处理器转型为全球旅游伴侣，具备估值重估潜力。"
         },
-        "XOM": {
-            "score": 95.0,
+        "AAPL": {
+            "score": 90.0,
             "rank": 2,
             "conviction": "Tier 1",
-            "reason": "技术评分极高，受益于地缘政治紧张（中东及委内瑞拉局势）导致的油价溢价。7月31日财报，处于5个交易日窗口外，是当前能源主升浪的龙头。"
+            "reason": "持仓股。市场聚焦9月CEO更替及2nm A20芯片、首款自研C2调制解调器的技术突破。AI端侧化（Apple Intelligence）变现路径清晰。"
         },
-        "AMGN": {
-            "score": 95.0,
+        "XOM": {
+            "score": 90.0,
             "rank": 3,
             "conviction": "Tier 1",
-            "reason": "MariTide（每月一次减肥药）三期临床数据预期推动股价突破。技术形态呈典型的Sector Trend爆发，且8月4日财报，短期无回撤风险。"
-        },
-        "SBUX": {
-            "score": 95.0,
-            "rank": 4,
-            "conviction": "Tier 2",
-            "reason": "IDIOSYNCRATIC_BREAKOUT 典型个股。管理层“回归星巴克”战略初见成效，技术面完成底部反转，7月29日财报，目前处于拉升安全区。"
+            "reason": "持仓股。2026下半年莫桑比克LNG项目FID决议为重大利好；蓝氢与CCS业务进入收获期，总部搬迁后的成本缩减效应将推升自由现金流。"
         },
         "CVX": {
             "score": 90.0,
+            "rank": 4,
+            "conviction": "Tier 1",
+            "reason": "持仓股。圭亚那Stabroek区块产量爆发；与微软的‘Project Kilby’天然气发电协议将其深度绑定AI算力能源需求，具备跨行业溢价。"
+        },
+        "UNH": {
+            "score": 85.0,
             "rank": 5,
             "conviction": "Tier 1",
-            "reason": "【必选持仓】Hess收购整合后的协同效应（10亿美元）即将体现，圭亚那Stabroek Block产量超预期，是能源板块的双保险。"
+            "reason": "技术评分极高且无近期财报风险。2026年获得最高额度Medicare Advantage奖金（39亿美金），AI驱动的‘无触感’理赔处理显著提升利润率。"
         },
-        "LLY": {
-            "score": 90.0,
+        "AMGN": {
+            "score": 85.0,
             "rank": 6,
             "conviction": "Tier 1",
-            "reason": "【必选持仓】口服GLP-1减肥药Foundayo获批后的市场渗透极快，上调2026营收指引至850亿美元，是医疗板块的长期核心阿尔法。"
+            "reason": "减肥药MariTide三期数据更新是高波动催化剂；2026年多款生物类似药（如Eylea）上市将带来显著收入增量，收购Horizon的协同效应开始体现。"
         },
         "WM": {
-            "score": 90.0,
+            "score": 80.0,
             "rank": 7,
             "conviction": "Tier 2",
-            "reason": "【必选持仓】防御性极佳，Stericycle整合扩大了医疗废弃物市场份额，垃圾发电项目在2026年开始贡献利润，属于高确定性现金流标的。"
+            "reason": "持仓股。30亿美元可持续投资计划于2026年收官，20个RNG设施投入使用；14.5%的股息增长和30亿回购计划提供极强下行防御。"
         },
-        "V": {
-            "score": 90.0,
+        "JPM": {
+            "score": 80.0,
             "rank": 8,
             "conviction": "Tier 2",
-            "reason": "【必选持仓】Agentic Commerce（AI代理支付）先驱，增值服务（欺诈保护/咨询）增速超过传统清算业务，7月28日财报，目前技术面稳健。"
+            "reason": "持仓股。AI-first基础设施转型进入效率释放年，15亿美元AI预算开始转化为利润；投行业务在2026年IPO复苏背景下具高弹性。"
         },
-        "AAPL": {
-            "score": 85.0,
+        "LLY": {
+            "score": 80.0,
             "rank": 9,
-            "conviction": "Tier 1",
-            "reason": "【必选持仓】CEO库克即将离任的消息已逐步消化，市场转向关注Apple Intelligence的落地及2026年折叠屏iPhone预期，是科技股中的避风港。"
+            "conviction": "Tier 2",
+            "reason": "持仓股。口服减肥药Foundayo获批后的市场渗透是核心看点，Triple G（retatrutide）三期数据有望刷新减重行业标准。"
         },
-        "QQQ260731P690000": {
-            "score": 50.0,
+        "AMD": {
+            "score": 80.0,
             "rank": 10,
-            "conviction": "Hedge",
-            "reason": "【必选持仓】对冲头寸。针对7月22日Alphabet财报及月底大盘潜在波动的尾部风险保护。"
+            "conviction": "Tier 2",
+            "reason": "‘Advancing AI 2026’峰会正在进行，MI450加速器和Helios系统发布在即；潜在签约Anthropic为特大型客户，具备强动能突破潜质。"
         },
-        "QQQ260731P674000": {
-            "score": 50.0,
+        "PLTR": {
+            "score": 75.0,
             "rank": 11,
-            "conviction": "Hedge",
-            "reason": "【必选持仓】深价外保护，防范大盘因利率决议或地缘冲突引发的黑天鹅回撤。"
+            "conviction": "Tier 3",
+            "reason": "AIP平台在美国商业领域呈三位数增长；作为美军NGC2现代化项目数据层，具备极高的合同护城河；与Nvidia的政府端合作是新增长点。"
         },
-        "QQQ260730P690000": {
-            "score": 50.0,
+        "MA": {
+            "score": 75.0,
             "rank": 12,
-            "conviction": "Hedge",
-            "reason": "【必选持仓】近期到期对冲，精准覆盖科技股密集财报周的波动率波动。"
+            "conviction": "Tier 3",
+            "reason": "收购BVNK强化稳定币直接结算能力；出售Vocalink业务有望优化资产结构。虽然评分略低，但作为行业龙头且财报在5个交易日外，具备配置价值。"
         }
     },
-    "reason": "1. 强制入选：已包含全部8个持仓标的（5股3期权）。\n2. 财报规避：非持仓股中，JPM、AMGN、SBUX、UNH、XOM的财报均不在未来5个交易日内（最早的SBUX/KO也在7月28/29日，符合风控要求）。\n3. 动能法则：当前宏观评分75.0处于FAVORABLE状态，因此保留了UNH、XOM、AMGN等高分动能标的。UNH作为刚报完财报的龙头，具有极高的安全垫和技术惯性。\n4. 板块轮动：监控池重点配置了防御性医疗（UNH/LLY/AMGN）和抗通胀能源（CVX/XOM），以应对科技股（QQQ）近期的高估值压力。同时利用QQQ Puts对冲AAPL及月底大盘的系统性风险。",
-    "updated_at": "2026-07-20T08:01:49.568662-04:00"
+    "reason": "1. 强制入选：已包含全部7只必选持仓股，确保监控连续性。 2. 财报避雷：根据2026年7月22日的时间节点，严格排除了未来5个交易日内发布财报的非持仓股，包括SPGI (7/28)、META (7/29) 和 SBUX (7/29)，以规避业绩波动风险。 3. 动能法则：鉴于宏观风控评分79.8（FAVORABLE），根据方案A，保留了AMD、PLTR等高估值但具备重大行业催化剂（AMD AI峰会、PLTR军方大单）的动能标的。 4. 行业分布：覆盖了能源转型、AI算力需求、GLP-1二代研发及金融科技四个核心高景气主线。",
+    "updated_at": "2026-07-21T23:44:51.722571-04:00"
 }

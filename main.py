@@ -1,5 +1,5 @@
 """
-LP-Agent v4.5.6 主入口 (Strategic Multi-Agent)
+LP-Agent v4.6.0 主入口 (Strategic Multi-Agent)
 AI自动交易智能体 - 专家协作架构
 
 执行流程:
@@ -130,6 +130,12 @@ def phase1_collect_data(tool_registry: ToolRegistry, logger: logging.Logger) -> 
         data["get_market_overview"] = tool_registry.execute("get_market_overview")
     except Exception as e:
         data["get_market_overview"] = json.dumps({"error": str(e)})
+
+    # 🚨 升级 V4.6：获取主线热点探测
+    try:
+        data["get_main_line_leaders"] = tool_registry.execute("get_main_line_leaders")
+    except Exception as e:
+        data["get_main_line_leaders"] = json.dumps({"error": str(e)})
 
     # 3. 标的池快速扫描
     try:
@@ -556,7 +562,7 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
     # Phase 3: 专家 (Map) - 仅对活跃候选股进行专家分析
     briefings_json, sector_briefing_obj = await phase3_map_experts(active_candidates, orchestrator, risk_result, logger)
     
-    # 🆕 Phase 3.1: 投资组合管理 (深度 - 获取板块流向)
+    # 🆕 Phase 3.1: 投资组合 management (深度 - 获取板块流向)
     portfolio_directives = {}
     try:
         from agent.portfolio_manager import PortfolioManager
@@ -566,15 +572,23 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
         acct_raw = collected_data.get("get_account_balance", "{}")
         acct_bal = json.loads(acct_raw) if isinstance(acct_raw, str) else acct_raw
         
+        # 🚨 升级 V4.6：合并主线热点数据到板块简报
+        main_line_data = {}
+        try:
+            main_line_data = json.loads(collected_data.get("get_main_line_leaders", "{}"))
+        except:
+            pass
+
         sb_dict = {
             "summary": sector_briefing_obj["summary"],
             "strong_sectors": sector_briefing_obj["strong_sectors"],
             "weak_sectors": sector_briefing_obj["weak_sectors"],
-            "risk_warning": sector_briefing_obj["risk_warning"]
+            "risk_warning": sector_briefing_obj["risk_warning"],
+            "market_main_line": main_line_data.get("market_main_line", "Unknown")
         } if sector_briefing_obj else None
         
         portfolio_directives = pm.analyze_portfolio(current_pos, acct_bal, risk_result, sector_briefing=sb_dict)
-        logger.info(f"[Phase 3.1] Full Portfolio Directives: {portfolio_directives}")
+        logger.info(f"[Phase 3.1] Full Portfolio Directives (V4.6): {portfolio_directives}")
     except Exception as e:
         logger.error(f"深度 Portfolio Manager 执行异常: {e}")
     

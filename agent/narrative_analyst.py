@@ -53,13 +53,13 @@ class NarrativeAnalyst:
 1. **核心叙事识别 (Core Narratives)**：识别当前主导市场的 2-3 个核心叙事（如“AI 无限增长”、“流动性危机”、“衰退交易”）。
 2. **叙事动能 (Narrative Momentum)**：这些故事是在增强还是在衰减？新出现的变数是什么？
 3. **叙事密度与偏移 (Density & Shift)**：某个话题的讨论热度是否突然激增？这种偏移是利好还是利空？
-4. **反向叙事 (Contrarian Narrative)**：有什么非主流但正在悄悄壮大的声音？
+4. **被打脸检测 (Reality Check - SLAP!)**：观察最近 24 小时的市场价格行动。如果叙事提示“防御”，但 Nasdaq 实际上正在放量暴涨，你必须指出这种**叙事与价格的背离**，并承认当前叙事可能已经失效。
 
 ### 输出要求：
 你必须返回一个结构化的 JSON 对象，包含以下字段：
 - `headline`: 当前市场叙事总纲。
 - `top_narratives`: 一个列表，包含 3 个核心叙事，每个叙事包含 `theme` (主题), `intensity` (强度 1-10), `delta` (变化方向：strengthening/weakening), `description` (简述)。
-- `narrative_shift_warning`: 关键叙事偏移警告。如果某个危险叙事（如衰退或流动性危机）密度激增，必须指出。
+- `narrative_shift_warning`: 关键叙事偏移警告。如果某个危险叙事（如衰退或流动性危机）密度激增，或者发生了上述的“被打脸”背离，必须重点指出。
 - `sentiment_density`: 市场整体的情绪密度分布（如：60% 贪婪/AI，40% 担忧/高利率）。
 - `impact_on_strategy`: 对 CIO 交易策略的直接启示（叙事层面的建议）。
 

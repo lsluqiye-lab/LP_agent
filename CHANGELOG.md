@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v4.6.0] - 2026-07-22
+### Added
+- **主线热点探测器 (Main-Line Detector)**: 新增 `GetMainLineLeadersTool` 工具，实时扫描涨幅榜与主力净流入，捕捉当日“主钱”流向。
+- **对冲熔断机制 (Hedge Circuit Breaker)**: 当大盘日内强力反弹 (>1.2%) 或风控评分急速修复时，系统自动触发对冲平仓指令，防止 Protective Puts 产生无谓的时间价值损耗。
+- **叙事“打脸”修正协议 (Narrative Reality Check)**: 升级 `NarrativeAnalyst` 逻辑，要求其在叙事与实际价格走势背离时（如避险叙事遇上科技暴涨）主动认错并修正立场。
+
+### Changed
+- **柔性板块风控 (Soft Sector Guardrails)**: 废除硬性的“板块一票否决权”，升级为“板块资金流惩罚”。允许在弱势板块中通过减半头寸 (0.5x) 进行 A+ 级信号博弈。
+- **CIO 战略意识进化**: 升级 `STRATEGIC_SYSTEM_PROMPT`，注入主线偏好 (Main-Line Bias) 与动态对冲退出意识。
+- **物理层对齐**: 同步更新 `PortfolioManager` 与 `TradingEngine` 物理拦截网，确保软性约束的顺滑执行。
+
+### Fixed
+- 修复了在 0721 大反弹中因板块一票否决导致的踏空问题。
+- 优化了对冲头寸的退出逻辑，减少了 Theta 损耗。
+
 ## [v4.5.6] - 2026-07-17
 ### Added
 - **执行快照感知 (Execution Snapshot)**：在 `buy_stock` 和 `sell_stock` 执行瞬间自动抓取完整的技术指标快照并存入日志。

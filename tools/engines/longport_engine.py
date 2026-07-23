@@ -1,6 +1,7 @@
 # tools/engines/longport_engine.py
 import logging
 import time
+import os
 from decimal import Decimal
 from typing import Optional, Dict, Any, List
 
@@ -269,6 +270,28 @@ class LongPortTradingEngine(BaseTradingEngine):
         }
 
         # 5. 根据具体订单类型进行价格和偏移量填充，并调用 _calculate_dynamic_slippage 计算滑点
+        # 🚨 升级 V4.6.1：模拟盘(Paper Trading) 期权高级订单平滑降级逻辑
+        # 由于长桥模拟盘不支持期权的 LIT/MIT/TSM/TSLPPCT，需自动降级为 LO/MO 以防止 604050 错误
+        is_paper = os.getenv("LONGPORT_TRADE_MODE", "paper").lower() == "paper"
+        is_opt = self.is_option_symbol(full_symbol)
+        
+        if is_paper and is_opt and order_type in ["LIT", "MIT", "TSM", "TSMPCT"]:
+            orig_type = order_type
+            if order_type in ["LIT", "TSM", "TSMPCT"]:
+                order_type = "LO"
+                # 如果是 LIT/TSM 降级，尝试取当前的触发价或限价作为 LO 价格
+                price = price or trigger_price
+                if price is None:
+                    # 兜底：获取当前价
+                    try:
+                        from tools.market_data import get_quote_ctx
+                        q_res = get_quote_ctx().quote([full_symbol])
+                        if q_res: price = float(q_res[0].last_done)
+                    except: pass
+            else: # MIT
+                order_type = "MO"
+            logging.warning(f"⚠️ [Paper Mode Fallback] 模拟盘不支持期权高阶指令 {orig_type}，已自动平滑降级为 {order_type} 执行。")
+
         if order_type == "LO":
             if price is None:
                 raise ValueError("限价单(LO)必须指定 price")
@@ -312,7 +335,7 @@ class LongPortTradingEngine(BaseTradingEngine):
             order_params["order_type"] = OrderType.MO
 
         # 6. 提交至长桥 API (支持 DRY_RUN 沙盒模拟阻断)
-        import os
+
         if os.getenv("TRADING_DRY_RUN", "false").lower() == "true":
             logging.info(f"🚧 [DRY_RUN MOCK] 检测到开启了交易 DRY_RUN 沙盒，跳过真实长桥下单。组装好的下单报文细节: {order_params}")
             qty_val = float(actual_qty)
@@ -367,7 +390,7 @@ class LongPortTradingEngine(BaseTradingEngine):
                 if is_opt:
                     qty = qty * 100.0  # 张转股
                 
-                import os
+        
                 if os.getenv("TRADING_DRY_RUN", "false").lower() == "true":
                     mock_change = self._mock_sales.get(symbol, 0.0)
                     # mock_change 存储的是 actual_qty (张数)，也需要转换
@@ -387,7 +410,7 @@ class LongPortTradingEngine(BaseTradingEngine):
                     })
                     
         # 兼容在沙盒中买入、且实盘没有持仓的股票
-        import os
+
         if os.getenv("TRADING_DRY_RUN", "false").lower() == "true":
             for symbol, mock_change in self._mock_sales.items():
                 if symbol not in retrieved_symbols and mock_change > 0:

@@ -52,6 +52,7 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 ### 5. 交易摩擦与冷静期
 - **摩擦成本**：每一笔交易计 0.5% 损耗。拒绝微操。
 - **离场冷静期**：HARD_STOP 后 4 小时内禁止买回同一标的。
+{env_constraints}
 
 请基于当前上下文，使用 ToT 协议进行深度推演并做出最符合风险收益比的决策。"""
 
@@ -109,7 +110,20 @@ class ReActAgent:
         today_trades = self.trade_logger.get_today_trades()
         trade_count = len(today_trades)
         from config import RiskConfig
-        target_trades = RiskConfig.from_env().target_daily_trades
+        risk_conf = RiskConfig.from_env()
+        target_trades = risk_conf.target_daily_trades
+        
+        # 🚨 升级 V4.6.1：环境约束感知注入
+        import os
+        is_paper = os.getenv("LONGPORT_TRADE_MODE", "paper").lower() == "paper"
+        env_constraints = ""
+        if is_paper:
+            env_constraints = (
+                "\n⚠️ [ENVIRONMENT CONSTRAINT: PAPER TRADING]\n"
+                "- 当前处于模拟盘环境。注意：模拟盘不支持期权(Options)的高级订单（如 LIT, MIT, TSMPCT）。\n"
+                "- 底层引擎已实现自动降级，但请你尽量直接为期权下达 MO 或 LO 指令以确保精准执行。\n"
+                "- 正股(Stocks)的高级订单在模拟盘中不受限制，可正常使用。\n"
+            )
 
         system_prompt = self.system_prompt.replace("{tools_section}", self._build_tools_section(tools)) \
                                          .replace("{decision_briefings}", decision_briefings_json) \
@@ -117,7 +131,8 @@ class ReActAgent:
                                          .replace("{risk_score}", str(risk_score)) \
                                          .replace("{portfolio_directives}", portfolio_str) \
                                          .replace("{trade_count}", str(trade_count)) \
-                                         .replace("{target_trades}", str(target_trades))
+                                         .replace("{target_trades}", str(target_trades)) \
+                                         .replace("{env_constraints}", env_constraints)
 
         # 3. Initialize Messages
         messages = [

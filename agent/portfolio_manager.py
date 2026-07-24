@@ -37,9 +37,9 @@ class PortfolioManager:
         # 2. 板块持仓上限：从 score=0 时的 15.0% 线性过渡到 score=100 时的 45.0%
         max_sector_limit = round(15.0 + (score / 100.0) * 30.0, 2)
         
-        # 3. 建议的 ATR 追踪止损乘数：从 score=0 时的 1.5x 线性过渡到 score=100 时的 3.5x
-        # 熊市 (score < 50) 紧防守 (1.5x ~ 2.5x ATR)，牛市 (score >= 70) 宽容度大 (2.9x ~ 3.5x ATR) 让利润奔跑
-        recommended_atr_multiplier = round(1.5 + (score / 100.0) * 3.0, 2)
+        # 3. 建议的 ATR 追踪止损乘数：从 score=0 时的 1.5x 线性过渡到 score=100 时的 4.0x
+        # 熊市 (score < 50) 紧防守 (1.5x ~ 2.5x ATR)，牛市 (score >= 70) 宽容度大 (3.0x ~ 4.0x ATR) 让利润奔跑
+        recommended_atr_multiplier = round(1.5 + (score / 100.0) * 2.5, 2)
         
         # 4. 保本平价单（Break-even Stop）策略：在震荡市或熊市 (score < 60) 中强制启动
         # 当个股浮盈达到 1.0 * ATR_pct (一般个股约 2.5% ~ 3.5%) 时，系统必须提拉止损线至成本线，保本锁死风险。
@@ -54,10 +54,10 @@ class PortfolioManager:
                 "max_single_stock_exposure_pct": max_stock_limit,
                 "max_single_sector_exposure_pct": max_sector_limit,
                 "recommended_atr_trailing_multiplier": recommended_atr_multiplier,
-                "tier1_min_atr_multiplier": 3.5, # 🚨 核心补丁：Tier 1 领涨股强制 3.5x ATR 起步，防 Whipsaw
+                "tier1_min_atr_multiplier": 4.0, # 🚨 核心补丁：Tier 1 领涨股强制 4.0x ATR 起步，防 Whipsaw
                 "is_breakeven_enforced_under_low_score": is_breakeven_enforced,
                 "breakeven_trigger_atr_multiplier": 1.0,
-                "description": f"当前处于 {regime.upper()} 状态 (score={score})。根据此状态，系统已启用自适应风控红线：单股持仓上限 {max_stock_limit}%，板块持仓上限 {max_sector_limit}%，追踪止损推荐使用 {recommended_atr_multiplier}x ATR。Tier 1 领涨股强制开启 3.5x ATR 宽容防线。保本平价单强制开启状态: {is_breakeven_enforced}。"
+                "description": f"当前处于 {regime.upper()} 状态 (score={score})。根据此状态，系统已启用自适应风控红线：单股持仓上限 {max_stock_limit}%，板块持仓上限 {max_sector_limit}%，追踪止损推荐使用 {recommended_atr_multiplier}x ATR。Tier 1 领涨股强制开启 4.0x ATR 宽容防线。保本平价单强制开启状态: {is_breakeven_enforced}。"
             },
             "sector_limits": {},          # 板块限制
             "weed_out_list": [],          # 建议主动淘汰的弱势持仓

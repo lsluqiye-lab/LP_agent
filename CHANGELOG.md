@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v4.6.1] - 2026-07-24
+### Added
+- **超买决策冷却期 (Overbought Decision Cooldown)**: 在大盘极度超买 (Sentiment > 80 或 RSI > 75) 环境下，对同一标的强制执行 30 分钟买入决策冷却期，严防刷票式重复下单。
+
+### Changed
+- **领涨股呼吸空间 (Tier 1 Breathing Room)**: 将 Tier 1 领涨标的的最小 ATR 追踪止损倍数从 3.5x 提升至 **4.0x**，并优化动态 ATR 范围 (最高 4.0x)，防止在 Stage 2 强势期被日内噪音误伤洗盘。
+- **物理拦截精度提升 (Enhanced Duplicate Check)**: 升级 `_has_duplicate_pending_order` 物理拦截网，将 `FILLING` (成交中) 状态纳入原子化校验，彻底解决毫秒级并发下的重复建仓“幽灵单”问题。
+
 ## [v4.6.0] - 2026-07-22
 ### Added
 - **主线热点探测器 (Main-Line Detector)**: 新增 `GetMainLineLeadersTool` 工具，实时扫描涨幅榜与主力净流入，捕捉当日“主钱”流向。

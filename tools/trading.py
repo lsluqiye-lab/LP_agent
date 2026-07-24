@@ -71,8 +71,8 @@ def _has_duplicate_pending_order(trade_ctx, symbol, order_side):
             # 匹配标的和方向
             if o.symbol.startswith(clean_symbol) and side_str in str(o.side):
                 status_str = str(o.status).lower()
-                # 检查挂单状态 (未报、待报、已报、部分成交等均属于挂单中)
-                if any(s in status_str for s in ["notreported", "new", "submitted", "pending", "partialfilled"]):
+                # 检查挂单状态 (未报、待报、已报、部分成交、成交中等均属于挂单或执行中)
+                if any(s in status_str for s in ["notreported", "new", "submitted", "pending", "partialfilled", "filling"]):
                     return True
     except Exception as e:
         logging.warning(f"检查挂单状态时发生异常: {e}")
@@ -93,8 +93,8 @@ def _cancel_duplicate_pending_orders(trade_ctx, symbol, order_side) -> int:
             # 匹配标的和方向
             if o.symbol.startswith(clean_symbol) and side_str in str(o.side):
                 status_str = str(o.status).lower()
-                # 检查挂单状态 (未报、待报、已报、部分成交等均属于挂单中)
-                if any(s in status_str for s in ["notreported", "new", "submitted", "pending", "partialfilled"]):
+                # 检查挂单状态 (未报、待报、已报、部分成交、成交中等均属于挂单或执行中)
+                if any(s in status_str for s in ["notreported", "new", "submitted", "pending", "partialfilled", "filling"]):
                     logging.info(f"🚨 [Cancel-Before-Modify] 发现同向冲突未成交订单 {o.order_id}，正在自动秒级下达撤单指令...")
                     trade_ctx.cancel_order(o.order_id)
                     cancelled_count += 1
@@ -552,6 +552,21 @@ class BuyStockTool(BaseTool):
                 error_msg = f"风控拦截: 当前大盘极度超买 (Sentiment={sentiment:.1f}, RSI={rsi_breadth:.1f})，禁止使用左侧 LO 限价单在支撑位接飞刀！请改用右侧突破/确认单 (LIT)。"
                 logging.warning(error_msg)
                 return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
+
+            # 🚨 新增 V4.6.1：超买决策冷却期拦截 (Overbought Decision Cooldown)
+            # 在极度超买环境下，禁止在 30 分钟内对同一标的重复下买单，防止刷票交易。
+            if sentiment > 80 or rsi_breadth > 75:
+                recent_logs = trade_logger.get_recent_logs(days=1)
+                now_unix = int(datetime.now(pytz.timezone("US/Eastern")).timestamp())
+                for daily in recent_logs:
+                    for t in daily.get("trades", []):
+                        if t.get("symbol") == clean_symbol and "buy" in str(t.get("side", "")).lower():
+                            trade_unix = t.get("timestamp", {}).get("unix", 0)
+                            minutes_passed = (now_unix - trade_unix) / 60
+                            if minutes_passed < 30:
+                                error_msg = f"超买决策冷却: {symbol} 在 {minutes_passed:.1f} 分钟前刚执行过买入决策。当前大盘处于极度超买区，系统已硬性拦截 30 分钟内的重复决策，防止刷票交易。"
+                                logging.warning(error_msg)
+                                return json.dumps({"error": error_msg, "success": False}, ensure_ascii=False)
 
             # 🚨 新增：原子化仓位预校验与自动缩减 (Atomic Position Scaling)
             try:

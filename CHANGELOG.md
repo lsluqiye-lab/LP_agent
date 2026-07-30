@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v4.6.2] - 2026-07-30
+### Added
+- **现金优先与融资感知 (Cash Priority & Financing Awareness)**: CIO 现在能实时感知账户融资状态。若处于融资状态 (Cash < 0)，系统会强制提示融资利息损耗，并显著提高买入准入门槛（仅限 Conviction: high 且 Alpha > 90 的 A+ 级机会）。
+- **交易频率反馈与成本账单 (Frequency Feedback Matrix)**: 在 ReAct Prompt 中动态注入“今日交易账单”。针对止损微调 (< 0.5%) 提供显性成本警告，引导 CIO 合并决策，拒绝无效微操。
+- **账单审计意识**: 强制 CIO 在推理过程中权衡交易摩擦（手续费+滑点）与潜在收益，实现“频率感知而非硬拦截”的智能调控。
+
+### Changed
+- **战略大脑升级 (Brain Upgrade v4.6.2)**: 更新 `agent/react.py` 核心 Prompt。**保留了所有既有的稳定性约束**（如超买冷却、ATR 防线、填充态拦截、以及 Risk < 30 的 LOCKDOWN 模式），在此基础上新增了对资金成本和交易频率的全局认知。
+
 ## [v4.6.1] - 2026-07-24
 ### Added
 - **超买决策冷却期 (Overbought Decision Cooldown)**: 在大盘极度超买 (Sentiment > 80 或 RSI > 75) 环境下，对同一标的强制执行 30 分钟买入决策冷却期，严防刷票式重复下单。

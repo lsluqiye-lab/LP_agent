@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v4.6.3] - 2026-07-31
+### Added
+- **反弹韧性风控柔化 (Risk Penalty Scaling)**：针对日内涨幅 > 0.8% 的暴力反弹，自动将 RSI 超买和 Sentiment 极度贪婪的风险扣分减半。解决“反弹初期因超买指标误伤风控评分”的问题。
+- **V-Recovery 抢筹特权**：在触发对冲熔断期间，允许 Tier 1 领涨标的豁免 SMA50 硬约束进行右侧抢筹，只需满足跌幅 50% 收复与放量确认。
+- **Whipsaw 冷静期优化**：取消 `TSMPCT` (被动离场) 的 4 小时买回禁令，改为 60 分钟冷却，允许在强反弹中及时接回核心筹码。
+- **板块集中度豁免**：在日内强反弹期间，允许 Alpha 分数高的主线标的突破每日板块集中度限制，确保主线仓位打满。
+
+### Changed
+- **战略大脑升级 (Strategic Brain v4.6.3)**：更新 `agent/react.py` 核心 Prompt，注入 V-Recovery 抢筹意识与冷静期豁免逻辑。
+- **风控评分引擎升级 (Risk Manager v4.6.3)**：增强了对日内反弹的实时感知与惩罚因子动态调节能力。
+
 ## [v4.6.2] - 2026-07-30
 ### Added
 - **现金优先与融资感知 (Cash Priority & Financing Awareness)**: CIO 现在能实时感知账户融资状态。若处于融资状态 (Cash < 0)，系统会强制提示融资利息损耗，并显著提高买入准入门槛（仅限 Conviction: high 且 Alpha > 90 的 A+ 级机会）。

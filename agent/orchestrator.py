@@ -105,13 +105,27 @@ class ExpertOrchestrator:
             except Exception as e:
                 logger.error(f"Failed to load quant metadata for {symbol}: {e}")
 
+            # 🚨 优化 V4.6.1：简报提纯 (Information Distillation)
+            # 为了节省 Token，我们将 macro, sector, narrative 的详细内容从个股简报中剔除，
+            # 仅保留最核心的分类标识。详细的全局背景已由 main.py 提取并作为全局上下文传给 CIO。
+            distilled_macro = {
+                "risk_level": macro_briefing.get("risk_level", "NORMAL"),
+                "score": macro_briefing.get("score", 50)
+            }
+            distilled_sector = {
+                "summary": "参见全局板块报告"
+            }
+            distilled_narrative = {
+                "headline": "参见全局叙事报告"
+            }
+
             # Assemble
             briefing: DecisionBriefing = {
                 "symbol": symbol,
                 "timestamp": datetime.now().isoformat(),
-                "macro": macro_briefing,
-                "narrative": narrative_briefing or self._get_empty_narrative(),
-                "sector": sector_briefing,
+                "macro": distilled_macro,
+                "narrative": distilled_narrative,
+                "sector": distilled_sector,
                 "fundamental": fundamental_res,
                 "technical": technical_res,
                 "sentiment": sentiment_res,

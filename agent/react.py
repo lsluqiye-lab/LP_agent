@@ -1,5 +1,5 @@
 """
-ReAct Agent v4.6.2 (The Strategic Brain)
+ReAct Agent v4.6.4 (The Strategic Brain)
 A sophisticated Reasoning + Acting framework that orchestrates experts to make 
 high-conviction trading decisions based on Narrative, Macro, and Tree-of-Thought Intelligence.
 """
@@ -14,7 +14,7 @@ from tools.base import ToolRegistry
 from data.memory import TradingMemory, get_trading_memory
 
 # ═══════════════════════════════════════════
-# SYSTEM PROMPT v4.6.2 - The Strategic Brain (ToT-Powered Edition)
+# SYSTEM PROMPT v4.6.4 - The Strategic Brain (ToT-Powered Edition)
 # ═══════════════════════════════════════════
 
 STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 (CIO)**。你的目标是实现账户净值的长期稳健增长。
@@ -24,11 +24,18 @@ STRATEGIC_SYSTEM_PROMPT = """你是一个顶级对冲基金的**首席投资官 
 - **趋势包容**：首选 Stage 2 (股价>SMA50>SMA200)；允许 Stage 1 底部放量反转确认后右侧建仓。
 - **金字塔建仓**：浮盈是加仓的唯一凭证，绝不摊平亏损。
 
+### 0. 全局背景报告 (Global Context) - NEW!
+为了提升决策效率，全局背景信息已提取如下，请将其作为个股研报的基准背景：
+- **宏观深度研报**: {macro_report}
+- **板块轮动简报**: {sector_report}
+- **叙事量化总纲**: {narrative_report}
+
 ### 1. 深度思考树协议 (ToT) 与主线感知 (Main-Line Awareness)
 针对 **Tier 1 Leader** 或 **主线标的**，你必须启用多路径博弈推演：
 - **[PATH: BULL] (主线共振)**：如果标的属于 `main_line_bias` 中的主线板块，且量价齐升，应果断分配更多权重。
 - **[PATH: BEAR] (质疑路径)**：作为“魔鬼代言人”。寻找证伪证据：是否存在缩量突破？RSI 是否顶背离？叙事是否正在被价格行动“打脸”？
 - **[PATH: SYNTHESIS] (审判合成)**：对比主线溢价与潜在回撤。主线标的允许更宽的止损 (4.0x ATR) 以防洗盘。
+**⚠️ 注意：你必须在 Thought 中显式记录上述 ToT 思考过程。**
 
 ### 2. 现金优先与融资警示 (Cash Priority & Financing Alert) - NEW!
 - **拒绝盲目融资**：系统应优先使用现金。若当前现金余额为负 (Cash < 0)，说明你正在使用**融资杠杆**并支付高额利息。
@@ -105,7 +112,10 @@ class ReActAgent:
         risk_score: float = 50.0,
         portfolio_directives: Optional[Dict] = None,
         pre_executed_data: Optional[Dict] = None,
-        interrupt_events: Optional[str] = None
+        interrupt_events: Optional[str] = None,
+        macro_report: str = "无详细宏观报告",
+        sector_report: str = "无详细板块报告",
+        narrative_report: str = "无详细叙事报告"
     ) -> str:
         """
         Runs the ReAct loop based on provided expert briefings.
@@ -143,7 +153,10 @@ class ReActAgent:
                                          .replace("{portfolio_directives}", portfolio_str) \
                                          .replace("{trade_count}", str(trade_count)) \
                                          .replace("{target_trades}", str(target_trades)) \
-                                         .replace("{env_constraints}", env_constraints)
+                                         .replace("{env_constraints}", env_constraints) \
+                                         .replace("{macro_report}", macro_report) \
+                                         .replace("{sector_report}", sector_report) \
+                                         .replace("{narrative_report}", narrative_report)
 
         # 3. Initialize Messages
         messages = [
@@ -169,6 +182,9 @@ class ReActAgent:
 
         # 4. ReAct Loop
         executed_tool_details = []
+        # 🚨 记录本轮已执行过买卖操作的标的，防止同一循环内重复下单 (Atomic Action)
+        acted_symbols = set()
+        last_valid_thought = "No explicit thought captured."
         self.logger.info("Starting Strategic ReAct Loop...")
 
         for i in range(self.max_iterations):
@@ -177,6 +193,8 @@ class ReActAgent:
             try:
                 response = await asyncio.to_thread(self.llm.chat, messages, tools=tools)
                 current_thought = response.content or ""
+                if current_thought.strip():
+                    last_valid_thought = current_thought
                 
                 if not response.has_tool_calls:
                     import re
@@ -246,6 +264,16 @@ class ReActAgent:
                 for tc in response.tool_calls:
                     self.logger.info(f"Executing: {tc.name}({tc.arguments})")
                     
+                    # 🚨 优化 V4.6.1：同一循环内，每个标的仅允许一次有效买卖动作 (Atomic Action)
+                    if tc.name in ["buy_stock", "sell_stock"]:
+                        symbol = tc.arguments.get("symbol")
+                        if symbol in acted_symbols:
+                            self.logger.warning(f"⚠️ [Atomic Action] 标的 {symbol} 在本轮循环中已执行过操作，拦截重复指令以节省 Token 和 API 频率。")
+                            result = json.dumps({"error": f"Atomic Action Intercept: {symbol} has already been acted upon in this cycle."}, ensure_ascii=False)
+                            messages.append(ChatMessage(role=Role.TOOL, content=result, tool_call_id=tc.id, name=tc.name))
+                            continue
+                        acted_symbols.add(symbol)
+                    
                     try:
                         result = await asyncio.to_thread(self.tool_registry.execute, tc.name, **tc.arguments)
                         if tc.name in ["buy_stock", "sell_stock"]:
@@ -295,7 +323,7 @@ class ReActAgent:
                                     symbol=symbol,
                                     action=action_type,
                                     reasoning={
-                                        "thought": current_thought,
+                                        "thought": last_valid_thought, # 使用最后一次有效的思考记录
                                         "tool_call": f"{tc.name}({tc.arguments})",
                                         "execution_result": result
                                     },

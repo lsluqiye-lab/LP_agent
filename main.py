@@ -310,12 +310,12 @@ async def phase3_map_experts(
     orchestrator: ExpertOrchestrator,
     risk_result: dict,
     logger: logging.Logger,
-) -> tuple[str, any]:
+) -> tuple[str, dict]:
     """
     Phase 3: 调用专家团生成决策简报
     """
     if not candidates:
-        return "[]", None
+        return "[]", {}
 
     logger.info(f"[Phase 3] 开始并行专家分析: {len(candidates)} 只个股")
 
@@ -350,7 +350,15 @@ async def phase3_map_experts(
     tasks = [_analyze_with_sem(c) for c in candidates]
     briefings = await asyncio.gather(*tasks)
 
-    return json.dumps(briefings, ensure_ascii=False, indent=2), sector_briefing
+    # 🚨 包装全局报告供 Phase 4 使用
+    global_reports = {
+        "macro_report": json.dumps(macro_briefing, ensure_ascii=False),
+        "sector_report": json.dumps(sector_briefing, ensure_ascii=False),
+        "narrative_report": json.dumps(narrative_briefing, ensure_ascii=False),
+        "sector_briefing_obj": sector_briefing # 兼容旧逻辑
+    }
+
+    return json.dumps(briefings, ensure_ascii=False, indent=2), global_reports
 
 # ═══════════════════════════════════════════
 # Phase 4: Reduce 战略决策
@@ -363,18 +371,28 @@ async def phase4_strategic_decision(
     risk_score: float,
     logger: logging.Logger,
     portfolio_directives: Optional[dict] = None,
-    interrupt_events: Optional[str] = None
+    interrupt_events: Optional[str] = None,
+    global_reports: Optional[dict] = None
 ) -> str:
     """
     Phase 4: 主决策智能体执行决策
     """
     logger.info("[Phase 4] 开始 CIO 战略决策推理")
+    
+    # 提取全局报告内容
+    macro_r = global_reports.get("macro_report", "无") if global_reports else "无"
+    sector_r = global_reports.get("sector_report", "无") if global_reports else "无"
+    narrative_r = global_reports.get("narrative_report", "无") if global_reports else "无"
+
     result = await agent.run(
         decision_briefings_json=briefings_json,
         risk_score=risk_score,
         portfolio_directives=portfolio_directives,
         pre_executed_data=collected_data,
-        interrupt_events=interrupt_events
+        interrupt_events=interrupt_events,
+        macro_report=macro_r,
+        sector_report=sector_r,
+        narrative_report=narrative_r
     )
     return result
 
@@ -516,6 +534,24 @@ def pre_screen_candidates(candidates: list, risk_result: dict, portfolio_directi
     return active_candidates, passive_candidates
 
 
+# 记录每个标的的最后决策时间，用于冷却期过滤 (Symbol-Level Cooldown)
+_symbol_decision_cooldowns = {}
+SYMBOL_DECISION_COOLDOWN_SECONDS = 1800  # 30 分钟冷却期
+
+def _is_symbol_in_cooldown(symbol: str) -> bool:
+    """检查标的是否处于决策冷却期"""
+    import time
+    last_time = _symbol_decision_cooldowns.get(symbol, 0)
+    if time.time() - last_time < SYMBOL_DECISION_COOLDOWN_SECONDS:
+        return True
+    return False
+
+def _set_symbol_decision_time(symbol: str):
+    """设置标的的最后决策时间"""
+    import time
+    _symbol_decision_cooldowns[symbol] = time.time()
+
+
 async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent, feishu_notifier, morning_briefing_sent, trade_logger):
     # Phase 1: 收集
     collected_data = phase1_collect_data(tool_registry, logger)
@@ -545,6 +581,17 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
     # 🆕 Phase 2.6: 本地硬规则预筛选 (Local Pre-Screening)
     active_candidates, passive_candidates = pre_screen_candidates(candidates, risk_result, pre_portfolio_directives, collected_data, logger)
     
+    # 🚨 优化：过滤掉处于冷却期内的活跃候选标的，节省 Token
+    filtered_active_candidates = []
+    for c in active_candidates:
+        if _is_symbol_in_cooldown(c["symbol"]):
+            logger.info(f"❄️ [Cooldown] 标的 {c['symbol']} 处于 30 分钟决策冷却期内，跳过本轮专家研报。")
+            passive_candidates.append(c["symbol"])
+        else:
+            filtered_active_candidates.append(c)
+    
+    active_candidates = filtered_active_candidates
+
     # 门限唤醒控制：若无任何活跃候选股，则整个流程自动判定无交易动作并跳过
     if not active_candidates:
         logger.warning("😴 [Pre-Screening] 本轮没有触发任何主动交易门限！资产组合整体极其平稳。")
@@ -560,7 +607,8 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
         return morning_briefing_sent
 
     # Phase 3: 专家 (Map) - 仅对活跃候选股进行专家分析
-    briefings_json, sector_briefing_obj = await phase3_map_experts(active_candidates, orchestrator, risk_result, logger)
+    briefings_json, global_reports = await phase3_map_experts(active_candidates, orchestrator, risk_result, logger)
+    sector_briefing_obj = global_reports.get("sector_briefing_obj")
     
     # 🆕 Phase 3.1: 投资组合 management (深度 - 获取板块流向)
     portfolio_directives = {}
@@ -627,8 +675,13 @@ async def run_strategic_cycle(tool_registry, config, logger, orchestrator, agent
         morning_briefing_sent = True
     
     # Phase 4: 决策 (Reduce) - 仅把活跃的专家研报和相关的组合指令发给 CIO 决策
-    result = await phase4_strategic_decision(agent, collected_data, briefings_json, risk_result["score"], logger, portfolio_directives)
+    result = await phase4_strategic_decision(agent, collected_data, briefings_json, risk_result["score"], logger, portfolio_directives, global_reports=global_reports)
     logger.info(f"本轮决策结论:\n{result}")
+
+
+    # 🚨 记录决策后的冷却时间
+    for c in active_candidates:
+        _set_symbol_decision_time(c["symbol"])
 
     # ── 新增: 后置追踪止损全自动重整对齐 ──
     try:
@@ -650,14 +703,22 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
     seen_symbols = set()
     for e in events:
         if e["symbol"] not in seen_symbols:
+            # 🚨 检查冷却期：如果该标的刚刚决策过，且不是 DEFENSIVE_DROP (止损)，则跳过
+            if _is_symbol_in_cooldown(e["symbol"]) and "DEFENSIVE" not in e["type"]:
+                logger.info(f"❄️ [Watchdog Cooldown] 标的 {e['symbol']} 刚决策过，忽略非紧急事件: {e['type']}")
+                continue
             # 将事件直接强行变成候选股
             candidates.append({"symbol": e["symbol"], "type": "EVENT_TRIGGER", "weight": 100})
             seen_symbols.add(e["symbol"])
         event_msgs.append(f"- [{e['symbol']}] {e['type']}: {e['reason']}")
-        
+    
+    if not candidates:
+        logger.info("😴 所有 Watchdog 事件均处于冷却期内且非紧急，忽略本轮触发。")
+        return
+
     event_str = "\n".join(event_msgs)
     if feishu_notifier:
-        feishu_notifier.send_text(f"🚨 【Watchdog 雷达预警】\n发现 {len(events)} 个异动事件:\n{event_str}\n\n🤖 主脑(CIO)已介入，正在紧急研判...")
+        feishu_notifier.send_text(f"🚨 【Watchdog 雷达预警】\n发现 {len(candidates)} 个高优异动事件:\n{event_str}\n\n🤖 主脑(CIO)已介入，正在紧急研判...")
 
     # 1. 收集全局上下文
     collected_data = phase1_collect_data(tool_registry, logger)
@@ -670,7 +731,8 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
     
     # 3. 让专家对涉及异动的股票出具报告
     logger.info(f"触发异动的标的: {[c['symbol'] for c in candidates]}，唤醒专家...")
-    briefings_json, sector_briefing_obj = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
+    briefings_json, global_reports = await phase3_map_experts(candidates, orchestrator, risk_result, logger)
+    sector_briefing_obj = global_reports.get("sector_briefing_obj")
     
     # 2.1 获取组合指令 (可选，应对事件)
     portfolio_directives = {}
@@ -696,9 +758,13 @@ async def run_event_driven_cycle(events, tool_registry, config, logger, orchestr
     # 4. CIO决策，传入特殊的 interrupt_events 参数
     logger.info("呼叫 CIO 进行事件应对决策...")
     result = await phase4_strategic_decision(
-        agent, collected_data, briefings_json, risk_result["score"], logger, portfolio_directives=portfolio_directives, interrupt_events=event_str
+        agent, collected_data, briefings_json, risk_result["score"], logger, portfolio_directives=portfolio_directives, interrupt_events=event_str, global_reports=global_reports
     )
     logger.info(f"事件驱动决策结论:\n{result}")
+
+    # 🚨 记录决策后的冷却时间
+    for c in candidates:
+        _set_symbol_decision_time(c["symbol"])
 
     # ── 新增: 后置追踪止损全自动重整对齐 ──
     try:
@@ -1030,7 +1096,7 @@ def main():
     logger = setup_logger("strategic_agent", config.log)
     
     logger.info("=" * 60)
-    logger.info("LP-Agent v4.6.1 (Watchdog + Strategic Brain) 启动")
+    logger.info("LP-Agent v4.6.4 (Watchdog + Strategic Brain) 启动")
     logger.info("=" * 60)
 
     try:
@@ -1260,11 +1326,11 @@ def main():
                                 emergency_candidates = phase2_5_extract_candidates(collected_data, risk_result, logger)
                                 emergency_candidates = [c for c in emergency_candidates if c["type"] == "POSITION"] # 只管手里的票
                                 if emergency_candidates:
-                                    emergency_briefings = loop.run_until_complete(
+                                    emergency_briefings, emergency_global_reports = loop.run_until_complete(
                                         phase3_map_experts(emergency_candidates, orchestrator, risk_result, logger)
                                     )
                                     loop.run_until_complete(
-                                        phase4_strategic_decision(agent, collected_data, emergency_briefings, 0.0, logger, interrupt_events=alert_resp)
+                                        phase4_strategic_decision(agent, collected_data, emergency_briefings, 0.0, logger, interrupt_events=alert_resp, global_reports=emergency_global_reports)
                                     )
                 except Exception as e:
                     logger.error(f"[News Watchdog] 巡检异常: {e}", exc_info=True)

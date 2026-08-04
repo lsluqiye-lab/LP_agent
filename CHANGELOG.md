@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v4.6.6] - 2026-08-04
+### 核心升级：Qlib 量化因子深度融合与“数智双驱”
+- **ExpertOrchestrator 架构重构**：
+    - 正式引入 `QuantAnalyst` 专家角色，实现从“盘前扫描”到“盘中决策”的全链路量化覆盖。
+    - 在 `get_full_briefing` 中新增实时的 **Alpha Factor 扫描**，为每只个股提供最新的数学评分。
+    - **Sector RS 实时注入**：将基于 11 个行业 ETF 计算的数学相对强度 (Sector Relative Strength) 实时同步给 `SectorAnalyst`，使板块研判从“感性猜测”升级为“理性度量”。
+- **风险冲突检测 (Conflict Detection) 升级**：
+    - 新增 **“数智背离”** 预警：当技术面结论乐观但量化因子分极低时，系统自动触发冲突警报。
+    - 新增 **“相对强度极弱”** 拦截：强制识别并标记跑输大盘的“垃圾资产”，从源头杜绝 SBUX 等滞涨标的的无效买入。
+- **CIO 决策上下文增强**：
+    - 在 `DecisionBriefing` 中合并实时量化数据与早盘扫描数据，确保 CIO 拥有最全、最新的信息维度。
+
+## [v4.6.5] - 2026-08-04
+### 核心升级：信号去噪与架构逻辑重构
+- **技术分析专家 (TechnicalAnalyst) 逻辑重构**：
+    - 引入 **ADX 趋势强度加权机制**：在无趋势 (ADX < 20) 环境下，自动将 MACD、RSI 等动能信号权重减半，大幅降低震荡市的误报率。
+    - **成交量评分分级**：从单一 1.5x 阈值升级为阶梯制（1.5x 活跃/0分, 2.0x 显著/1分, 3.0x 机构/2分），杜绝缩量或平量追高。
+    - **引入乖离率 (Bias) 惩罚**：股价偏离 SMA50 > 15% 时强制扣分，严防追在山顶。
+- **CIO 战略大脑认知升级**：
+    - 升级 `STRATEGIC_SYSTEM_PROMPT`，注入 **[PATH: BEAR] 专家信号审计** 逻辑，强制 CIO 怀疑专家的 `STRONG_BUY` 结论并进行量价二次校验。
+    - 强制要求在买入前显式输出 `Volume Ratio` 和 `ADX` 数据。
+- **投资组合优胜劣汰 (Weed out) 进化**：
+    - 缩短新仓保护期至 3 天，并引入“表现挂钩”机制：若新仓跑输大盘 > 3%，立刻剥夺保护资格，列入淘汰名单。
+- **稳定性修复**：
+    - 修复了趋势市中 `TSMPCT` 追踪止损被意外降级为固定止损的逻辑漏洞。
+
+## [v4.6.4] - 2026-08-03
+### Token 深度优化与 Thought 持久化
+- **标的决策冷却 (Symbol Cooldown)**：为节省 Token，系统对非紧急标的（如无破位/无异动）引入 30 分钟决策冷却期。在此期间，系统将自动跳过该标的的专家研报与 CIO 决策。
+- **简报提纯 (Briefing Distillation)**：全局宏观、板块、叙事信息不再在个股报告中重复。系统采用“全局公告板”模式，将共性背景一次性提供给 CIO，个股报告仅保留技术面、基本面等核心差异数据。
+- **动作原子化 (Atomic Actions)**：在单个 ReAct 决策循环内，严禁对同一标的重复下达买卖指令。系统通过 `acted_symbols` 物理锁死二次下单尝试，强制 CIO 在首轮推理中即完成完整交易逻辑。
+- **推理过程持久化 (Thought Persistence)**：修复了日志中 `thought` 字段丢失的 Bug，强制记录 ToT 思考路径，确保每一笔高消耗决策均可追溯、可复盘。
+
 ## [v4.6.3] - 2026-07-31
 ### Added
 - **反弹韧性风控柔化 (Risk Penalty Scaling)**：针对日内涨幅 > 0.8% 的暴力反弹，自动将 RSI 超买和 Sentiment 极度贪婪的风险扣分减半。解决“反弹初期因超买指标误伤风控评分”的问题。

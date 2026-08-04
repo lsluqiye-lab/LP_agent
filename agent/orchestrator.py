@@ -13,6 +13,7 @@ from agent.technical_analyst import TechnicalAnalyst
 from agent.sentiment_analyst import SentimentAnalyst
 from agent.sector_analyst import SectorAnalyst
 from agent.macro_analyst import MacroAnalyst
+from agent.quant_analyst import QuantAnalyst
 from agent.narrative_analyst import NarrativeAnalyst
 from llm.base import BaseLLM
 from logger import setup_logger
@@ -26,7 +27,7 @@ class ExpertOrchestrator:
 
     def __init__(self, llm: BaseLLM, feishu_notifier=None):
         """
-        Initializes the orchestrator with a specialized LLM (typically a faster Flash model).
+        Initializes the orchestrator with a specialized LLM.
         """
         self.f_analyst = FundamentalAnalyst(llm)
         self.t_analyst = TechnicalAnalyst(llm)
@@ -34,11 +35,14 @@ class ExpertOrchestrator:
         self.sec_analyst = SectorAnalyst(llm)
         self.m_analyst = MacroAnalyst(llm)
         self.n_analyst = NarrativeAnalyst(llm)
+        self.q_analyst = QuantAnalyst() # 🆕 引入量化分析专家
         self.feishu_notifier = feishu_notifier
 
     async def get_sector_briefing(self) -> SectorBriefing:
-        """Runs the sector rotation analysis once globally."""
-        return await self.sec_analyst.analyze()
+        """Runs the sector rotation analysis with real-time RS data."""
+        # 🆕 获取数学计算的行业相对强度
+        sector_rs = self.q_analyst.get_sector_strength()
+        return await self.sec_analyst.analyze(sector_rs=sector_rs)
 
     async def get_macro_deep_briefing(self) -> Dict:
         """Runs the deep macro structural analysis."""
@@ -55,11 +59,15 @@ class ExpertOrchestrator:
         logger.info(f"Starting multi-expert analysis for {symbol}...")
         
         try:
+            # 🆕 增加量化因子实时扫描
+            quant_task = asyncio.to_thread(self.q_analyst.get_alpha_scores, [symbol])
+
             # Parallel execution
             results = await asyncio.gather(
                 self.f_analyst.analyze(symbol),
                 self.t_analyst.analyze(symbol),
                 self.s_analyst.analyze(symbol),
+                quant_task, # 并行运行量化扫描
                 return_exceptions=True
             )
             
@@ -67,6 +75,10 @@ class ExpertOrchestrator:
             fundamental_res = results[0] if not isinstance(results[0], Exception) else self._get_error_briefing("Fundamental")
             technical_res = results[1] if not isinstance(results[1], Exception) else self._get_error_briefing("Technical")
             sentiment_res = results[2] if not isinstance(results[2], Exception) else self._get_error_briefing("Sentiment")
+            quant_res_map = results[3] if not isinstance(results[3], Exception) else {}
+            
+            # 提取该标的的实时量化数据
+            realtime_quant = quant_res_map.get(symbol, {})
 
             if any(isinstance(r, Exception) for r in results):
                 for r in results:
@@ -90,7 +102,8 @@ class ExpertOrchestrator:
                 logger.error(f"获取 {symbol} 的交易历史失败: {e}")
 
             # --- Extract quantitative metadata from watchlist ---
-            quant_metadata = {}
+            # 🆕 升级：优先使用实时计算的量化数据，保底使用早盘扫描数据
+            quant_metadata = realtime_quant
             try:
                 import json
                 import os
@@ -100,14 +113,12 @@ class ExpertOrchestrator:
                         w_data = json.load(f)
                         details = w_data.get("watchlist_detail", {})
                         if symbol in details:
-                            quant_metadata = details[symbol]
-                            logger.info(f"Loaded quant metadata for {symbol}: {quant_metadata}")
+                            # 合并早盘数据（如 conviction 和 rank）
+                            quant_metadata.update({k: v for k, v in details[symbol].items() if k not in quant_metadata})
             except Exception as e:
                 logger.error(f"Failed to load quant metadata for {symbol}: {e}")
 
-            # 🚨 优化 V4.6.1：简报提纯 (Information Distillation)
-            # 为了节省 Token，我们将 macro, sector, narrative 的详细内容从个股简报中剔除，
-            # 仅保留最核心的分类标识。详细的全局背景已由 main.py 提取并作为全局上下文传给 CIO。
+            # 🚨 优化 V4.6.1：简报提纯
             distilled_macro = {
                 "risk_level": macro_briefing.get("risk_level", "NORMAL"),
                 "score": macro_briefing.get("score", 50)
@@ -130,8 +141,8 @@ class ExpertOrchestrator:
                 "technical": technical_res,
                 "sentiment": sentiment_res,
                 "quant_metadata": quant_metadata,
-                "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res, history_summary, narrative_briefing),
-                "identified_certainties": self._detect_certainties(macro_briefing, fundamental_res, technical_res, sentiment_res),
+                "identified_conflicts": self._detect_conflicts(macro_briefing, fundamental_res, technical_res, sentiment_res, history_summary, narrative_briefing, quant_metadata),
+                "identified_certainties": self._detect_certainties(macro_briefing, fundamental_res, technical_res, sentiment_res, quant_metadata),
                 "trading_history": history_summary
             }
             
@@ -189,7 +200,7 @@ class ExpertOrchestrator:
             logger.error(f"Orchestration failed for {symbol}: {e}")
             raise
 
-    def _detect_conflicts(self, macro, fundamental, technical, sentiment, history_summary="", narrative: NarrativeBriefing = None) -> List[str]:
+    def _detect_conflicts(self, macro, fundamental, technical, sentiment, history_summary="", narrative: NarrativeBriefing = None, quant_metadata: dict = None) -> List[str]:
         """
         Heuristic-based preliminary conflict detection to prime the main agent.
         """
@@ -200,6 +211,16 @@ class ExpertOrchestrator:
             warning = narrative['narrative_shift_warning']
             if any(k in str(warning).lower() for k in ["风险", "转向", "激增", "危机", "bubble", "risk", "warning", "stress", "crash"]):
                 conflicts.append(f"⚠️ 叙事偏移警告：{warning}")
+
+        # 0. Quant vs Technical Conflict (v4.6.6)
+        if quant_metadata:
+            q_score = quant_metadata.get("score", 50)
+            if q_score < 40 and technical.get("verdict") in ["BUY", "STRONG_BUY"]:
+                conflicts.append(f"⚠️ 数智背离：量化因子分极低 ({q_score})，但技术分析结论乐观。警惕指标虚假繁荣（诱多陷阱）。")
+            
+            rs_val = quant_metadata.get("signals", {}).get("RS_vs_SPY_20d", 1.0)
+            if rs_val < 0.98:
+                conflicts.append(f"⚠️ 相对强度极弱：个股表现严重落后于 SPY (RS:{rs_val})。在牛市中，不涨就是亏，属于垃圾资产。")
 
         # 0. High Frequency Warning (v4.4.2)
         if "频繁交易" in history_summary or "反复止损" in history_summary:
@@ -223,11 +244,15 @@ class ExpertOrchestrator:
 
         return conflicts
 
-    def _detect_certainties(self, macro, fundamental, technical, sentiment) -> List[str]:
+    def _detect_certainties(self, macro, fundamental, technical, sentiment, quant_metadata: dict = None) -> List[str]:
         """
         Extract strong positive confluences and structured indicators.
         """
         certainties = []
+
+        # 1. Quant Confirmation
+        if quant_metadata and quant_metadata.get("score", 50) >= 80:
+            certainties.append(f"✅ 量化多因子共振：Alpha评分极高 ({quant_metadata['score']})。")
 
         # 1. Volume Confirmation
         if technical.get('is_volume_breakout'):

@@ -27,7 +27,7 @@ class SectorAnalyst:
             "XLE": "Energy"
         }
 
-    async def analyze(self) -> SectorBriefing:
+    async def analyze(self, sector_rs: dict = None) -> SectorBriefing:
         logger.info(f"[{self.__class__.__name__}] Performing sector rotation analysis...")
 
         raw_data_map = {}
@@ -41,10 +41,10 @@ class SectorAnalyst:
             except Exception as e:
                 logger.warning(f"Failed to get data for {symbol} ({name}): {e}")
 
-        if not raw_data_map:
+        if not raw_data_map and not sector_rs:
             return self._fallback_briefing()
 
-        prompt = self._build_interpretation_prompt(raw_data_map)
+        prompt = self._build_interpretation_prompt(raw_data_map, sector_rs)
         
         messages = [
             ChatMessage(role=Role.SYSTEM, content="You are a macro-sector rotation analyst. Output ONLY valid JSON matching the SectorBriefing schema. No markdown formatting, no explanations."),
@@ -74,8 +74,17 @@ class SectorAnalyst:
             logger.error(f"Failed to parse SectorAnalyst LLM response: {e}")
             return self._fallback_briefing()
 
-    def _build_interpretation_prompt(self, raw_data_map: dict) -> str:
-        prompt = "Analyze the following technical data for major market sectors and identify money flow/rotation:\n\n"
+    def _build_interpretation_prompt(self, raw_data_map: dict, sector_rs: dict = None) -> str:
+        prompt = "Analyze the following data for major market sectors and identify money flow/rotation.\n\n"
+        
+        if sector_rs:
+            prompt += "### 1. 行业数学相对强度 (Sector Relative Strength vs SPY - Realtime):\n"
+            prompt += "(注：数值 > 1.0 代表跑赢大盘，数值越高代表行业动能越强)\n"
+            for sector, rs in sector_rs.items():
+                prompt += f"- {sector}: RS_Ratio={rs}\n"
+            prompt += "\n"
+
+        prompt += "### 2. 核心 ETF 技术面数据:\n"
         for sector, data in raw_data_map.items():
             rsi = data.get("RSI_14", "N/A")
             macd = data.get("MACD", {}).get("trend", "N/A")
@@ -84,12 +93,14 @@ class SectorAnalyst:
             prompt += f"- {sector}: Price={price}, RSI={rsi}, MACD={macd}, Uptrend={uptrend}\n"
         
         prompt += """
-Based on the above, provide a JSON object with:
+### 3. 分析任务:
+结合上述数学 RS 因子和技术指标，提供一个 JSON 对象：
 {
-  "summary": "Brief 1-2 sentence summary of sector money flow",
+  "summary": "简述当前资金在哪些板块聚集，哪些板块正在退潮。特别指出数学强度排名第一的行业。",
+  "market_main_line": "当前最强的主线板块名称 (如: Technology, Energy等)",
   "strong_sectors": ["sector1", ...],
   "weak_sectors": ["sector2", ...],
-  "risk_warning": "Any extreme overbought/crowded warnings (e.g., if Semiconductors RSI > 75)"
+  "risk_warning": "识别拥挤度风险（如RS很高但RSI极度超买）"
 }
 """
         return prompt

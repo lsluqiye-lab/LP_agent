@@ -74,7 +74,7 @@ class TestV44QuantBridge(unittest.IsolatedAsyncioTestCase):
         
         # Use patch for gather but let it behave normally or return a future
         future_results = asyncio.Future()
-        future_results.set_result([{"valuation": "Fair Value"}, {"trend_stage": "Stage 2"}, {"market_sentiment": "Greed"}])
+        future_results.set_result([{"valuation": "Fair Value"}, {"trend_stage": "Stage 2"}, {"market_sentiment": "Greed"}, {"NVDA": {"score": 98}}])
         
         with patch('asyncio.gather', return_value=future_results):
             briefing = await orchestrator.get_full_briefing("NVDA", MagicMock(), MagicMock())
@@ -83,10 +83,10 @@ class TestV44QuantBridge(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(briefing["quant_metadata"]["conviction"], "Tier 1")
 
     def test_cio_prompt_v44_inclusion(self):
-        """验证 CIO Prompt 是否包含 V4.4 的量化指令"""
-        self.assertIn("quant_metadata", STRATEGIC_SYSTEM_PROMPT)
+        """验证 CIO Prompt 是否包含最新的量化与审计指令"""
         self.assertIn("Alpha Score Sizing", STRATEGIC_SYSTEM_PROMPT)
-        self.assertIn("Rank 1-3", STRATEGIC_SYSTEM_PROMPT)
+        self.assertIn("[PATH: BEAR]", STRATEGIC_SYSTEM_PROMPT)
+        self.assertIn("专家打脸审计", STRATEGIC_SYSTEM_PROMPT)
 
 if __name__ == "__main__":
     unittest.main()

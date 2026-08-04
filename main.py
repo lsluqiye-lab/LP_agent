@@ -1,5 +1,5 @@
 """
-LP-Agent v4.6.1 主入口 (Strategic Multi-Agent)
+LP-Agent v4.6.6 主入口 (Strategic Multi-Agent)
 AI自动交易智能体 - 专家协作架构
 
 执行流程:

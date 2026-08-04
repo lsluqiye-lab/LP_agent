@@ -1,4 +1,4 @@
-# LP-Agent 项目宪法 (Memory & Guidelines) - v4.6.4
+# LP-Agent 项目宪法 (Memory & Guidelines) - v4.6.6
 
 这是 LP-Agent (v2.0+) 的核心设计指南和持久化记忆库。所有的功能开发、策略优化和代码重构都必须遵循本文件定义的原则。
 

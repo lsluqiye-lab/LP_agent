@@ -219,51 +219,57 @@ class PortfolioManager:
         """
         对当前持仓进行相对强度 (RS) 排序，找出表现最差的 20% (哪怕没有触及止损)，
         标记为资金低效占用 (Weed)。
-        为了避免误判新买入的仓位（新仓初始浮盈往往接近 0%），最近 5 天内有买入记录的股票将被排除，不列为杂草。
+        为了避免误判新买入的仓位，最近 3 天内有买入记录的股票将获得保护。
+        🚨 升级 v4.6.5：如果个股表现极差（跑输 QQQ > 3%），则取消保护，强制列为杂草。
         """
         weeds = []
         try:
-            # 1. 搜集最近5天买过的股票代码，作为保护名单（5天可完美跨越周末）
+            # 1. 搜集最近 3 天买过的股票代码 (缩短保护期)
             recently_bought = set()
             try:
-                recent_logs = self.trade_logger.get_recent_logs(days=5)
+                recent_logs = self.trade_logger.get_recent_logs(days=3)
                 for daily in recent_logs:
                     for t in daily.get("trades", []):
                         if t.get("side") in ["Buy", "OrderSide.Buy"]:
                             recently_bought.add(t.get("symbol"))
-                if recently_bought:
-                    logger.info(f"[Portfolio Manager] 最近5天买入保护名单 (不标记为杂草): {list(recently_bought)}")
             except Exception as e:
                 logger.error(f"[Portfolio Manager] 获取最近买入记录失败: {e}")
 
-            # 2. 解析持仓浮盈，排除保护名单中的股票
+            # 2. 解析持仓浮盈，并检查相对强度
             parsed_positions = []
             for p in positions:
                 sym = p.get("symbol")
-                if sym in recently_bought:
-                    logger.info(f"[Portfolio Manager] 持仓 {sym} 处于买入保护期内，跳过相对强度(杂草)判定")
-                    continue
                 pct_str = p.get("profit_pct", "0%")
                 try:
                     pct_val = float(pct_str.replace("%", ""))
                 except:
                     pct_val = 0.0
+                
+                # 🚨 核心逻辑：即使在保护期内，如果跑输 QQQ 太多，也视为杂草
+                # 这里简化处理：如果浮盈 < -3.0% 且在近期买入名单中，依然剥夺保护
+                if sym in recently_bought:
+                    if pct_val > -3.0:
+                        logger.info(f"[Portfolio Manager] 持仓 {sym} 处于买入保护期内且表现尚可，跳过杂草判定")
+                        continue
+                    else:
+                        logger.warning(f"[Portfolio Manager] 持仓 {sym} 虽然是新仓但表现极差({pct_val}%)，剥夺保护，列入审查清单")
+
                 parsed_positions.append({"symbol": sym, "profit": pct_val})
                 
             # 按浮盈排序 (由低到高)
             sorted_pos = sorted(parsed_positions, key=lambda x: x["profit"])
             
-            # 3. 如果剩余可评估持仓数 >= 4，挑出最差的进行淘汰
+            # 3. 找出表现最差的进行淘汰
             if len(sorted_pos) >= 4:
-                bottom_count = max(1, len(sorted_pos) // 4)  # 找出最后的 20%-25%
+                bottom_count = max(1, len(sorted_pos) // 4)
                 for i in range(bottom_count):
                     candidate = sorted_pos[i]
-                    # 只有当最差的票确实赚的少（甚至浮亏）时才标记为杂草，如果是全都暴赚就不淘汰
-                    if candidate["profit"] < 3.0: 
+                    # 标记为杂草的阈值：浮盈 < 2.0% (在牛市中，不涨就是亏)
+                    if candidate["profit"] < 2.0: 
                         weeds.append(candidate["symbol"])
                         
             if weeds:
-                logger.warning(f"[Portfolio Manager] 🥀 优胜劣汰扫描: 发现资金低效占用持仓 (Weed): {weeds}，建议 CIO 寻找替换机会。")
+                logger.warning(f"[Portfolio Manager] 🥀 优胜劣汰扫描: 发现资金低效占用持仓 (Weed): {weeds}")
                 
         except Exception as e:
             logger.error(f"[Portfolio Manager] 优胜劣汰分析失败: {e}")

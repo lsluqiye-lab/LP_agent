@@ -605,28 +605,53 @@ class GetTechnicalAnalysisTool(BaseTool):
             return json.dumps({"error": str(e)}, ensure_ascii=False)
 
     def _generate_signal_summary(self, symbol, price, stage2, trend, momentum, volatility, vol, rs):
-        """生成多维度信号评分摘要"""
+        """
+        高级信号评分摘要 (v4.6.5 深度去噪版)
+        逻辑升级点：
+        1. 引入 ADX 趋势强度加权：在无趋势(ADX < 20)环境下，动能信号(MACD/RSI)权重减半。
+        2. 成交量分级评分：1.5x 为活跃(0分), 2.0x 为放量(+1分), 3.0x 为机构进场(+2分)。
+        3. 乖离率(Bias)惩罚：股价偏离 SMA50 > 15% 时，TREND 分数减半。
+        4. 一票否决逻辑：严重超买或 OBV 顶背离将对最终 verdict 降级。
+        """
         signals = []
-        score = 0  # 累计信号分，正=看多，负=看空
+        score = 0
+        
+        # --- 基础趋势评估 ---
+        adx_data = trend.get("adx") or {}
+        adx_val = adx_data.get("adx", 0)
+        is_trending = adx_val > 20
+        is_strong_trend = adx_val > 30
 
-        # 趋势
         if stage2:
-            signals.append("TREND:+2 Stage2上升趋势")
-            score += 2
+            # 检查乖离率 (SMA50 Bias)
+            sma50 = trend.get("SMA50")
+            bias_pct = ((price / sma50) - 1) * 100 if sma50 else 0
+            
+            if bias_pct > 15:
+                signals.append(f"TREND:+1 Stage2(乖离率过大:{bias_pct:.1f}%)")
+                score += 1
+            else:
+                signals.append("TREND:+2 Stage2上升趋势")
+                score += 2
         else:
             signals.append("TREND:-2 未达Stage2")
             score -= 2
 
-        adx = trend.get("adx")
-        if adx and adx.get("adx", 0) > 25 and adx.get("direction") == "bullish":
-            signals.append("ADX:+1 趋势强且方向多头")
+        if is_strong_trend and adx_data.get("direction") == "bullish":
+            signals.append(f"ADX:+2 强趋势(ADX:{adx_val:.1f})")
+            score += 2
+        elif is_trending and adx_data.get("direction") == "bullish":
+            signals.append(f"ADX:+1 趋势确立(ADX:{adx_val:.1f})")
             score += 1
 
-        # 动量
+        # --- 动量评估 (受 ADX 加权控制) ---
+        # 如果没有趋势，动量信号极易失效
+        momentum_weight = 1.0 if is_trending else 0.5
+        
         rsi_w = momentum.get("RSI_weekly_14")
         if rsi_w and 50 <= rsi_w <= 75:
             signals.append("RSI:+1 周线强势区")
-            score += 1
+            score += 1 * momentum_weight
         elif rsi_w and rsi_w > 80:
             signals.append("RSI:-2 严重超买")
             score -= 2
@@ -636,16 +661,16 @@ class GetTechnicalAnalysisTool(BaseTool):
 
         macd = momentum.get("macd")
         if macd and macd.get("cross") == "golden_cross":
-            signals.append("MACD:+2 金叉")
-            score += 2
+            signals.append(f"MACD:+{2 * momentum_weight} 金叉(加权)")
+            score += 2 * momentum_weight
         elif macd and macd.get("cross") == "death_cross":
             signals.append("MACD:-1 死叉")
             score -= 1
         elif macd and macd.get("trend") == "bullish":
-            signals.append("MACD:+1 柱状图为正")
-            score += 1
+            signals.append(f"MACD:+{1 * momentum_weight} 柱状图为正")
+            score += 1 * momentum_weight
 
-        # 量价
+        # --- 量价评估 ---
         obv = vol.get("obv")
         if obv and obv.get("divergence") == "bearish_divergence":
             signals.append("OBV:-2 看空背离(价涨量缩)")
@@ -654,11 +679,18 @@ class GetTechnicalAnalysisTool(BaseTool):
             signals.append("OBV:+1 看多背离")
             score += 1
 
-        if vol.get("is_high_volume"):
-            signals.append("VOL:+1 放量")
+        vol_ratio = vol.get("volume_ratio", 0)
+        if vol_ratio >= 3.0:
+            signals.append(f"VOL:+2 机构级巨量({vol_ratio:.1f}x)")
+            score += 2
+        elif vol_ratio >= 2.0:
+            signals.append(f"VOL:+1 显著放量({vol_ratio:.1f}x)")
             score += 1
+        elif vol_ratio >= 1.5:
+            signals.append(f"VOL:0 活跃成交({vol_ratio:.1f}x)")
+            # 1.5x 不再加分，仅视为活跃状态
 
-        # 相对强度
+        # --- 相对强度 ---
         if rs and rs.get("outperform_SPY_20d"):
             signals.append("RS:+1 跑赢SPY")
             score += 1
@@ -666,30 +698,37 @@ class GetTechnicalAnalysisTool(BaseTool):
             signals.append("RS:-1 跑输SPY")
             score -= 1
 
-        # 布林带
+        # --- 布林带超买拦截 ---
         bb = volatility.get("bollinger_bands")
         if bb and bb.get("position") == "above_upper":
-            signals.append("BB:-1 突破上轨(谨慎)")
+            signals.append("BB:-1 突破上轨(超买预警)")
             score -= 1
-        elif bb and bb.get("position") == "below_lower":
-            signals.append("BB:-1 跌破下轨(弱势)")
-            score -= 1
-
-        verdict = (
-            "STRONG_BUY" if score >= 5 else
-            "BUY" if score >= 3 else
-            "LEAN_BUY" if score >= 1 else
-            "NEUTRAL" if score >= -1 else
-            "LEAN_SELL" if score >= -3 else
-            "SELL" if score >= -5 else
-            "STRONG_SELL"
-        )
+            
+        # --- Verdict 最终裁决逻辑 (V4.6.5 严苛版) ---
+        if score >= 7:
+            verdict = "STRONG_BUY"
+        elif score >= 4:
+            verdict = "BUY"
+        elif score >= 1:
+            verdict = "LEAN_BUY"
+        elif score <= -4:
+            verdict = "STRONG_SELL"
+        elif score <= -2:
+            verdict = "SELL"
+        else:
+            verdict = "NEUTRAL"
+            
+        # 强制逻辑拦截：如果 RSI 指示严重超买或 OBV 严重背离，最高只能是 BUY，不能是 STRONG_BUY
+        if verdict == "STRONG_BUY" and ( (rsi_w and rsi_w > 75) or (obv and obv.get("divergence") == "bearish_divergence") ):
+            verdict = "BUY"
+            signals.append("VERDICT: 降级(因超买或OBV背离)")
 
         return {
-            "score": score,
+            "score": round(score, 1),
             "verdict": verdict,
-            "signals": signals,
+            "signals": signals
         }
+
 
 
 # ═══════════════════════════════════════════

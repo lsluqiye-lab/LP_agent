@@ -25,12 +25,14 @@ class TestWeedProtection(unittest.TestCase):
                     {
                         "symbol": "GOOGL",
                         "side": "Sell",
+                        "order_type": "MO",
                         "reason": "GOOGL inside weed_out_list, active liquidation to free up cash for stronger leaders.",
                         "quantity": 24
                     },
                     {
                         "symbol": "AMZN",
                         "side": "Sell",
+                        "order_type": "MO",
                         "reason": "根据投资组合指令 weed_out_list 强制淘汰弱势持仓 AMZN",
                         "quantity": 35
                     },
@@ -48,6 +50,7 @@ class TestWeedProtection(unittest.TestCase):
                     {
                         "symbol": "UNH",
                         "side": "Sell",
+                        "order_type": "MO",
                         "reason": "根据投资组合指令(Portfolio Directives)，UNH已被列入weed_out_list(淘汰名单)，属于低效占用资金的杂草",
                         "quantity": 24
                     }
@@ -93,12 +96,14 @@ class TestWeedProtection(unittest.TestCase):
                     {
                         "symbol": "VRT",
                         "side": "Sell",
+                        "order_type": "MO",
                         "reason": "VRT跌破SMA50(312.3)生命线，趋势转为Stage 3，亏损达9.72%，执行硬性止损清仓。",
                         "quantity": 30
                     },
                     {
                         "symbol": "TSM",
                         "side": "Sell",
+                        "order_type": "MO",
                         "reason": "TSM 盈利 7.24%，挂设自适应追踪止损锁定利润并高位止盈",
                         "quantity": 30
                     }

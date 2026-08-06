@@ -188,8 +188,9 @@ class ReActAgent:
 
         # 4. ReAct Loop
         executed_tool_details = []
-        # 🚨 记录本轮已执行过买卖操作的标的，防止同一循环内重复下单 (Atomic Action)
-        acted_symbols = set()
+        # 🚨 记录本轮已执行过买卖操作的标的，允许被风控拦截后拥有1次重试机会 (Atomic Action with Retry)
+        acted_symbols_count = {}
+        successful_symbols = set()
         last_valid_thought = "No explicit thought captured."
         self.logger.info("Starting Strategic ReAct Loop...")
 
@@ -270,19 +271,31 @@ class ReActAgent:
                 for tc in response.tool_calls:
                     self.logger.info(f"Executing: {tc.name}({tc.arguments})")
                     
-                    # 🚨 优化 V4.6.1：同一循环内，每个标的仅允许一次有效买卖动作 (Atomic Action)
+                    # 🚨 优化 V4.6.4+：允许一次重试的原子化操作锁 (Atomic Action with Retry)
                     if tc.name in ["buy_stock", "sell_stock"]:
                         symbol = tc.arguments.get("symbol")
-                        if symbol in acted_symbols:
-                            self.logger.warning(f"⚠️ [Atomic Action] 标的 {symbol} 在本轮循环中已执行过操作，拦截重复指令以节省 Token 和 API 频率。")
-                            result = json.dumps({"error": f"Atomic Action Intercept: {symbol} has already been acted upon in this cycle."}, ensure_ascii=False)
+                        
+                        if symbol in successful_symbols:
+                            self.logger.warning(f"⚠️ [Atomic Action] 标的 {symbol} 已成功下单，拦截重复指令。")
+                            result = json.dumps({"error": f"Atomic Action Intercept: {symbol} has already successfully acted in this cycle. Do not issue more actions for this symbol."}, ensure_ascii=False)
                             messages.append(ChatMessage(role=Role.TOOL, content=result, tool_call_id=tc.id, name=tc.name))
                             continue
-                        acted_symbols.add(symbol)
+                            
+                        attempts = acted_symbols_count.get(symbol, 0)
+                        if attempts >= 2:
+                            self.logger.warning(f"⚠️ [Atomic Action] 标的 {symbol} 已用尽重试机会，拦截重复指令以节省 Token。")
+                            result = json.dumps({"error": f"Atomic Action Intercept: {symbol} action failed twice. Stop retrying this symbol in this cycle."}, ensure_ascii=False)
+                            messages.append(ChatMessage(role=Role.TOOL, content=result, tool_call_id=tc.id, name=tc.name))
+                            continue
+                            
+                        acted_symbols_count[symbol] = attempts + 1
                     
                     try:
                         result = await asyncio.to_thread(self.tool_registry.execute, tc.name, **tc.arguments)
                         if tc.name in ["buy_stock", "sell_stock"]:
+                            if isinstance(result, str) and '"success": true' in result.lower():
+                                successful_symbols.add(tc.arguments.get("symbol"))
+                                
                             executed_tool_details.append({"name": tc.name, "result": result, "arguments": tc.arguments})
                             
                             # ---- 策略审计注入: 实时打脸/回补检测 ----

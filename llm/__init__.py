@@ -5,6 +5,8 @@ LLM模块
 from llm.base import BaseLLM, ChatMessage, ToolCall, LLMResponse
 from llm.deepseek import DeepSeekLLM
 from llm.gemini import GeminiLLM
+from llm.openai_llm import OpenAILLM
+from llm.qwen import QwenLLM
 
 __all__ = [
     "BaseLLM",
@@ -13,4 +15,6 @@ __all__ = [
     "LLMResponse",
     "DeepSeekLLM",
     "GeminiLLM",
+    "OpenAILLM",
+    "QwenLLM",
 ]

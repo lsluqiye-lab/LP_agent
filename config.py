@@ -243,6 +243,14 @@ class LLMConfig:
                 base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
                 model=os.getenv("OPENAI_MODEL", "gpt-4"),
             )
+        elif provider == "qwen":
+            return cls(
+                provider="qwen",
+                api_key=os.getenv("QWEN_API_KEY", ""),
+                base_url=os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+                model=os.getenv("QWEN_MODEL", "qwen-max"),
+                fallback_model=os.getenv("QWEN_FALLBACK_MODEL", "qwen-plus"),
+            )
         else:
             raise ValueError(f"Unknown LLM provider: {provider}")
 
@@ -274,6 +282,14 @@ class LLMConfig:
                 api_key=os.getenv("ANALYST_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY", ""),
                 base_url=os.getenv("ANALYST_OPENAI_BASE_URL", "https://api.openai.com/v1"),
                 model=os.getenv("ANALYST_OPENAI_MODEL", "gpt-4-turbo"),
+            )
+        elif provider == "qwen":
+            return cls(
+                provider="qwen",
+                api_key=os.getenv("ANALYST_QWEN_API_KEY") or os.getenv("QWEN_API_KEY", ""),
+                base_url=os.getenv("ANALYST_QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+                model=os.getenv("ANALYST_QWEN_MODEL", "qwen-plus"),
+                fallback_model=os.getenv("ANALYST_QWEN_FALLBACK_MODEL") or os.getenv("QWEN_FALLBACK_MODEL", "qwen-plus"),
             )
         else:
             raise ValueError(f"Unknown Analyst LLM provider: {provider}")

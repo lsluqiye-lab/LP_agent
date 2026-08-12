@@ -27,6 +27,8 @@ from config import AppConfig, WATCHLIST
 from logger import setup_logger
 from llm.deepseek import DeepSeekLLM
 from llm.gemini import GeminiLLM
+from llm.openai_llm import OpenAILLM
+from llm.qwen import QwenLLM
 from llm.base import ChatMessage, Role
 from tools.base import ToolRegistry
 from tools.trading import create_trading_tools
@@ -91,6 +93,24 @@ def create_llm(llm_config: "LLMConfig"):
     elif provider == "gemini":
         return GeminiLLM(
             api_key=llm_config.api_key,
+            model=llm_config.model,
+            temperature=llm_config.temperature,
+            max_tokens=llm_config.max_tokens,
+            fallback_model=llm_config.fallback_model,
+        )
+    elif provider == "openai":
+        return OpenAILLM(
+            api_key=llm_config.api_key,
+            base_url=llm_config.base_url,
+            model=llm_config.model,
+            temperature=llm_config.temperature,
+            max_tokens=llm_config.max_tokens,
+            fallback_model=llm_config.fallback_model,
+        )
+    elif provider == "qwen":
+        return QwenLLM(
+            api_key=llm_config.api_key,
+            base_url=llm_config.base_url,
             model=llm_config.model,
             temperature=llm_config.temperature,
             max_tokens=llm_config.max_tokens,

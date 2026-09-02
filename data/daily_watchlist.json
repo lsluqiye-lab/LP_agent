@@ -1,93 +1,93 @@
 {
-    "date": "2026-07-21",
+    "date": "2026-09-01",
     "watchlist": [
-        "V",
-        "AAPL",
+        "PFE",
         "XOM",
         "CVX",
-        "UNH",
         "AMGN",
-        "WM",
+        "HOOD",
+        "FCX",
+        "NEM",
+        "TSLA",
         "JPM",
-        "LLY",
-        "AMD",
-        "PLTR",
-        "MA"
+        "MA",
+        "MSFT",
+        "NOW"
     ],
     "watchlist_detail": {
-        "V": {
-            "score": 90.0,
+        "PFE": {
+            "score": 95.0,
             "rank": 1,
             "conviction": "Tier 1",
-            "reason": "持仓股且评分最高。2026年催化剂明确：AI代理商业化落地及稳定币结算量突破70亿美元，正从支付处理器转型为全球旅游伴侣，具备估值重估潜力。"
-        },
-        "AAPL": {
-            "score": 90.0,
-            "rank": 2,
-            "conviction": "Tier 1",
-            "reason": "持仓股。市场聚焦9月CEO更替及2nm A20芯片、首款自研C2调制解调器的技术突破。AI端侧化（Apple Intelligence）变现路径清晰。"
+            "reason": "量化评分95领跑，VESPER减肥药临床数据及肿瘤管线重组构成强劲催化剂，新CFO任命落地消除不确定性。"
         },
         "XOM": {
-            "score": 90.0,
-            "rank": 3,
+            "score": 95.0,
+            "rank": 2,
             "conviction": "Tier 1",
-            "reason": "持仓股。2026下半年莫桑比克LNG项目FID决议为重大利好；蓝氢与CCS业务进入收获期，总部搬迁后的成本缩减效应将推升自由现金流。"
+            "reason": "评分95，委内瑞拉产量扩张及微软AI数据中心天然气长协提供坚实现金流，200亿美元回购计划托底股价。"
         },
         "CVX": {
+            "score": 95.0,
+            "rank": 3,
+            "conviction": "Tier 1",
+            "reason": "评分95，Hess资产整合推动产量增长7-10%，微软合作及结构性成本节约释放巨大盈利弹性。"
+        },
+        "AMGN": {
             "score": 90.0,
             "rank": 4,
             "conviction": "Tier 1",
-            "reason": "持仓股。圭亚那Stabroek区块产量爆发；与微软的‘Project Kilby’天然气发电协议将其深度绑定AI算力能源需求，具备跨行业溢价。"
+            "reason": "必选持仓，评分90。MariTide减肥药三期数据及IMDYLLTRA欧洲商业化落地，提供双重业绩增量。"
         },
-        "UNH": {
-            "score": 85.0,
+        "HOOD": {
+            "score": 90.0,
             "rank": 5,
             "conviction": "Tier 1",
-            "reason": "技术评分极高且无近期财报风险。2026年获得最高额度Medicare Advantage奖金（39亿美金），AI驱动的‘无触感’理赔处理显著提升利润率。"
+            "reason": "评分90，预测市场爆发及Robinhood Chain代币化布局打开全新增长曲线，FAVORABLE环境下动能极强。"
         },
-        "AMGN": {
-            "score": 85.0,
+        "FCX": {
+            "score": 90.0,
             "rank": 6,
             "conviction": "Tier 1",
-            "reason": "减肥药MariTide三期数据更新是高波动催化剂；2026年多款生物类似药（如Eylea）上市将带来显著收入增量，收购Horizon的协同效应开始体现。"
+            "reason": "评分90，铜价突破6.5美元/磅叠加AI与EV需求，Bagdad矿扩建FID及Grasberg复产提供强劲量价齐升逻辑。"
         },
-        "WM": {
-            "score": 80.0,
+        "NEM": {
+            "score": 85.0,
             "rank": 7,
             "conviction": "Tier 2",
-            "reason": "持仓股。30亿美元可持续投资计划于2026年收官，20个RNG设施投入使用；14.5%的股息增长和30亿回购计划提供极强下行防御。"
+            "reason": "评分85，金价高位运行带来创纪录自由现金流，60亿美元回购及资产剥离简化组合，防御与进攻兼备。"
         },
-        "JPM": {
-            "score": 80.0,
+        "TSLA": {
+            "score": 85.0,
             "rank": 8,
             "conviction": "Tier 2",
-            "reason": "持仓股。AI-first基础设施转型进入效率释放年，15亿美元AI预算开始转化为利润；投行业务在2026年IPO复苏背景下具高弹性。"
+            "reason": "评分85，Robotaxi多州rollout及Optimus机器人产能爬坡是核心看点，牛市多头环境下无视短期估值超买。"
         },
-        "LLY": {
-            "score": 80.0,
+        "JPM": {
+            "score": 85.0,
             "rank": 9,
             "conviction": "Tier 2",
-            "reason": "持仓股。口服减肥药Foundayo获批后的市场渗透是核心看点，Triple G（retatrutide）三期数据有望刷新减重行业标准。"
+            "reason": "评分85，AI专家替代传统岗位提升ROE，潜在eSLR放松及Visa股权交换提供额外资本回报。"
         },
-        "AMD": {
+        "MA": {
             "score": 80.0,
             "rank": 10,
             "conviction": "Tier 2",
-            "reason": "‘Advancing AI 2026’峰会正在进行，MI450加速器和Helios系统发布在即；潜在签约Anthropic为特大型客户，具备强动能突破潜质。"
+            "reason": "必选持仓，评分80。新CFO上任迎来首考，Agentic Commerce战略引领支付行业新范式。"
         },
-        "PLTR": {
-            "score": 75.0,
+        "MSFT": {
+            "score": 80.0,
             "rank": 11,
-            "conviction": "Tier 3",
-            "reason": "AIP平台在美国商业领域呈三位数增长；作为美军NGC2现代化项目数据层，具备极高的合同护城河；与Nvidia的政府端合作是新增长点。"
+            "conviction": "Tier 2",
+            "reason": "评分80，Azure年收入破千亿及M365 E7捆绑Copilot加速AI变现，自研MAIA芯片提升长期利润率。"
         },
-        "MA": {
-            "score": 75.0,
+        "NOW": {
+            "score": 70.0,
             "rank": 12,
             "conviction": "Tier 3",
-            "reason": "收购BVNK强化稳定币直接结算能力；出售Vocalink业务有望优化资产结构。虽然评分略低，但作为行业龙头且财报在5个交易日外，具备配置价值。"
+            "reason": "必选持仓，评分70。全面转向Agentic AI自主工作流，企业AI从实验向规模化ROI兑现过渡，长期逻辑稳固。"
         }
     },
-    "reason": "1. 强制入选：已包含全部7只必选持仓股，确保监控连续性。 2. 财报避雷：根据2026年7月22日的时间节点，严格排除了未来5个交易日内发布财报的非持仓股，包括SPGI (7/28)、META (7/29) 和 SBUX (7/29)，以规避业绩波动风险。 3. 动能法则：鉴于宏观风控评分79.8（FAVORABLE），根据方案A，保留了AMD、PLTR等高估值但具备重大行业催化剂（AMD AI峰会、PLTR军方大单）的动能标的。 4. 行业分布：覆盖了能源转型、AI算力需求、GLP-1二代研发及金融科技四个核心高景气主线。",
-    "updated_at": "2026-07-21T23:44:51.722571-04:00"
+    "reason": "当前宏观风控评分75.0处于FAVORABLE极佳牛市状态，市场风险偏好高，策略上侧重高动能与强催化剂标的。首先，所有非持仓股的财报均在10月及以后，完美避开未来5个交易日的财报雷区。其次，强制保留NOW、MA、AMGN三只必选持仓。在选股上，优先纳入评分90+的PFE、XOM、CVX、AMGN、HOOD、FCX作为Tier 1核心标的，它们在医疗、能源、金融和材料板块具备极强的行业趋势或个股突破催化剂。同时，利用估值松绑法则，纳入TSLA、HOOD等高弹性动能股。最终精选12只标的，实现跨板块均衡配置，最大化捕获主升浪Alpha收益。",
+    "updated_at": "2026-09-01T08:03:40.606848-04:00"
 }

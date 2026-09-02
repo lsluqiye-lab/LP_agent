@@ -11,6 +11,7 @@ from typing import Optional, ClassVar
 
 from google import genai
 from google.genai import types
+from openai import OpenAI
 
 from tools.base import BaseTool, ToolParameter
 
@@ -89,9 +90,63 @@ class GeminiSearchClient:
             return f"搜索出错: {str(e)}"
 
 
+class GrokSearchClient:
+    """
+    xAI Grok 搜索客户端
+    利用 Grok 的实时数据能力进行搜索
+    """
+    _instance: Optional["GrokSearchClient"] = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self):
+        if self._initialized:
+            return
+
+        self.api_key = os.getenv("XAI_API_KEY", "")
+        self.base_url = "https://api.x.ai/v1"
+        self.model = os.getenv("XAI_MODEL", "grok-beta")
+        self.logger = logging.getLogger("GrokSearch")
+        
+        if self.api_key:
+            self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+            self._initialized = True
+        else:
+            self.logger.warning("XAI_API_KEY 未设置，Grok 搜索工具将不可用")
+
+    def search(self, query: str, system_prompt: str = "") -> str:
+        if not self._initialized:
+            return "Grok 搜索未配置 API Key"
+            
+        try:
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": query})
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.3
+            )
+            return response.choices[0].message.content or "未找到相关信息"
+        except Exception as e:
+            self.logger.error(f"Grok 搜索出错: {e}")
+            return f"Grok 搜索失败: {str(e)}"
+
+
 def get_search_client() -> GeminiSearchClient:
     """获取搜索客户端单例"""
     return GeminiSearchClient()
+
+
+def get_grok_client() -> GrokSearchClient:
+    """获取 Grok 搜索客户端单例"""
+    return GrokSearchClient()
 
 
 class CachedSearchTool(BaseTool):
@@ -501,6 +556,52 @@ class SearchGeopoliticalNewsTool(CachedSearchTool):
             return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
+class SearchGrokXTool(BaseTool):
+    """使用 Grok 搜索 X (Twitter) 实时舆情工具"""
+
+    name = "search_grok_x"
+    description = "使用 xAI Grok 模型搜索 X (Twitter) 上的实时异动、传闻和深度舆情。适用于获取最新、最快的一手市场脉搏。"
+    parameters = [
+        ToolParameter(
+            name="query",
+            type="string",
+            description="搜索查询词，如 '$NVDA crash', 'Fed interest rate rumors', 'Iran Israel conflict latest' 等"
+        )
+    ]
+
+    SYSTEM_PROMPT = """你是一个顶级社交媒体情报专家，专门从 X (Twitter) 的噪音中提取高价值的实时金融情报。
+请基于 Grok 的实时数据分析，输出以下内容：
+
+## 实时脉搏 (X Real-time)
+- 提取当前 X 上讨论最激烈的核心点、传闻或刚刚发生的事件
+
+## 情绪共振
+- 散户和机构在 X 上的情绪对比
+- 是否存在恐慌抛售或报复性做多的群体行为
+
+## 深度情报
+- 是否有知名大 V、分析师或内幕账号发布了关键推文
+- 提取关键的推文摘要
+
+## 警惕信号
+- 识别潜在的假消息或操纵迹象
+
+请用中文回复，强调“实时性”和“独家性”，过滤掉无关的日常杂谈。"""
+
+    def execute(self, query: str, **kwargs) -> str:
+        try:
+            client = get_grok_client()
+            result = client.search(query, self.SYSTEM_PROMPT)
+
+            return json.dumps({
+                "query": query,
+                "grok_x_report": result
+            }, ensure_ascii=False)
+
+        except Exception as e:
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
+
+
 def create_search_tools() -> list[BaseTool]:
     """
     创建所有搜索工具实例
@@ -515,4 +616,5 @@ def create_search_tools() -> list[BaseTool]:
         SearchMacroEconomicsTool(),
         SearchEarningsCalendarTool(),
         SearchGeopoliticalNewsTool(),
+        SearchGrokXTool(),
     ]

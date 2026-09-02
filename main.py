@@ -523,22 +523,22 @@ def pre_screen_candidates(candidates: list, risk_result: dict, portfolio_directi
                     is_active = True
                     active_reason = f"宏观风控评分({macro_score})大跌进入防御，必须强制收紧防守线。"
                     
-                # 门限 A3: 浮盈不高（浮盈 < 2.0% 且近期大幅回撤 ret_20d < -4.0%），利润保护触发
+                # 门限 A3: 浮盈不高（浮盈 < 2.0% 且近期大幅回撤 ret_20d < -6.0%），利润保护触发
                 else:
                     profit_pct = pos_profit_map.get(sym, 0.0)
-                    if profit_pct < 2.0 and ret_20d < -4.0:
+                    if profit_pct < 2.0 and ret_20d < -6.0:
                         is_active = True
                         active_reason = f"持仓浮盈过低({profit_pct:.2f}%)，且20日走势回落严重({ret_20d}%)，需锁定微薄利润防洗盘。"
                     
-                    # 门限 A4: 盈利加仓（浮盈 >= 0.0%，且今日爆量拉升 vol_ratio > 1.3）
-                    elif profit_pct >= 0.0 and (vol_ratio >= 1.3 or "HIGH_VOL" in flags):
+                    # 门限 A4: 盈利加仓（浮盈 >= 0.0%，且今日爆量拉升 vol_ratio > 1.6）
+                    elif profit_pct >= 0.0 and (vol_ratio >= 1.6 or "HIGH_VOL" in flags):
                         is_active = True
                         active_reason = f"底仓浮盈({profit_pct:.2f}%)，且个股今日放量异动(量比 {vol_ratio}x)，存在金字塔加仓机会。"
 
         # ── B. 监控池股票买入诊断门限 ──
         elif c_type == "STRONG_SIGNAL" and allow_buy:
-            # 门限 B1: 出现明确右侧向上突破（量比 > 1.3 或 needs_attention / MACD 黄金交叉等）
-            if details.get("needs_attention") or vol_ratio >= 1.3 or "HIGH_VOL" in flags:
+            # 门限 B1: 出现明确右侧向上突破（量比 > 1.6 或 needs_attention / MACD 黄金交叉等）
+            if details.get("needs_attention") or vol_ratio >= 1.6 or "HIGH_VOL" in flags:
                 is_active = True
                 active_reason = f"监控股出现放量突破信号 (量比 {vol_ratio}x, 20日涨幅 {ret_20d}%)，触发右侧潜在买点。"
 
@@ -1306,9 +1306,9 @@ def main():
                     trade_logger.log_error("cycle_error", str(e))
 
             # --- Event-Driven News Watchdog ---
-            # 每 15 分钟扫一次核弹级新闻 (只有在盘中且非深度决策时执行)
+            # 每 30 分钟扫一次核弹级新闻 (只有在盘中且非深度决策时执行)
             current_minute = current_time.minute
-            if not should_run_strategic and current_minute % 15 == 0:
+            if not should_run_strategic and current_minute % 30 == 0:
                 try:
                     # 检查是否处于冷却期 (2小时内触发过，则跳过)
                     if last_critical_alert_time and (current_time - last_critical_alert_time).total_seconds() < 7200:
